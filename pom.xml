@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.alfresco.maven</groupId>
+        <artifactId>alfresco-sdk-parent</artifactId>
+        <!-- TODO Update to 2.2.0 while still using alfresco.version of 5.0.d (SKD sucks for forcing 5.1) -->
+        <version>2.0.0</version>
+    </parent>
+
+    <groupId>de.axelfaust.alfresco</groupId>
+    <artifactId>de.axelfaust.alfresco.simplecontentstores</artifactId>
+    <version>0.0.1.0-SNAPSHOT</version>
+
+    <packaging>pom</packaging>
+    <name>Simple Content Stores</name>
+
+    <properties>
+        <alfresco.version>5.0.d</alfresco.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${alfresco.groupId}</groupId>
+                <artifactId>alfresco-platform-distribution</artifactId>
+                <version>${alfresco.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <distributionManagement>
+
+        <repository>
+            <id>${distribution.repo.release.id}</id>
+            <name>${distribution.repo.release.name}</name>
+            <url>${distribution.repo.release.url}</url>
+        </repository>
+
+        <snapshotRepository>
+            <id>${distribution.repo.snapshot.id}</id>
+            <name>${distribution.repo.snapshot.name}</name>
+            <url>${distribution.repo.snapshot.url}</url>
+        </snapshotRepository>
+
+    </distributionManagement>
+
+    <modules>
+        <module>repository</module>
+    </modules>
+</project>
