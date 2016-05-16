@@ -100,9 +100,11 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         }
 
         final PropertyDefinition propertyDefinition = this.dictionaryService.getProperty(this.selectorPropertyQName);
-        if (propertyDefinition == null || !DataTypeDefinition.TEXT.equals(propertyDefinition.getDataType().getName()))
+        if (propertyDefinition == null || !DataTypeDefinition.TEXT.equals(propertyDefinition.getDataType().getName())
+                || propertyDefinition.isMultiValued())
         {
-            throw new IllegalStateException(this.selectorPropertyName + " is not a valid content model property of type d:text");
+            throw new IllegalStateException(this.selectorPropertyName
+                    + " is not a valid content model property of type single-valued d:text");
         }
 
         PropertyCheck.mandatory(this, "storeBySelectorPropertyValue", this.storeBySelectorPropertyValue);
