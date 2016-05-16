@@ -504,9 +504,9 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
             final ContentWriter writer = newStore.getWriter(contentContext);
             writer.putContent(reader);
             // unfortunately putContent doesn't copy mimetype et al
-            writer.setMimetype(reader.getMimetype());
-            writer.setEncoding(reader.getEncoding());
-            writer.setLocale(reader.getLocale());
+            writer.setMimetype(oldData.getMimetype());
+            writer.setEncoding(oldData.getEncoding());
+            writer.setLocale(oldData.getLocale());
 
             updatedContentData = writer.getContentData();
         }
