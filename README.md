@@ -1,12 +1,15 @@
 # Simple Content Stores
 This addon provides a set of simple / common content store imnplementations to enhance any installation of Alfresco Community or Enterprise. It also provides a configuration mechanism that supports configuring custom content stores without any need for Spring bean definition / XML manipulation or overriding.
 
-## Content Store types
+### Content Store types
 The addon currently provides the following content store types:
 
 - "Selector Property" content store which routes content to different backing content stores based on the value of a specific single-valued text property (similar to Enterprise store selector aspect store but configurable for any property)
 
-## Content Store configuration without messing with Spring XML / beans
+The following store types are planned at this time:
+- deduplicating store based on content digests (based on previous work in [Alfresco Sumit 2013 hackathon](https://github.com/AFaust/content-stores))
+
+### Content Store configuration without messing with Spring XML / beans
 Setting up a custom content store configuration in standard Alfresco requires writing Spring bean definitions in XML, understanding where to place configuration files and handling references to other content stores defined in either Alfresco or 3rd-party addon module Spring files. This can be very daunting for users / administrators new to Alfresco, and is unneccessarily complex / error-prone given how simple some other configurations in Alfresco can be.
 
 This addon provides a 100% alfresco-global.properties based configuration mechanism for content stores that does not require writing any Spring bean definitions in XML, but can seamlessly integrate with any Spring-defined content stores.
