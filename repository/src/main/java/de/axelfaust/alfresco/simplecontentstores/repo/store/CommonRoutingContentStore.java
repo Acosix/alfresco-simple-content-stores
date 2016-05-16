@@ -109,23 +109,7 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
 
         PropertyCheck.mandatory(this, "storesByContentUrl", this.storesByContentUrl);
 
-        if (this.routeContentPropertyNames != null && !this.routeContentPropertyNames.isEmpty())
-        {
-            this.routeContentPropertyQNames = new HashSet<QName>();
-            for (final String routePropertyName : this.routeContentPropertyNames)
-            {
-                final QName routePropertyQName = QName.resolveToQName(this.namespaceService, routePropertyName);
-                ParameterCheck.mandatory("routePropertyQName", routePropertyQName);
-
-                final PropertyDefinition contentPropertyDefinition = this.dictionaryService.getProperty(routePropertyQName);
-                if (contentPropertyDefinition == null
-                        || !DataTypeDefinition.CONTENT.equals(contentPropertyDefinition.getDataType().getName()))
-                {
-                    throw new IllegalStateException(routePropertyName + " is not a valid content model property of type d:content");
-                }
-                this.routeContentPropertyQNames.add(routePropertyQName);
-            }
-        }
+        this.afterPropertiesSet_setupRouteContentProperties();
     }
 
     /**
@@ -349,5 +333,26 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
             this.storesCacheReadLock.unlock();
         }
         return readStore;
+    }
+
+    private void afterPropertiesSet_setupRouteContentProperties()
+    {
+        if (this.routeContentPropertyNames != null && !this.routeContentPropertyNames.isEmpty())
+        {
+            this.routeContentPropertyQNames = new HashSet<QName>();
+            for (final String routePropertyName : this.routeContentPropertyNames)
+            {
+                final QName routePropertyQName = QName.resolveToQName(this.namespaceService, routePropertyName);
+                ParameterCheck.mandatory("routePropertyQName", routePropertyQName);
+
+                final PropertyDefinition contentPropertyDefinition = this.dictionaryService.getProperty(routePropertyQName);
+                if (contentPropertyDefinition == null
+                        || !DataTypeDefinition.CONTENT.equals(contentPropertyDefinition.getDataType().getName()))
+                {
+                    throw new IllegalStateException(routePropertyName + " is not a valid content model property of type d:content");
+                }
+                this.routeContentPropertyQNames.add(routePropertyQName);
+            }
+        }
     }
 }

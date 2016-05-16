@@ -14,7 +14,6 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.io.Serializable;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -74,14 +73,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
     protected transient QName selectorPropertyQName;
 
     protected Map<String, ContentStore> storeBySelectorPropertyValue;
-
-    protected transient Map<String, ContentStore> storeByPathPrefix;
-
-    protected transient String basePathPrefix;
-
-    protected transient String fallbackStorePathPrefix;
-
-    protected transient String alternativeFallbackStorePathPrefix;
 
     protected transient List<ContentStore> allStores;
 
@@ -361,27 +352,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         return Collections.unmodifiableList(this.allStores);
     }
 
-    protected List<ContentStore> getStores(final String contentUrl)
-    {
-        final List<ContentStore> contentStores = new ArrayList<ContentStore>();
-        final int indexOfProtocolSeparator = contentUrl.indexOf("://");
-        final String firstPathSegment = contentUrl.substring(indexOfProtocolSeparator + 3,
-                contentUrl.indexOf('/', indexOfProtocolSeparator + 3));
-
-        final ContentStore storeForPathSegment = this.storeByPathPrefix.get(firstPathSegment);
-        if (storeForPathSegment != null)
-        {
-            contentStores.add(storeForPathSegment);
-        }
-
-        if (firstPathSegment.startsWith(this.basePathPrefix))
-        {
-            contentStores.add(this.storeByPathPrefix.get(this.fallbackStorePathPrefix));
-            contentStores.add(new PathPrefixingContentStoreFacade(this.fallbackStore, this.alternativeFallbackStorePathPrefix));
-        }
-
-        return contentStores;
-    }
+    // TODO Re-introduce content URL path prefixing once we can handle orphan cleanup and avoid deleting content reference via multiple URLs
 
     /**
      *
@@ -409,8 +380,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
                 if (valueStore != null)
                 {
                     LOGGER.debug("Selecting store for value {} to write {}", value, ctx);
-                    final String pathPrefix = MessageFormat.format("{0}{1}", this.basePathPrefix, value);
-                    store = new PathPrefixingContentStoreFacade(valueStore, pathPrefix);
+                    store = valueStore;
                 }
                 else if (contentUrl != null)
                 {
@@ -420,7 +390,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
                 else
                 {
                     LOGGER.debug("No store registered for value {} - selecting fallback store to write {}", value, ctx);
-                    store = new PathPrefixingContentStoreFacade(this.fallbackStore, this.fallbackStorePathPrefix);
+                    store = this.fallbackStore;
                 }
             }
             else if (contentUrl != null)
@@ -431,7 +401,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
             else
             {
                 LOGGER.debug("Selecting fallback store to write {}", ctx);
-                store = new PathPrefixingContentStoreFacade(this.fallbackStore, this.fallbackStorePathPrefix);
+                store = this.fallbackStore;
             }
         }
         else if (contentUrl != null)
@@ -442,7 +412,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         else
         {
             LOGGER.debug("Selecting fallback store to write {}", ctx);
-            store = new PathPrefixingContentStoreFacade(this.fallbackStore, this.fallbackStorePathPrefix);
+            store = this.fallbackStore;
         }
 
         return store;
@@ -582,16 +552,8 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         }
 
         this.allStores = new ArrayList<ContentStore>();
-        this.storeByPathPrefix = new HashMap<String, ContentStore>();
-        this.basePathPrefix = this.selectorPropertyQName.toPrefixString(this.namespaceService).replace(':', '_') + '@';
-        for (final Entry<String, ContentStore> entry : this.storeBySelectorPropertyValue.entrySet())
+        for (final ContentStore store : this.storeBySelectorPropertyValue.values())
         {
-            final ContentStore store = entry.getValue();
-
-            final String pathPrefix = this.basePathPrefix + entry.getKey();
-            final PathPrefixingContentStoreFacade facade = new PathPrefixingContentStoreFacade(store, pathPrefix);
-            this.storeByPathPrefix.put(pathPrefix, facade);
-
             if (!this.allStores.contains(store))
             {
                 this.allStores.add(store);
@@ -601,27 +563,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         if (!this.allStores.contains(this.fallbackStore))
         {
             this.allStores.add(this.fallbackStore);
-        }
-
-        this.fallbackStorePathPrefix = this.basePathPrefix + "_default_";
-        if (this.storeByPathPrefix.containsKey(this.fallbackStorePathPrefix))
-        {
-            this.alternativeFallbackStorePathPrefix = this.fallbackStorePathPrefix;
-            this.fallbackStorePathPrefix = this.basePathPrefix + "_fallback_";
-            if (this.storeByPathPrefix.containsKey(this.fallbackStorePathPrefix))
-            {
-                throw new IllegalStateException(
-                        "Both _default_ and _fallback_ are used as selector property values - unable to handle fallback store fragment in content URLs");
-            }
-
-            this.storeByPathPrefix.put(this.fallbackStorePathPrefix, new PathPrefixingContentStoreFacade(this.fallbackStore,
-                    this.fallbackStorePathPrefix));
-        }
-        else
-        {
-            this.storeByPathPrefix.put(this.fallbackStorePathPrefix, new PathPrefixingContentStoreFacade(this.fallbackStore,
-                    this.fallbackStorePathPrefix));
-            this.alternativeFallbackStorePathPrefix = this.basePathPrefix + "_fallback_";
         }
     }
 
