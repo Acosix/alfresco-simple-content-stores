@@ -56,6 +56,8 @@ Stores of type "selectorPropertyStore" support the following properties:
 - storeBySelectorPropertyValue - a map of backing content stores keyed by the property values that should select them
 - fallbackStore - the default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue
 - routeContentPropertyNames - an optional list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore
+- moveStoresOnChange - true/false to mark if content should be moved between backing stores when the selector property value changes (false by default)
+- moveStoresOnChangeOptionPropertyName - the optional, prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnChange
 
 Stores of type "standardFileStore" support the following properties:
 - rootDirectory - the path to the directory in which to store content

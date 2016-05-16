@@ -13,26 +13,39 @@
  */
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
+import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.dictionary.constraint.ConstraintRegistry;
 import org.alfresco.repo.dictionary.constraint.ListOfValuesConstraint;
+import org.alfresco.repo.node.NodeServicePolicies.BeforeRemoveAspectPolicy;
+import org.alfresco.repo.node.NodeServicePolicies.OnAddAspectPolicy;
+import org.alfresco.repo.node.NodeServicePolicies.OnUpdatePropertiesPolicy;
+import org.alfresco.repo.policy.Behaviour.NotificationFrequency;
+import org.alfresco.repo.policy.JavaBehaviour;
+import org.alfresco.repo.policy.PolicyComponent;
 import org.alfresco.service.cmr.dictionary.ClassDefinition;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
+import org.alfresco.service.cmr.repository.ContentData;
+import org.alfresco.service.cmr.repository.ContentReader;
+import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.datatype.DefaultTypeConverter;
 import org.alfresco.service.namespace.QName;
+import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,14 +53,17 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Axel Faust
  */
-public class SelectorPropertyContentStore extends CommonRoutingContentStore
+public class SelectorPropertyContentStore extends CommonRoutingContentStore implements OnUpdatePropertiesPolicy, OnAddAspectPolicy,
+        BeforeRemoveAspectPolicy
 {
-
-    // TODO Introduce abstract base class for "move-capable" content stores that provide policies to bind to
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectorPropertyContentStore.class);
 
     protected NodeService nodeService;
+
+    protected PolicyComponent policyComponent;
+
+    protected ConstraintRegistry constraintRegistry;
 
     protected String selectorClassName;
 
@@ -69,9 +85,13 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
 
     protected transient List<ContentStore> allStores;
 
-    protected String selectorValuesConstraintShortName;
+    protected boolean moveStoresOnChange;
 
-    protected ConstraintRegistry constraintRegistry;
+    protected String moveStoresOnChangeOptionPropertyName;
+
+    protected transient QName moveStoresOnChangeOptionPropertyQName;
+
+    protected String selectorValuesConstraintShortName;
 
     /**
      *
@@ -83,89 +103,13 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         super.afterPropertiesSet();
 
         PropertyCheck.mandatory(this, "nodeService", this.nodeService);
+        PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
         PropertyCheck.mandatory(this, "constraintRegistry", this.constraintRegistry);
 
-        PropertyCheck.mandatory(this, "selectorClassName", this.selectorClassName);
-        PropertyCheck.mandatory(this, "selectorPropertyName", this.selectorPropertyName);
-
-        this.selectorClassQName = QName.resolveToQName(this.namespaceService, this.selectorClassName);
-        this.selectorPropertyQName = QName.resolveToQName(this.namespaceService, this.selectorPropertyName);
-        PropertyCheck.mandatory(this, "classQName", this.selectorClassQName);
-        PropertyCheck.mandatory(this, "propertyQName", this.selectorPropertyQName);
-
-        final ClassDefinition classDefinition = this.dictionaryService.getClass(this.selectorClassQName);
-        if (classDefinition == null)
-        {
-            throw new IllegalStateException(this.selectorClassName + " is not a valid content model class");
-        }
-
-        final PropertyDefinition propertyDefinition = this.dictionaryService.getProperty(this.selectorPropertyQName);
-        if (propertyDefinition == null || !DataTypeDefinition.TEXT.equals(propertyDefinition.getDataType().getName())
-                || propertyDefinition.isMultiValued())
-        {
-            throw new IllegalStateException(this.selectorPropertyName
-                    + " is not a valid content model property of type single-valued d:text");
-        }
-
-        PropertyCheck.mandatory(this, "storeBySelectorPropertyValue", this.storeBySelectorPropertyValue);
-        if (this.storeBySelectorPropertyValue.isEmpty())
-        {
-            throw new IllegalStateException("No stores have been defined for property values");
-        }
-
-        // TODO Setup policy for handling changes
-
-        this.allStores = new ArrayList<ContentStore>();
-        this.storeByPathPrefix = new HashMap<String, ContentStore>();
-        this.basePathPrefix = this.selectorPropertyQName.toPrefixString(this.namespaceService).replace(':', '_') + '@';
-        for (final Entry<String, ContentStore> entry : this.storeBySelectorPropertyValue.entrySet())
-        {
-            final ContentStore store = entry.getValue();
-
-            final String pathPrefix = this.basePathPrefix + entry.getKey();
-            final PathPrefixingContentStoreFacade facade = new PathPrefixingContentStoreFacade(store, pathPrefix);
-            this.storeByPathPrefix.put(pathPrefix, facade);
-
-            if (!this.allStores.contains(store))
-            {
-                this.allStores.add(store);
-            }
-        }
-
-        if (!this.allStores.contains(this.fallbackStore))
-        {
-            this.allStores.add(this.fallbackStore);
-        }
-
-        this.fallbackStorePathPrefix = this.basePathPrefix + "_default_";
-        if (this.storeByPathPrefix.containsKey(this.fallbackStorePathPrefix))
-        {
-            this.alternativeFallbackStorePathPrefix = this.fallbackStorePathPrefix;
-            this.fallbackStorePathPrefix = this.basePathPrefix + "_fallback_";
-            if (this.storeByPathPrefix.containsKey(this.fallbackStorePathPrefix))
-            {
-                throw new IllegalStateException(
-                        "Both _default_ and _fallback_ are used as selector property values - unable to handle fallback store fragment in content URLs");
-            }
-
-            this.storeByPathPrefix.put(this.fallbackStorePathPrefix, new PathPrefixingContentStoreFacade(this.fallbackStore,
-                    this.fallbackStorePathPrefix));
-        }
-        else
-        {
-            this.storeByPathPrefix.put(this.fallbackStorePathPrefix, new PathPrefixingContentStoreFacade(this.fallbackStore,
-                    this.fallbackStorePathPrefix));
-            this.alternativeFallbackStorePathPrefix = this.basePathPrefix + "_fallback_";
-        }
-
-        if (this.selectorValuesConstraintShortName != null && !this.selectorValuesConstraintShortName.trim().isEmpty())
-        {
-            final ListOfValuesConstraint lovConstraint = new ListOfValuesConstraint();
-            lovConstraint.setShortName(this.selectorValuesConstraintShortName);
-            lovConstraint.setRegistry(this.constraintRegistry);
-            lovConstraint.setAllowedValues(new ArrayList<String>(this.storeBySelectorPropertyValue.keySet()));
-            lovConstraint.initialize();
-        }
+        this.afterPropertiesSet_validateSelectors();
+        this.afterPropertiesSet_setupStoreData();
+        this.afterPropertiesSet_setupChangePolicies();
+        this.afterPropertiesSet_setupConstraint();
     }
 
     /**
@@ -175,6 +119,24 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
     public void setNodeService(final NodeService nodeService)
     {
         this.nodeService = nodeService;
+    }
+
+    /**
+     * @param policyComponent
+     *            the policyComponent to set
+     */
+    public void setPolicyComponent(final PolicyComponent policyComponent)
+    {
+        this.policyComponent = policyComponent;
+    }
+
+    /**
+     * @param constraintRegistry
+     *            the constraintRegistry to set
+     */
+    public void setConstraintRegistry(final ConstraintRegistry constraintRegistry)
+    {
+        this.constraintRegistry = constraintRegistry;
     }
 
     /**
@@ -214,12 +176,179 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
     }
 
     /**
-     * @param constraintRegistry
-     *            the constraintRegistry to set
+     * @param moveStoresOnChange
+     *            the moveStoresOnChange to set
      */
-    public void setConstraintRegistry(final ConstraintRegistry constraintRegistry)
+    public void setMoveStoresOnChange(final boolean moveStoresOnChange)
     {
-        this.constraintRegistry = constraintRegistry;
+        this.moveStoresOnChange = moveStoresOnChange;
+    }
+
+    /**
+     * @param moveStoresOnChangeOptionPropertyName
+     *            the moveStoresOnChangeOptionPropertyName to set
+     */
+    public void setMoveStoresOnChangeOptionPropertyName(final String moveStoresOnChangeOptionPropertyName)
+    {
+        this.moveStoresOnChangeOptionPropertyName = moveStoresOnChangeOptionPropertyName;
+    }
+
+    public void onAddAspect(final NodeRef nodeRef, final QName aspectQName)
+    {
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+
+        boolean moveIfChanged = false;
+        if (this.moveStoresOnChangeOptionPropertyQName != null)
+        {
+            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnChangeOptionPropertyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
+            {
+                moveIfChanged = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
+            }
+            else
+            {
+                moveIfChanged = this.moveStoresOnChange;
+            }
+        }
+        else
+        {
+            moveIfChanged = this.moveStoresOnChange;
+        }
+
+        if (moveIfChanged)
+        {
+            final Serializable selectorValue = properties.get(this.selectorPropertyQName);
+
+            final ContentStore oldStore = this.fallbackStore;
+            ContentStore newStore = this.storeBySelectorPropertyValue.get(selectorValue);
+            if (newStore == null)
+            {
+                newStore = this.fallbackStore;
+            }
+
+            if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
+            {
+                final Map<QName, Serializable> updates = new HashMap<QName, Serializable>();
+                this.processContentPropertiesMove(nodeRef, oldStore, newStore, updates, properties);
+
+                if (!updates.isEmpty())
+                {
+                    this.nodeService.addProperties(nodeRef, updates);
+                }
+            }
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void beforeRemoveAspect(final NodeRef nodeRef, final QName aspectQName)
+    {
+        // strangely there will be no onUpdateProperties for properties removed via removeAspect
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+
+        boolean moveIfChanged = false;
+        if (this.moveStoresOnChangeOptionPropertyQName != null)
+        {
+            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnChangeOptionPropertyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
+            {
+                moveIfChanged = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
+            }
+            else
+            {
+                moveIfChanged = this.moveStoresOnChange;
+            }
+        }
+        else
+        {
+            moveIfChanged = this.moveStoresOnChange;
+        }
+
+        if (moveIfChanged)
+        {
+            final Serializable selectorValue = properties.get(this.selectorPropertyQName);
+
+            ContentStore oldStore = this.storeBySelectorPropertyValue.get(selectorValue);
+            final ContentStore newStore = this.fallbackStore;
+            if (oldStore == null)
+            {
+                oldStore = this.fallbackStore;
+            }
+
+            if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
+            {
+                final Map<QName, Serializable> updates = new HashMap<QName, Serializable>();
+                this.processContentPropertiesMove(nodeRef, oldStore, newStore, updates, properties);
+
+                if (!updates.isEmpty())
+                {
+                    this.nodeService.addProperties(nodeRef, updates);
+                }
+            }
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onUpdateProperties(final NodeRef nodeRef, final Map<QName, Serializable> before, final Map<QName, Serializable> after)
+    {
+        boolean moveIfChanged = false;
+        if (this.moveStoresOnChangeOptionPropertyQName != null)
+        {
+            final Serializable moveStoresOnChangeOptionValue = after.get(this.moveStoresOnChangeOptionPropertyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
+            {
+                moveIfChanged = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
+            }
+            else
+            {
+                moveIfChanged = this.moveStoresOnChange;
+            }
+        }
+        else
+        {
+            moveIfChanged = this.moveStoresOnChange;
+        }
+
+        if (moveIfChanged)
+        {
+            final Serializable selectorValueBefore = before.get(this.selectorPropertyQName);
+            final Serializable selectorValueAfter = after.get(this.selectorPropertyQName);
+
+            if (!EqualsHelper.nullSafeEquals(selectorValueBefore, selectorValueAfter))
+            {
+                ContentStore oldStore = this.storeBySelectorPropertyValue.get(selectorValueBefore);
+                ContentStore newStore = this.storeBySelectorPropertyValue.get(selectorValueAfter);
+                if (oldStore == null)
+                {
+                    oldStore = this.fallbackStore;
+                }
+                if (newStore == null)
+                {
+                    newStore = this.fallbackStore;
+                }
+
+                if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
+                {
+                    final Map<QName, Serializable> updates = new HashMap<QName, Serializable>();
+                    // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
+                    final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+                    this.processContentPropertiesMove(nodeRef, oldStore, newStore, updates, properties);
+
+                    if (!updates.isEmpty())
+                    {
+                        this.nodeService.addProperties(nodeRef, updates);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -317,5 +446,229 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         }
 
         return store;
+    }
+
+    protected void processContentPropertiesMove(final NodeRef nodeRef, final ContentStore oldStore, final ContentStore newStore,
+            final Map<QName, Serializable> updates, final Map<QName, Serializable> properties)
+    {
+        if (this.routeContentPropertyQNames != null && !this.routeContentPropertyQNames.isEmpty())
+        {
+            for (final QName propertyQName : this.routeContentPropertyQNames)
+            {
+                final Serializable value = properties.get(propertyQName);
+                this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
+            }
+        }
+        else
+        {
+            for (final Entry<QName, Serializable> entry : properties.entrySet())
+            {
+                final QName propertyQName = entry.getKey();
+                final PropertyDefinition propertyDefinition = this.dictionaryService.getProperty(propertyQName);
+                if (propertyDefinition != null && DataTypeDefinition.CONTENT.equals(propertyDefinition.getDataType().getName()))
+                {
+                    final Serializable value = entry.getValue();
+                    this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
+                }
+            }
+        }
+    }
+
+    protected void processContentPropertyMove(final NodeRef nodeRef, final ContentStore oldStore, final ContentStore newStore,
+            final QName propertyQName, final Serializable value, final Map<QName, Serializable> updates)
+    {
+        if (value instanceof ContentData)
+        {
+            final ContentData updatedContentData = this.copyContent(oldStore, newStore, (ContentData) value, nodeRef, propertyQName);
+            if (updatedContentData != null)
+            {
+                updates.put(propertyQName, updatedContentData);
+            }
+        }
+        else if (value instanceof Collection<?>)
+        {
+            final Collection<?> values = (Collection<?>) value;
+            final List<Object> updatedValues = new ArrayList<Object>();
+            for (final Object valueElement : values)
+            {
+                if (valueElement instanceof ContentData)
+                {
+                    final ContentData updatedContentData = this.copyContent(oldStore, newStore, (ContentData) valueElement, nodeRef,
+                            propertyQName);
+                    if (updatedContentData != null)
+                    {
+                        updatedValues.add(updatedContentData);
+                    }
+                    else
+                    {
+                        updatedValues.add(valueElement);
+                    }
+                }
+                else
+                {
+                    updatedValues.add(valueElement);
+                }
+            }
+
+            if (!EqualsHelper.nullSafeEquals(values, updatedValues))
+            {
+                updates.put(propertyQName, (Serializable) updatedValues);
+            }
+        }
+    }
+
+    protected ContentData copyContent(final ContentStore oldStore, final ContentStore newStore, final ContentData oldData,
+            final NodeRef nodeRef, final QName propertyQName)
+    {
+        ContentData updatedContentData;
+        final String oldContentUrl = oldData.getContentUrl();
+        if (!newStore.exists(oldContentUrl))
+        {
+            final ContentReader reader = oldStore.getReader(oldContentUrl);
+            if (reader == null || !reader.exists())
+            {
+                throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
+            }
+
+            final NodeContentContext contentContext = new NodeContentContext(reader, oldContentUrl, nodeRef, propertyQName);
+            final ContentWriter writer = newStore.getWriter(contentContext);
+            writer.putContent(reader);
+            // unfortunately putContent doesn't copy mimetype et al
+            writer.setMimetype(reader.getMimetype());
+            writer.setEncoding(reader.getEncoding());
+            writer.setLocale(reader.getLocale());
+
+            updatedContentData = writer.getContentData();
+        }
+        else
+        {
+            updatedContentData = null;
+        }
+
+        return updatedContentData;
+    }
+
+    private void afterPropertiesSet_validateSelectors()
+    {
+        PropertyCheck.mandatory(this, "selectorClassName", this.selectorClassName);
+        PropertyCheck.mandatory(this, "selectorPropertyName", this.selectorPropertyName);
+
+        this.selectorClassQName = QName.resolveToQName(this.namespaceService, this.selectorClassName);
+        this.selectorPropertyQName = QName.resolveToQName(this.namespaceService, this.selectorPropertyName);
+        PropertyCheck.mandatory(this, "classQName", this.selectorClassQName);
+        PropertyCheck.mandatory(this, "propertyQName", this.selectorPropertyQName);
+
+        final ClassDefinition classDefinition = this.dictionaryService.getClass(this.selectorClassQName);
+        if (classDefinition == null)
+        {
+            throw new IllegalStateException(this.selectorClassName + " is not a valid content model class");
+        }
+
+        final PropertyDefinition propertyDefinition = this.dictionaryService.getProperty(this.selectorPropertyQName);
+        if (propertyDefinition == null || !DataTypeDefinition.TEXT.equals(propertyDefinition.getDataType().getName())
+                || propertyDefinition.isMultiValued())
+        {
+            throw new IllegalStateException(this.selectorPropertyName
+                    + " is not a valid content model property of type single-valued d:text");
+        }
+    }
+
+    private void afterPropertiesSet_setupStoreData()
+    {
+        PropertyCheck.mandatory(this, "storeBySelectorPropertyValue", this.storeBySelectorPropertyValue);
+        if (this.storeBySelectorPropertyValue.isEmpty())
+        {
+            throw new IllegalStateException("No stores have been defined for property values");
+        }
+
+        this.allStores = new ArrayList<ContentStore>();
+        this.storeByPathPrefix = new HashMap<String, ContentStore>();
+        this.basePathPrefix = this.selectorPropertyQName.toPrefixString(this.namespaceService).replace(':', '_') + '@';
+        for (final Entry<String, ContentStore> entry : this.storeBySelectorPropertyValue.entrySet())
+        {
+            final ContentStore store = entry.getValue();
+
+            final String pathPrefix = this.basePathPrefix + entry.getKey();
+            final PathPrefixingContentStoreFacade facade = new PathPrefixingContentStoreFacade(store, pathPrefix);
+            this.storeByPathPrefix.put(pathPrefix, facade);
+
+            if (!this.allStores.contains(store))
+            {
+                this.allStores.add(store);
+            }
+        }
+
+        if (!this.allStores.contains(this.fallbackStore))
+        {
+            this.allStores.add(this.fallbackStore);
+        }
+
+        this.fallbackStorePathPrefix = this.basePathPrefix + "_default_";
+        if (this.storeByPathPrefix.containsKey(this.fallbackStorePathPrefix))
+        {
+            this.alternativeFallbackStorePathPrefix = this.fallbackStorePathPrefix;
+            this.fallbackStorePathPrefix = this.basePathPrefix + "_fallback_";
+            if (this.storeByPathPrefix.containsKey(this.fallbackStorePathPrefix))
+            {
+                throw new IllegalStateException(
+                        "Both _default_ and _fallback_ are used as selector property values - unable to handle fallback store fragment in content URLs");
+            }
+
+            this.storeByPathPrefix.put(this.fallbackStorePathPrefix, new PathPrefixingContentStoreFacade(this.fallbackStore,
+                    this.fallbackStorePathPrefix));
+        }
+        else
+        {
+            this.storeByPathPrefix.put(this.fallbackStorePathPrefix, new PathPrefixingContentStoreFacade(this.fallbackStore,
+                    this.fallbackStorePathPrefix));
+            this.alternativeFallbackStorePathPrefix = this.basePathPrefix + "_fallback_";
+        }
+    }
+
+    private void afterPropertiesSet_setupChangePolicies()
+    {
+        if (this.moveStoresOnChangeOptionPropertyName != null)
+        {
+            this.moveStoresOnChangeOptionPropertyQName = QName.resolveToQName(this.namespaceService,
+                    this.moveStoresOnChangeOptionPropertyName);
+            PropertyCheck.mandatory(this, "moveStoresOnChangeOptionPropertyQName", this.moveStoresOnChangeOptionPropertyQName);
+
+            final PropertyDefinition moveStoresOnChangeOptionPropertyDefinition = this.dictionaryService
+                    .getProperty(this.moveStoresOnChangeOptionPropertyQName);
+            if (moveStoresOnChangeOptionPropertyDefinition == null
+                    || !DataTypeDefinition.BOOLEAN.equals(moveStoresOnChangeOptionPropertyDefinition.getDataType().getName())
+                    || moveStoresOnChangeOptionPropertyDefinition.isMultiValued())
+            {
+                throw new IllegalStateException(this.moveStoresOnChangeOptionPropertyName
+                        + " is not a valid content model property of type single-valued d:boolean");
+            }
+        }
+
+        if (this.moveStoresOnChange || this.moveStoresOnChangeOptionPropertyQName != null)
+        {
+            this.policyComponent.bindClassBehaviour(OnUpdatePropertiesPolicy.QNAME, this.selectorClassQName, new JavaBehaviour(this,
+                    "onUpdateProperties", NotificationFrequency.EVERY_EVENT));
+
+            final ClassDefinition classDefinition = this.dictionaryService.getClass(this.selectorClassQName);
+            if (classDefinition.isAspect())
+            {
+                this.policyComponent.bindClassBehaviour(BeforeRemoveAspectPolicy.QNAME, this.selectorClassQName, new JavaBehaviour(this,
+                        "beforeRemoveAspect", NotificationFrequency.EVERY_EVENT));
+                this.policyComponent.bindClassBehaviour(OnAddAspectPolicy.QNAME, this.selectorClassQName, new JavaBehaviour(this,
+                        "onAddAspect", NotificationFrequency.EVERY_EVENT));
+            }
+        }
+    }
+
+    private void afterPropertiesSet_setupConstraint()
+    {
+        if (this.selectorValuesConstraintShortName != null && !this.selectorValuesConstraintShortName.trim().isEmpty())
+        {
+            final ListOfValuesConstraint lovConstraint = new ListOfValuesConstraint();
+            lovConstraint.setShortName(this.selectorValuesConstraintShortName);
+            lovConstraint.setRegistry(this.constraintRegistry);
+            lovConstraint.setAllowedValues(new ArrayList<String>(this.storeBySelectorPropertyValue.keySet()));
+            lovConstraint.initialize();
+        }
     }
 }

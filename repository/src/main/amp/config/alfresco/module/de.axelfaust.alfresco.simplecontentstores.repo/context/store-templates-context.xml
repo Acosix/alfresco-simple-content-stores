@@ -11,6 +11,7 @@
 
     <bean id="simpleContentStoresTemplate-selectorPropertyStore" abstract="true" class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-commonRoutingStore">
         <property name="nodeService" ref="NodeService" />
+        <property name="policyComponent" ref="policyComponent" />
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
 
