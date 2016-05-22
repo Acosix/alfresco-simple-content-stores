@@ -363,51 +363,42 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
     {
         final ContentStore store;
 
-        final String contentUrl = ctx.getContentUrl();
-        if (ctx instanceof NodeContentContext)
+        if (this.isRoutable(ctx))
         {
-            final NodeRef nodeRef = ((NodeContentContext) ctx).getNodeRef();
-            final QName contentPropertyQName = ((NodeContentContext) ctx).getPropertyQName();
+            final String contentUrl = ctx.getContentUrl();
+            ContentStore valueStore = null;
 
-            if (nodeRef != null
-                    && (this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentPropertyQName)))
+            if (ctx instanceof NodeContentContext)
             {
+                final NodeRef nodeRef = ((NodeContentContext) ctx).getNodeRef();
                 final String value = DefaultTypeConverter.INSTANCE.convert(String.class,
                         this.nodeService.getProperty(nodeRef, this.selectorPropertyQName));
 
                 LOGGER.debug("Looking up store for node {} and value {} of property {}", nodeRef, value, this.selectorPropertyQName);
-                final ContentStore valueStore = this.storeBySelectorPropertyValue.get(value);
+                valueStore = this.storeBySelectorPropertyValue.get(value);
                 if (valueStore != null)
                 {
                     LOGGER.debug("Selecting store for value {} to write {}", value, ctx);
-                    store = valueStore;
-                }
-                else if (contentUrl != null)
-                {
-                    LOGGER.debug("Selecting store based on provided content URL to write {}", ctx);
-                    store = this.getStore(contentUrl, false);
                 }
                 else
                 {
-                    LOGGER.debug("No store registered for value {} - selecting fallback store to write {}", value, ctx);
-                    store = this.fallbackStore;
+                    LOGGER.debug("No store registered for value {}", value, ctx);
                 }
             }
-            else if (contentUrl != null)
+
+            if (valueStore == null && contentUrl != null)
             {
                 LOGGER.debug("Selecting store based on provided content URL to write {}", ctx);
-                store = this.getStore(contentUrl, false);
+                valueStore = this.getStore(contentUrl, false);
             }
-            else
+
+            if (valueStore == null)
             {
                 LOGGER.debug("Selecting fallback store to write {}", ctx);
-                store = this.fallbackStore;
+                valueStore = this.fallbackStore;
             }
-        }
-        else if (contentUrl != null)
-        {
-            LOGGER.debug("Selecting store based on provided content URL to write {}", ctx);
-            store = this.getStore(contentUrl, false);
+
+            store = valueStore;
         }
         else
         {
@@ -516,6 +507,24 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         }
 
         return updatedContentData;
+    }
+
+    @Override
+    protected boolean isRoutable(final ContentContext ctx)
+    {
+        final boolean result;
+
+        final String contentUrl = ctx.getContentUrl();
+        if (ctx instanceof NodeContentContext)
+        {
+            final NodeRef nodeRef = ((NodeContentContext) ctx).getNodeRef();
+            result = nodeRef != null && super.isRoutable(ctx);
+        }
+        else
+        {
+            result = contentUrl != null;
+        }
+        return result;
     }
 
     private void afterPropertiesSet_validateSelectors()

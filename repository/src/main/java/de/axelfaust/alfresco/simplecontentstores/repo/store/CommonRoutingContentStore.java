@@ -23,8 +23,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.content.AbstractRoutingContentStore;
+import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.EmptyContentReader;
+import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.content.UnsupportedContentUrlException;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
@@ -45,6 +47,7 @@ import org.springframework.beans.factory.InitializingBean;
  */
 public abstract class CommonRoutingContentStore extends AbstractRoutingContentStore implements InitializingBean
 {
+    // TODO Handle ContentStoreCaps interface
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonRoutingContentStore.class);
 
@@ -333,6 +336,14 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
             this.storesCacheReadLock.unlock();
         }
         return readStore;
+    }
+
+    protected boolean isRoutable(final ContentContext ctx)
+    {
+        final QName contentPropertyQName = ctx instanceof NodeContentContext ? ((NodeContentContext) ctx).getPropertyQName() : null;
+        final boolean result = this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentPropertyQName);
+
+        return result;
     }
 
     private void afterPropertiesSet_setupRouteContentProperties()

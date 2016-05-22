@@ -9,6 +9,11 @@
         <property name="storesCache" ref="routingContentStoreCache" />
     </bean>
 
+    <bean id="${project.artifactId}-commonFacadeStore" abstract="true">
+        <property name="namespaceService" ref="NamespaceService" />
+        <property name="dictionaryService" ref="DictionaryService" />
+    </bean>
+
     <bean id="simpleContentStoresTemplate-selectorPropertyStore" abstract="true" class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-commonRoutingStore">
         <property name="nodeService" ref="NodeService" />
         <property name="policyComponent" ref="policyComponent" />
@@ -16,4 +21,14 @@
     </bean>
 
     <bean id="simpleContentStoresTemplate-standardFileStore" class="${project.artifactId}.beans.FileContentStoreFactoryBean" scope="prototype" />
+
+    <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true" class="${project.artifactId}.store.DeduplicatingContentStore" parent="${project.artifactId}-commonFacadeStore">
+        <property name="temporaryStore">
+            <bean class="org.alfresco.repo.content.filestore.FileContentStore">
+                <constructor-arg index="0">
+                    <value>${java.io.tmpdir}/Alfresco</value>
+                </constructor-arg>
+            </bean>
+        </property>
+    </bean>
 </beans>

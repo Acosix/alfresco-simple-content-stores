@@ -5,6 +5,7 @@ This addon provides a set of simple / common content store imnplementations to e
 The addon currently provides the following content store types:
 
 - "Selector Property" content store which routes content to different backing content stores based on the value of a specific single-valued text property (similar to Enterprise store selector aspect store but configurable for any property)
+- deduplicating content store which uses hash / message digest mechanism to construct content URLs and ensure that stored content is unique (no two files in storage a binary identical)
 
 The following store types are planned at this time:
 - deduplicating store based on content digests (based on previous work in [Alfresco Sumit 2013 hackathon](https://github.com/AFaust/content-stores))
@@ -46,6 +47,7 @@ The following types can currently be used to define custom content stores:
 
 - selectorPropertyStore (the "Selector Property" store)
 - standardFileStore (Alfresco standard file content store, potentially storing content in a custom directory)
+- deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
 
 The different types of stores define their individual set of required / optional configuration properties.
 
@@ -64,3 +66,10 @@ Stores of type "standardFileStore" support the following properties:
 - readOnly - true/false to mark the store as ready-only (false by default)
 - allowRandomAccess - true/false to mark the store as capable of providing random access to content files (false by default)
 - deleteEmptyDirs - true/false to allow store to delete empty directories (false by default)
+
+Stores of type "deduplicatingFacadeStore" support the following properties:
+- storeProtocol - the protocol to be used on content URLs ("store" by default - configuration currently has no effect pending workaround for "custom protocol"-limitations in default stores, e.g. Alfresco default file store)
+- digestAlgorithm - the hash / message digest algorithm to be used for calculating content hash ("SHA-512" by default)
+- digestAlgorithmProvider - the provider for a specific message digest algorithm (needs only be set if not using built-in Java message digest algorithms)
+- pathSegments - how many path segments (in the content URL) should be used to structure content (3 by default)
+- bytesPerPathSegment - how many bytes of the hash / message digest of a content should be used per path segment (2 by default)
