@@ -69,7 +69,9 @@ Stores of type "standardFileStore" support the following properties:
 
 Stores of type "deduplicatingFacadeStore" support the following properties:
 - storeProtocol - the protocol to be used on content URLs ("store" by default - configuration currently has no effect pending workaround for "custom protocol"-limitations in default stores, e.g. Alfresco default file store)
+- backingStore - reference to the (physical) store that stores the deduplicated content
+- handleContentPropertyNames - an optional list of content property QNames (prefixed or full) for which the store should deduplicate content; if set only content for the specified properties will be deduplicated, all other content will be passed through to to the backingStore
 - digestAlgorithm - the hash / message digest algorithm to be used for calculating content hash ("SHA-512" by default)
-- digestAlgorithmProvider - the provider for a specific message digest algorithm (needs only be set if not using built-in Java message digest algorithms)
+- digestAlgorithmProvider - the optional provider for a specific message digest algorithm (needs only be set if not using built-in Java message digest algorithms)
 - pathSegments - how many path segments (in the content URL) should be used to structure content (3 by default)
 - bytesPerPathSegment - how many bytes of the hash / message digest of a content should be used per path segment (2 by default)
