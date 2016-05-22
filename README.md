@@ -8,7 +8,9 @@ The addon currently provides the following content store types:
 - deduplicating content store which uses hash / message digest mechanism to construct content URLs and ensure that stored content is unique (no two files in storage a binary identical)
 
 The following store types are planned at this time:
-- deduplicating store based on content digests (based on previous work in [Alfresco Sumit 2013 hackathon](https://github.com/AFaust/content-stores))
+- compressing store which transparently (un)compresses content to/from storage
+- content stores to store / retrieve content from remote locations (not file-based, e.g. S3 or arbitrary HTTP)
+- container stores which (asynchronously) combines content files into an aggregate (to reduce file handles / optimize compression)
 
 ### Content Store configuration without messing with Spring XML / beans
 Setting up a custom content store configuration in standard Alfresco requires writing Spring bean definitions in XML, understanding where to place configuration files and handling references to other content stores defined in either Alfresco or 3rd-party addon module Spring files. This can be very daunting for users / administrators new to Alfresco, and is unneccessarily complex / error-prone given how simple some other configurations in Alfresco can be.
