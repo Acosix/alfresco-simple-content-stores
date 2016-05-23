@@ -15,17 +15,26 @@ package de.axelfaust.alfresco.simplecontentstores.repo.beans;
 
 import org.alfresco.repo.content.ContentLimitProvider;
 import org.alfresco.repo.content.filestore.FileContentStore;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.FactoryBean;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 /**
  * @author Axel Faust
  */
-public class FileContentStoreFactoryBean implements FactoryBean<FileContentStore>, ApplicationContextAware
+public class FileContentStoreFactoryBean implements FactoryBean<FileContentStore>, ApplicationContextAware, BeanFactoryAware, BeanNameAware
 {
 
     protected ApplicationContext applicationContext;
+
+    protected BeanFactory beanFactory;
+
+    protected String beanName;
 
     protected String rootDirectory;
 
@@ -36,6 +45,34 @@ public class FileContentStoreFactoryBean implements FactoryBean<FileContentStore
     protected boolean deleteEmptyDirs;
 
     protected ContentLimitProvider contentLimitProvider;
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext)
+    {
+        this.applicationContext = applicationContext;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setBeanFactory(final BeanFactory beanFactory) throws BeansException
+    {
+        this.beanFactory = beanFactory;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setBeanName(final String name)
+    {
+        this.beanName = name;
+    }
 
     /**
      * @param rootDirectory
@@ -87,24 +124,20 @@ public class FileContentStoreFactoryBean implements FactoryBean<FileContentStore
      * {@inheritDoc}
      */
     @Override
-    public void setApplicationContext(final ApplicationContext applicationContext)
-    {
-        this.applicationContext = applicationContext;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
     public FileContentStore getObject() throws Exception
     {
         final FileContentStore store = new FileContentStore(this.applicationContext, this.rootDirectory);
 
+        store.setApplicationContext(this.applicationContext);
         store.setAllowRandomAccess(this.allowRandomAccess);
         store.setDeleteEmptyDirs(this.deleteEmptyDirs);
         store.setReadOnly(this.readOnly);
         store.setContentLimitProvider(this.contentLimitProvider);
+
+        if (this.beanFactory instanceof ConfigurableBeanFactory)
+        {
+            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName, store);
+        }
 
         return store;
     }
