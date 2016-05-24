@@ -26,6 +26,7 @@ import org.alfresco.repo.content.caching.cleanup.CachedContentCleaner;
 import org.alfresco.repo.content.caching.cleanup.CachedContentCleanupJob;
 import org.alfresco.repo.content.caching.quota.QuotaManagerStrategy;
 import org.alfresco.repo.content.caching.quota.UnlimitedQuotaStrategy;
+import org.alfresco.util.AbstractTriggerBean;
 import org.alfresco.util.CronTriggerBean;
 import org.alfresco.util.PropertyCheck;
 import org.alfresco.util.TriggerBean;
@@ -420,6 +421,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
                 ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-JobDetail", cleanerDetail);
             }
 
+            AbstractTriggerBean trigger;
             if (this.cleanerCronExpression != null)
             {
                 final CronTriggerBean cronTriggerBean = new CronTriggerBean();
@@ -429,17 +431,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
                 cronTriggerBean.setStartDelay(this.cleanerStartDelay);
                 cronTriggerBean.setScheduler(this.scheduler);
                 cronTriggerBean.afterPropertiesSet();
-
-                if (this.beanFactory instanceof ConfigurableBeanFactory)
-                {
-                    ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(cronTriggerBean.getBeanName(), cronTriggerBean);
-                }
-
-                if (this.beanFactory instanceof DefaultSingletonBeanRegistry)
-                {
-                    ((DefaultSingletonBeanRegistry) this.beanFactory)
-                            .registerDisposableBean(cronTriggerBean.getBeanName(), cronTriggerBean);
-                }
+                trigger = cronTriggerBean;
             }
             else
             {
@@ -451,6 +443,17 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
                 triggerBean.setRepeatCount(this.cleanerRepeatCount);
                 triggerBean.setScheduler(this.scheduler);
                 triggerBean.afterPropertiesSet();
+                trigger = triggerBean;
+            }
+
+            if (this.beanFactory instanceof ConfigurableBeanFactory)
+            {
+                ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(trigger.getBeanName(), trigger);
+            }
+
+            if (this.beanFactory instanceof DefaultSingletonBeanRegistry)
+            {
+                ((DefaultSingletonBeanRegistry) this.beanFactory).registerDisposableBean(trigger.getBeanName(), trigger);
             }
         }
         else
