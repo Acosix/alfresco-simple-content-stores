@@ -50,6 +50,7 @@ The following types can currently be used to define custom content stores:
 - selectorPropertyStore (the "Selector Property" store)
 - standardFileStore (Alfresco standard file content store, potentially storing content in a custom directory)
 - deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
+- standardCachingStore (Alfresco standard caching content store, retrieving and temporarily storing content from a remote, potentially slow content store)
 
 The different types of stores define their individual set of required / optional configuration properties.
 
@@ -77,3 +78,24 @@ Stores of type "deduplicatingFacadeStore" support the following properties:
 - digestAlgorithmProvider - the optional provider for a specific message digest algorithm (needs only be set if not using built-in Java message digest algorithms)
 - pathSegments - how many path segments (in the content URL) should be used to structure content (3 by default)
 - bytesPerPathSegment - how many bytes of the hash / message digest of a content should be used per path segment (2 by default)
+
+Stores of type "standardCachingStore" support the following properties:
+- cacheName - the name of the in-memory (Hazelcast) cache to hold information about local cache structures
+- cacheRoot - the path to the directory storing locally cached content files
+- backingStore - reference to the (remote) store which actually contains the content
+- cacheOnInbound - true/false to mark if new content shoulud be written to both the backing store and the local cache (false by default)
+- maxCacheTries - the limit for attempts to locally cache a content file during read (2 by default)
+- quotaStrategy - reference to the cache quota strategy implementation - if this is set, any other quota-related properties wil be ignored
+- useStandardQuotaStrategy - true/false to mark if the standard quota strategy implementation should be used (false by default)
+- standardQuotaPanicThresholdPercent - percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content (90 by default)
+- standardQuotaCleanThresholdPercent - percent of allowed max cache usage to consider for triggering asynchronous cache cleaning after writing new cache content (80 by default)
+- standardQuotaTargetUsagePercent - percent of allowed max cache usage that is considered the target result of a cache cleaning process (70 by default)
+- standardQuotaMaxUsageBytes - the allowed max cache usage in bytes - if this is exceeded, an aggressive cache cleaning is triggered (0 by default)
+- standardQuotaMaxFileSizeMebiBytes - the max allowed size of an individual size in the cache in mebibytes - if this is exceeded, a content file will not be cached (0 by default)
+- standardQuotaNormalCleanThresholdSeconds - the amount of time that should pass between two normal cache cleaning processes in seconds - aggresive cache cleaning processes will ignore this (0 by default)
+- cleanerMinFileAgeMillis - the minimal file age in milliseconds before a cached content is considered for cleanup (0 by default)
+- cleanerMaxDeleteWatchCount - the max amount of times a cached file will be considered/marked for deletion before it is actually deleted (1 by default)
+- cleanerCronExpression - the CRON expression for the cleaner job for this store - if this is set it will be used to schedule the job and repeat settings will be ignored
+- cleanerStartDelay - the amount of milliseconds to delay the start of the trigger relative to its initialization (0 by default)
+- cleanerRepeatInterval - the interval between cleaner job runs in milliseconds (30000 by default)
+- cleanerRepeatCount - the amount of times the cleaner job should run repeatedly (-1 by default, meaning "indefinitely")

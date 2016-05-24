@@ -20,7 +20,6 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.FactoryBean;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
@@ -133,11 +132,6 @@ public class FileContentStoreFactoryBean implements FactoryBean<FileContentStore
         store.setDeleteEmptyDirs(this.deleteEmptyDirs);
         store.setReadOnly(this.readOnly);
         store.setContentLimitProvider(this.contentLimitProvider);
-
-        if (this.beanFactory instanceof ConfigurableBeanFactory)
-        {
-            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName, store);
-        }
 
         return store;
     }

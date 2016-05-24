@@ -32,7 +32,7 @@
         </property>
     </bean>
 
-    <bean id="simpleContentStoresTemplate-standardCachingStore" class="${project.artifactId}.beans.FileContentStoreFactoryBean" scope="prototype">
+    <bean id="simpleContentStoresTemplate-standardCachingStore" class="${project.artifactId}.beans.CachingContentStoreFactoryBean" scope="prototype">
         <property name="cacheFactory" ref="cacheFactory" />
         <property name="scheduler" ref="schedulerFactory" />
     </bean>

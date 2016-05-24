@@ -98,7 +98,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
 
     protected long cleanerStartDelay = 0;
 
-    protected long cleanerRepeatInterval = 0;
+    protected long cleanerRepeatInterval = 5 * 60 * 1000l;
 
     protected int cleanerRepeatCount = SimpleTrigger.REPEAT_INDEFINITELY;
 
@@ -112,6 +112,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
     public void afterPropertiesSet()
     {
         PropertyCheck.mandatory(this, "cacheFactory", this.cacheFactory);
+        // TODO Do we want to provide a default name convention?
         PropertyCheck.mandatory(this, "cacheName", this.cacheName);
         PropertyCheck.mandatory(this, "cacheRoot", this.cacheRoot);
         PropertyCheck.mandatory(this, "backingStore", this.backingStore);
@@ -458,10 +459,6 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
         }
 
         store.init();
-        if (this.beanFactory instanceof ConfigurableBeanFactory)
-        {
-            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName, store);
-        }
 
         return store;
     }
