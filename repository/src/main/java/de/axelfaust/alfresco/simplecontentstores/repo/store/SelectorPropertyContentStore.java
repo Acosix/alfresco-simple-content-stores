@@ -56,6 +56,8 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         BeforeRemoveAspectPolicy
 {
 
+    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectorPropertyContentStore.class);
 
     protected NodeService nodeService;
@@ -493,6 +495,12 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
 
             final NodeContentContext contentContext = new NodeContentContext(reader, oldContentUrl, nodeRef, propertyQName);
             final ContentWriter writer = newStore.getWriter(contentContext);
+
+            // TODO Support cleanup once content URL is unique and we don't risk of original being cleaned-up on rollback
+            // String newContentUrl = writer.getContentUrl();
+            // final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+            // urlsToDelete.add(newContentUrl);
+
             writer.putContent(reader);
             // unfortunately putContent doesn't copy mimetype et al
             writer.setMimetype(oldData.getMimetype());
