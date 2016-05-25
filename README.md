@@ -54,49 +54,61 @@ The following types can currently be used to define custom content stores:
 
 The different types of stores define their individual set of required / optional configuration properties.
 
-| store type | prop. name | prop. type | description | default | optional |
-| :--- | :---| :--- | :--- | :--- | :--- |
-| selectorPropertyStore | selectorClassName | value | prefixed or full QName of type / aspect associated with the selector property (relevant for handling changes via policies) |  | no |
-| selectorPropertyStore | selectorPropertyName | value | prefixed or full QName of the selector property |  | no |
-| selectorPropertyStore | selectorValuesConstraintShortName | value | short name of a list-of-values constraint that should dynamically be registered using configured selector values as the "allowedValues" list (the content model for the selector property can reference this via a REGISTERED constraint) |  | yes |
-| selectorPropertyStore | storeBySelectorPropertyValue | map(ref) | backing content stores keyed by the property values that select them |  | no |
-| selectorPropertyStore | fallbackStore | ref | default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue |  | no |
-| selectorPropertyStore | routeContentPropertyNames | value | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
-| selectorPropertyStore | moveStoresOnChange | value | true/false to mark if content should be moved between backing stores when the selector property value changes | false | yes |
-| selectorPropertyStore | moveStoresOnChangeOptionPropertyName | value | prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnChange |  | yes |
+Stores of type "selectorPropertyStore" support the following properties:
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| selectorClassName | value | prefixed or full QName of type / aspect associated with the selector property (relevant for handling changes via policies) |  | no |
+| selectorPropertyName | value | prefixed or full QName of the selector property |  | no |
+| selectorValuesConstraintShortName | value | short name of a list-of-values constraint that should dynamically be registered using configured selector values as the "allowedValues" list (the content model for the selector property can reference this via a REGISTERED constraint) |  | yes |
+| storeBySelectorPropertyValue | map(ref) | backing content stores keyed by the property values that select them |  | no |
+| fallbackStore | ref | default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue |  | no |
+| routeContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
+| moveStoresOnChange | value | true/false to mark if content should be moved between backing stores when the selector property value changes | false | yes |
+| moveStoresOnChangeOptionPropertyName | value | prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnChange |  | yes |
 
 Stores of type "standardFileStore" support the following properties:
-- rootDirectory - the path to the directory in which to store content
-- readOnly - true/false to mark the store as ready-only (false by default)
-- allowRandomAccess - true/false to mark the store as capable of providing random access to content files (false by default)
-- deleteEmptyDirs - true/false to allow store to delete empty directories (false by default)
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| rootDirectory | value | the path to the directory in which to store content |  | no |
+| readOnly | value | true/false to mark the store as ready-only | false | yes |
+| allowRandomAccess | value | true/false to mark the store as capable of providing random access to content files | false | yes |
+| deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
 
 Stores of type "deduplicatingFacadeStore" support the following properties:
-- storeProtocol - the protocol to be used on content URLs ("store" by default - configuration currently has no effect pending workaround for "custom protocol"-limitations in default stores, e.g. Alfresco default file store)
-- backingStore - reference to the (physical) store that stores the deduplicated content
-- handleContentPropertyNames - an optional list of content property QNames (prefixed or full) for which the store should deduplicate content; if set only content for the specified properties will be deduplicated, all other content will be passed through to to the backingStore
-- digestAlgorithm - the hash / message digest algorithm to be used for calculating content hash ("SHA-512" by default)
-- digestAlgorithmProvider - the optional provider for a specific message digest algorithm (needs only be set if not using built-in Java message digest algorithms)
-- pathSegments - how many path segments (in the content URL) should be used to structure content (3 by default)
-- bytesPerPathSegment - how many bytes of the hash / message digest of a content should be used per path segment (2 by default)
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| storeProtocol | value | the protocol to be used on content URLs (configuration currently has no effect pending workaround for "custom protocol"-limitations in default stores, e.g. Alfresco default file store) | store | yes |
+| backingStore | ref | the (physical) store that stores the deduplicated content |  | no |
+| handleContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should deduplicate content; if set only content for the specified properties will be deduplicated, all other content will be passed through to to the backingStore |  | yes |
+| digestAlgorithm | value | name of hash / message digest algorithm to be used for calculating content hash | SHA-512 | yes |
+| digestAlgorithmProvider | value | name of provider for a specific message digest algorithm (if not built-in algorithm) |  | yes |
+| pathSegments | value | how many path segments (in the content URL) should be used to structure content | 3 | yes |
+| bytesPerPathSegment | value | how many bytes of the hash / message digest of a content should be used per path segment | 2 | yes |
 
 Stores of type "standardCachingStore" support the following properties:
-- cacheName - the name of the in-memory (Hazelcast) cache to hold information about local cache structures
-- cacheRoot - the path to the directory storing locally cached content files
-- backingStore - reference to the (remote) store which actually contains the content
-- cacheOnInbound - true/false to mark if new content shoulud be written to both the backing store and the local cache (false by default)
-- maxCacheTries - the limit for attempts to locally cache a content file during read (2 by default)
-- quotaStrategy - reference to the cache quota strategy implementation - if this is set, any other quota-related properties wil be ignored
-- useStandardQuotaStrategy - true/false to mark if the standard quota strategy implementation should be used (false by default)
-- standardQuotaPanicThresholdPercent - percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content (90 by default)
-- standardQuotaCleanThresholdPercent - percent of allowed max cache usage to consider for triggering asynchronous cache cleaning after writing new cache content (80 by default)
-- standardQuotaTargetUsagePercent - percent of allowed max cache usage that is considered the target result of a cache cleaning process (70 by default)
-- standardQuotaMaxUsageBytes - the allowed max cache usage in bytes - if this is exceeded, an aggressive cache cleaning is triggered (0 by default)
-- standardQuotaMaxFileSizeMebiBytes - the max allowed size of an individual size in the cache in mebibytes - if this is exceeded, a content file will not be cached (0 by default)
-- standardQuotaNormalCleanThresholdSeconds - the amount of time that should pass between two normal cache cleaning processes in seconds - aggresive cache cleaning processes will ignore this (0 by default)
-- cleanerMinFileAgeMillis - the minimal file age in milliseconds before a cached content is considered for cleanup (0 by default)
-- cleanerMaxDeleteWatchCount - the max amount of times a cached file will be considered/marked for deletion before it is actually deleted (1 by default)
-- cleanerCronExpression - the CRON expression for the cleaner job for this store - if this is set it will be used to schedule the job and repeat settings will be ignored
-- cleanerStartDelay - the amount of milliseconds to delay the start of the trigger relative to its initialization (0 by default)
-- cleanerRepeatInterval - the interval between cleaner job runs in milliseconds (30000 by default)
-- cleanerRepeatCount - the amount of times the cleaner job should run repeatedly (-1 by default, meaning "indefinitely")
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| cacheName | value | name of the in-memory (Hazelcast) cache to hold information about local cache structures |  | no |
+| cacheRoot | value | the path to the directory storing locally cached content files |  | no
+| backingStore | ref | the (remote) store which actually contains the content |  | no |
+| cacheOnInbound | value | true/false to mark if new content shoulud be written to both the backing store and the local cache | false | yes |
+| maxCacheTries | value | the limit for attempts to locally cache a content file during read | 2 | yes |
+| quotaStrategy | ref | the cache quota strategy implementation - if this is set, any other quota-related properties wil be ignored | | yes |
+| useStandardQuotaStrategy | value | true/false to mark if the standard quota strategy implementation should be used | false | yes |
+| standardQuotaPanicThresholdPercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content | 90 | yes |
+| standardQuotaCleanThresholdPercent | value | percent of allowed max cache usage to consider for triggering asynchronous cache cleaning after writing new cache content | 80 | yes |
+| standardQuotaPanicThresholdPercent | value | percent of allowed max cache usage that is considered the target result of a cache cleaning process | 70 | yes |
+| standardQuotaTargetUsagePercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content | 90 | yes |
+| standardQuotaMaxUsageBytes | value | the allowed max cache usage in bytes - if this is exceeded, an aggressive cache cleaning is triggered | 0 | yes |
+| standardQuotaMaxFileSizeMebiBytes | value | the max allowed size of an individual size in the cache in mebibytes - if this is exceeded, a content file will not be cached | 0 | yes |
+| standardQuotaNormalCleanThresholdSeconds | value | the amount of time that should pass between two normal cache cleaning processes in seconds - aggresive cache cleaning processes will ignore this | 0 | yes |
+| cleanerMinFileAgeMillis | value | the minimal file age in milliseconds before a cached content is considered for cleanup | 0 | yes |
+| cleanerMaxDeleteWatchCount | value | the max amount of times a cached file will be considered/marked for deletion before it is actually deleted | 1 | yes |
+| cleanerCronExpression | value | the CRON expression for the cleaner job for this store - if this is set it will be used to schedule the job and repeat settings will be ignored |  | yes |
+| cleanerStartDelay | value | the amount of milliseconds to delay the start of the trigger relative to its initialization | 0 | yes |
+| cleanerRepeatInterval | value | the interval between cleaner job runs in milliseconds | 30000 | yes |
+| cleanerRepeatCount | value | the amount of times the cleaner job should run repeatedly | -1 ("indefinitely") | yes |
