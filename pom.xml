@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.alfresco.maven</groupId>
         <artifactId>alfresco-sdk-parent</artifactId>
-        <!-- TODO Update to 2.2.0 while still using alfresco.version of 5.0.d (SKD sucks for forcing 5.1) -->
+        <!-- TODO Update to 2.2.0 while still using alfresco.version of 5.0.d (SDK sucks for forcing 5.1) -->
         <version>2.0.0</version>
     </parent>
 
