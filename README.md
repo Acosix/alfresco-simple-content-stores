@@ -45,6 +45,9 @@ simpleContentStores.customStore.simpleSelectorStore.list.value.routeContentPrope
 
 ```
 
+Note: The above is meant as an example to illustrate how configuration works - it is *not* meant as a complete, working example config. 
+
+
 The following types can currently be used to define custom content stores:
 
 - selectorPropertyStore (the "Selector Property" store)
