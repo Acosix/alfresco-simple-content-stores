@@ -47,7 +47,10 @@ import org.springframework.beans.factory.InitializingBean;
  */
 public abstract class CommonRoutingContentStore extends AbstractRoutingContentStore implements InitializingBean
 {
+
     // TODO Handle ContentStoreCaps interface
+
+    private static final int PROTOCOL_DELIMETER_LENGTH = PROTOCOL_DELIMITER.length();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonRoutingContentStore.class);
 
@@ -344,6 +347,36 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
         final boolean result = this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentPropertyQName);
 
         return result;
+    }
+
+    // copied from AbstractContentStore
+    /**
+     * Splits the content URL into its component parts as separated by {@link ContentStore#PROTOCOL_DELIMITER protocol delimiter}.
+     *
+     * @param contentUrl
+     *            the content URL to split
+     * @return the protocol and identifier portions of the content URL, both of which will not be <tt>null</tt>
+     * @throws UnsupportedContentUrlException
+     *             if the content URL is invalid
+     */
+    protected Pair<String, String> getContentUrlParts(final String contentUrl)
+    {
+        if (contentUrl == null)
+        {
+            throw new IllegalArgumentException("The contentUrl may not be null");
+        }
+        final int index = contentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER);
+        if (index <= 0)
+        {
+            throw new UnsupportedContentUrlException(this, contentUrl);
+        }
+        final String protocol = contentUrl.substring(0, index);
+        final String identifier = contentUrl.substring(index + PROTOCOL_DELIMETER_LENGTH, contentUrl.length());
+        if (identifier.length() == 0)
+        {
+            throw new UnsupportedContentUrlException(this, contentUrl);
+        }
+        return new Pair<String, String>(protocol, identifier);
     }
 
     private void afterPropertiesSet_setupRouteContentProperties()

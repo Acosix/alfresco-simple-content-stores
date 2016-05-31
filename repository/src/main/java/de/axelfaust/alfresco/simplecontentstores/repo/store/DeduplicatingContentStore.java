@@ -18,7 +18,6 @@ import java.util.UUID;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
-import org.alfresco.repo.content.filestore.FileContentStore;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
@@ -30,13 +29,9 @@ import org.slf4j.LoggerFactory;
 public class DeduplicatingContentStore extends CommonFacadingContentStore
 {
 
-    public static final String DEDUP_STORE_PROTOCOL = "dedup-store";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicatingContentStore.class);
 
     protected ContentStore temporaryStore;
-
-    protected String storeProtocol = DEDUP_STORE_PROTOCOL;
 
     protected String digestAlgorithm = "SHA-512";
 
@@ -57,14 +52,9 @@ public class DeduplicatingContentStore extends CommonFacadingContentStore
     {
         super.afterPropertiesSet();
 
-        // TODO Implement "better" backing/file content store that does not require a hard-coded protocol
-        // This is a workaround for the time being - storeProtocol can still be configured but won't be used
-        this.storeProtocol = FileContentStore.STORE_PROTOCOL;
-
         PropertyCheck.mandatory(this, "temporaryStore", this.temporaryStore);
-        PropertyCheck.mandatory(this, "storeProtocol", this.storeProtocol);
 
-        this.dummyUrlPrefix = MessageFormat.format("{0}{1}dummy/", this.storeProtocol, ContentStore.PROTOCOL_DELIMITER);
+        this.dummyUrlPrefix = MessageFormat.format("{0}{1}dummy/", StoreConstants.WILDCARD_PROTOCOL, ContentStore.PROTOCOL_DELIMITER);
     }
 
     /**
@@ -74,15 +64,6 @@ public class DeduplicatingContentStore extends CommonFacadingContentStore
     public void setTemporaryStore(final ContentStore temporaryStore)
     {
         this.temporaryStore = temporaryStore;
-    }
-
-    /**
-     * @param storeProtocol
-     *            the storeProtocol to set
-     */
-    public void setStoreProtocol(final String storeProtocol)
-    {
-        this.storeProtocol = storeProtocol;
     }
 
     /**
@@ -158,10 +139,9 @@ public class DeduplicatingContentStore extends CommonFacadingContentStore
         ContentWriter writer;
         if (this.isSpecialHandlingRequired(context))
         {
-            final String dummyContentUrl = MessageFormat.format("{0}{1}dummy/{2}", this.storeProtocol, ContentStore.PROTOCOL_DELIMITER,
-                    UUID.randomUUID().toString());
-            writer = new DeduplicatingContentWriter(dummyContentUrl, context, this.temporaryStore, this.backingStore, this.storeProtocol,
-                    this.digestAlgorithm, this.digestAlgorithmProvider, this.pathSegments, this.bytesPerPathSegment);
+            final String dummyContentUrl = this.dummyUrlPrefix + UUID.randomUUID();
+            writer = new DeduplicatingContentWriter(dummyContentUrl, context, this.temporaryStore, this.backingStore, this.digestAlgorithm,
+                    this.digestAlgorithmProvider, this.pathSegments, this.bytesPerPathSegment);
         }
         else
         {

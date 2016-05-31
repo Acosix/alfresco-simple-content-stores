@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.ContentContext;
@@ -34,6 +35,7 @@ import org.alfresco.repo.node.NodeServicePolicies.OnUpdatePropertiesPolicy;
 import org.alfresco.repo.policy.Behaviour.NotificationFrequency;
 import org.alfresco.repo.policy.JavaBehaviour;
 import org.alfresco.repo.policy.PolicyComponent;
+import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.ClassDefinition;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
@@ -45,6 +47,7 @@ import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.datatype.DefaultTypeConverter;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.EqualsHelper;
+import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -186,6 +189,10 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         this.moveStoresOnChangeOptionPropertyName = moveStoresOnChangeOptionPropertyName;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void onAddAspect(final NodeRef nodeRef, final QName aspectQName)
     {
         final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
@@ -354,8 +361,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         return Collections.unmodifiableList(this.allStores);
     }
 
-    // TODO Re-introduce content URL path prefixing once we can handle orphan cleanup and avoid deleting content reference via multiple URLs
-
     /**
      *
      * {@inheritDoc}
@@ -484,8 +489,29 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
             final NodeRef nodeRef, final QName propertyQName)
     {
         ContentData updatedContentData;
+
         final String oldContentUrl = oldData.getContentUrl();
-        if (!newStore.exists(oldContentUrl))
+        final Pair<String, String> urlParts = super.getContentUrlParts(oldContentUrl);
+        final String protocol = urlParts.getFirst();
+        final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + oldContentUrl.substring(protocol.length());
+
+        if (newStore.isContentUrlSupported(oldWildcardContentUrl) && newStore.exists(oldWildcardContentUrl))
+        {
+            final ContentReader reader = oldStore.getReader(oldWildcardContentUrl);
+            if (!EqualsHelper.nullSafeEquals(oldContentUrl, reader.getContentUrl()))
+            {
+                reader.setMimetype(oldData.getMimetype());
+                reader.setEncoding(oldData.getEncoding());
+                reader.setLocale(oldData.getLocale());
+
+                updatedContentData = reader.getContentData();
+            }
+            else
+            {
+                updatedContentData = null;
+            }
+        }
+        else if (!newStore.isContentUrlSupported(oldContentUrl) || !newStore.exists(oldContentUrl))
         {
             final ContentReader reader = oldStore.getReader(oldContentUrl);
             if (reader == null || !reader.exists())
@@ -493,13 +519,18 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
                 throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
             }
 
-            final NodeContentContext contentContext = new NodeContentContext(reader, oldContentUrl, nodeRef, propertyQName);
+            final NodeContentContext contentContext = new NodeContentContext(reader,
+                    newStore.isContentUrlSupported(oldWildcardContentUrl) ? oldWildcardContentUrl : oldContentUrl, nodeRef, propertyQName);
             final ContentWriter writer = newStore.getWriter(contentContext);
 
-            // TODO Support cleanup once content URL is unique and we don't risk of original being cleaned-up on rollback
-            // String newContentUrl = writer.getContentUrl();
-            // final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
-            // urlsToDelete.add(newContentUrl);
+            final String newContentUrl = writer.getContentUrl();
+
+            // ensure content cleanup on rollback (only if a new, unique URL was created
+            if (!EqualsHelper.nullSafeEquals(oldContentUrl, newContentUrl))
+            {
+                final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+                urlsToDelete.add(newContentUrl);
+            }
 
             writer.putContent(reader);
             // unfortunately putContent doesn't copy mimetype et al
@@ -517,6 +548,9 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         return updatedContentData;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected boolean isRoutable(final ContentContext ctx)
     {

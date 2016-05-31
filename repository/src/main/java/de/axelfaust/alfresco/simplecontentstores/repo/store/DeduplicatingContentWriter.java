@@ -51,8 +51,6 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
 
     protected final ContentContext context;
 
-    protected final String storeProtocol;
-
     protected final String digestAlgorithm;
 
     protected final String digestAlgorithmProvider;
@@ -74,15 +72,14 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
     protected String deduplicatedContentUrl;
 
     protected DeduplicatingContentWriter(final String contentUrl, final ContentContext context, final ContentStore temporaryContentStore,
-            final ContentStore backingContentStore, final String storeProtocol, final String digestAlgorithm,
-            final String digestAlgorithmProvider, final int pathSegments, final int bytesPerPathSegment)
+            final ContentStore backingContentStore, final String digestAlgorithm, final String digestAlgorithmProvider,
+            final int pathSegments, final int bytesPerPathSegment)
     {
         super(contentUrl, context.getExistingContentReader());
 
         ParameterCheck.mandatory("context", context);
         ParameterCheck.mandatory("temporaryContentStore", temporaryContentStore);
         ParameterCheck.mandatory("backingContentStore", backingContentStore);
-        ParameterCheck.mandatoryString("storeProtocol", storeProtocol);
 
         if (pathSegments < 0 || bytesPerPathSegment <= 0)
         {
@@ -94,7 +91,6 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         this.temporaryContentStore = temporaryContentStore;
         this.backingContentStore = backingContentStore;
 
-        this.storeProtocol = storeProtocol;
         this.digestAlgorithm = digestAlgorithm;
         this.digestAlgorithmProvider = digestAlgorithmProvider;
 
@@ -290,11 +286,14 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
 
         final String deduplicatedContentUrl = this.makeContentUrl(this.digestHex);
 
-        if (this.backingContentStore.isContentUrlSupported(deduplicatedContentUrl)
-                && this.backingContentStore.exists(deduplicatedContentUrl))
+        if (this.backingContentStore.isContentUrlSupported(deduplicatedContentUrl))
         {
-            this.deduplicatedContentUrl = deduplicatedContentUrl;
-            super.setContentUrl(this.deduplicatedContentUrl);
+            final ContentReader reader = this.backingContentStore.getReader(deduplicatedContentUrl);
+            if (reader != null && reader.exists())
+            {
+                this.deduplicatedContentUrl = reader.getContentUrl();
+                super.setContentUrl(this.deduplicatedContentUrl);
+            }
         }
     }
 
@@ -402,7 +401,7 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
     {
         final StringBuilder contentUrlBuilder = new StringBuilder();
 
-        contentUrlBuilder.append(this.storeProtocol);
+        contentUrlBuilder.append(StoreConstants.WILDCARD_PROTOCOL);
         contentUrlBuilder.append(ContentStore.PROTOCOL_DELIMITER);
 
         final int charsPerByte = this.bytesPerPathSegment * 2;
