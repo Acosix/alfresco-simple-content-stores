@@ -52,7 +52,7 @@ Note: The above is meant as an example to illustrate how configuration works - i
 The following types can currently be used to define custom content stores:
 
 - selectorPropertyStore (the "Selector Property" store)
-- standardFileStore (Alfresco standard file content store, potentially storing content in a custom directory)
+- standardFileStore (file content store very similar to the Alfresco standard with some improvements, potentially storing content in a custom directory and using a custom store protocol)
 - deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
 - standardCachingStore (Alfresco standard caching content store, retrieving and temporarily storing content from a remote, potentially slow content store)
 
