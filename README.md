@@ -6,6 +6,7 @@ The addon currently provides the following content store types:
 
 - "Selector Property" content store which routes content to different backing content stores based on the value of a specific single-valued text property (similar to Enterprise store selector aspect store but configurable for any property)
 - deduplicating content store which uses hash / message digest mechanism to construct content URLs and ensure that stored content is unique (no two files in storage a binary identical)
+- "better" file content store allowing use of custom store protocols to better differentiate content via URLs and support better orphan handling in routing stores
 
 The following store types are planned at this time:
 - compressing store which transparently (un)compresses content to/from storage
@@ -74,16 +75,18 @@ Stores of type "standardFileStore" support the following properties:
 
 | name | type | description | default | optional |
 | :---| :--- | :--- | :--- | :--- |
+| protocol | value | the protocol to be used on content URLs | store | yes |
 | rootDirectory | value | the path to the directory in which to store content |  | no |
 | readOnly | value | true/false to mark the store as ready-only | false | yes |
 | allowRandomAccess | value | true/false to mark the store as capable of providing random access to content files | false | yes |
 | deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
+| fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
+| contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
 
 Stores of type "deduplicatingFacadeStore" support the following properties:
 
 | name | type | description | default | optional |
 | :---| :--- | :--- | :--- | :--- |
-| storeProtocol | value | the protocol to be used on content URLs (configuration currently has no effect pending workaround for "custom protocol"-limitations in default stores, e.g. Alfresco default file store) | store | yes |
 | backingStore | ref | the (physical) store that stores the deduplicated content |  | no |
 | handleContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should deduplicate content; if set only content for the specified properties will be deduplicated, all other content will be passed through to to the backingStore |  | yes |
 | digestAlgorithm | value | name of hash / message digest algorithm to be used for calculating content hash | SHA-512 | yes |

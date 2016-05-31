@@ -20,7 +20,7 @@
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-standardFileStore" class="${project.artifactId}.beans.FileContentStoreFactoryBean" scope="prototype" />
+    <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
 
     <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true" class="${project.artifactId}.store.DeduplicatingContentStore" parent="${project.artifactId}-commonFacadeStore">
         <property name="temporaryStore">
