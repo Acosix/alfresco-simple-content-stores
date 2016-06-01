@@ -53,6 +53,7 @@ The following types can currently be used to define custom content stores:
 
 - selectorPropertyStore (the "Selector Property" store)
 - standardFileStore (file content store very similar to the Alfresco standard with some improvements, potentially storing content in a custom directory and using a custom store protocol)
+- aggregatingStore (Alfresco standard store supporting aggregation of content from multiple stores while writing only to one)
 - deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
 - standardCachingStore (Alfresco standard caching content store, retrieving and temporarily storing content from a remote, potentially slow content store)
 
@@ -82,6 +83,13 @@ Stores of type "standardFileStore" support the following properties:
 | deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
 | fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
 | contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
+
+Stores of type "aggregatingStore" support the following properties:
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| primaryStore | ref | the (physical) store that content is both written to and read from |  | no |
+| secondaryStores | list(ref) | the (physical) stores that content is read from |  | no |
 
 Stores of type "deduplicatingFacadeStore" support the following properties:
 

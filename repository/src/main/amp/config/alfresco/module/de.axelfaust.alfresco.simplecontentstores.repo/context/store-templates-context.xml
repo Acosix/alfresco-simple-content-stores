@@ -36,4 +36,6 @@
         <property name="cacheFactory" ref="cacheFactory" />
         <property name="scheduler" ref="schedulerFactory" />
     </bean>
+    
+    <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true" class="org.alfresco.repo.content.replication.AggregatingContentStore" />
 </beans>
