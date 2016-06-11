@@ -33,6 +33,8 @@ import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
+import org.alfresco.service.cmr.repository.MimetypeService;
+import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.ParameterCheck;
 import org.apache.commons.codec.binary.Hex;
@@ -71,6 +73,8 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
 
     protected String deduplicatedContentUrl;
 
+    protected MimetypeService mimetypeService;
+
     protected DeduplicatingContentWriter(final String contentUrl, final ContentContext context, final ContentStore temporaryContentStore,
             final ContentStore backingContentStore, final String digestAlgorithm, final String digestAlgorithmProvider,
             final int pathSegments, final int bytesPerPathSegment)
@@ -99,7 +103,7 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
 
         this.originalContentUrl = contentUrl;
 
-        // we are the first listener
+        // we are the first real listener (DoGuessingOnCloseListener always is first)
         super.addListener(this);
 
         final ContentContext temporaryContext = new ContentContext(context.getExistingContentReader(), null);
@@ -143,11 +147,25 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
                     LOGGER.debug("Backing content store does not support delete", uoe);
                 }
             }
-
         }
         finally
         {
             this.cleanupTemporaryContent();
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setMimetypeService(final MimetypeService mimetypeService)
+    {
+        this.mimetypeService = mimetypeService;
+        super.setMimetypeService(mimetypeService);
+
+        if (this.temporaryWriter instanceof MimetypeServiceAware)
+        {
+            ((MimetypeServiceAware) this.temporaryWriter).setMimetypeService(mimetypeService);
         }
     }
 
@@ -235,27 +253,23 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
     {
         // check if we can trigger eager clean up
         // (standard temp lifetime of between 1:00 and 1:59 hours just causes too much build-up)
-        final ContentReader reader = this.getDeduplicatedContentReader();
-        if (reader != null)
+        if (this.temporaryWriter instanceof FileContentWriter)
         {
-            if (this.temporaryWriter instanceof FileContentWriter)
+            final File tempFile = ((FileContentWriter) this.temporaryWriter).getFile();
+            if (tempFile.exists() && !tempFile.delete())
             {
-                final File tempFile = ((FileContentWriter) this.temporaryWriter).getFile();
-                if (tempFile.exists() && !tempFile.delete())
-                {
-                    tempFile.deleteOnExit();
-                }
+                tempFile.deleteOnExit();
             }
-            else
+        }
+        else
+        {
+            try
             {
-                try
-                {
-                    this.temporaryContentStore.delete(this.temporaryWriter.getContentUrl());
-                }
-                catch (final UnsupportedOperationException uoe)
-                {
-                    LOGGER.debug("Temporary content store does not support delete", uoe);
-                }
+                this.temporaryContentStore.delete(this.temporaryWriter.getContentUrl());
+            }
+            catch (final UnsupportedOperationException uoe)
+            {
+                LOGGER.debug("Temporary content store does not support delete", uoe);
             }
         }
     }
@@ -321,6 +335,10 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         }
 
         final ContentWriter backingWriter = this.backingContentStore.getWriter(backingContext);
+        if (backingWriter instanceof MimetypeServiceAware && this.mimetypeService != null)
+        {
+            ((MimetypeServiceAware) backingWriter).setMimetypeService(this.mimetypeService);
+        }
         backingWriter.putContent(reader);
 
         if (!EqualsHelper.nullSafeEquals(backingWriter.getContentUrl(), deduplicatedContentUrl))
