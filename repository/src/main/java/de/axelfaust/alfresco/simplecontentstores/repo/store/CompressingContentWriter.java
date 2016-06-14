@@ -87,8 +87,7 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
         // we are the first real listener (DoGuessingOnCloseListener always is first)
         super.addListener(this);
 
-        final ContentContext temporaryContext = new ContentContext(context.getExistingContentReader(),
-                backingWriter.getContentUrl() != null ? backingWriter.getContentUrl() : context.getContentUrl());
+        final ContentContext temporaryContext = new ContentContext(context.getExistingContentReader(), null);
         this.temporaryWriter = this.temporaryContentStore.getWriter(temporaryContext);
     }
 
@@ -191,7 +190,7 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
         if ((this.mimetypesToCompress != null && !this.mimetypesToCompress.isEmpty()) && this.mimetypeService != null
                 && (mimetype == null || MimetypeMap.MIMETYPE_BINARY.equals(mimetype)))
         {
-            mimetype = this.mimetypeService.guessMimetype(null, this.getReader());
+            mimetype = this.mimetypeService.guessMimetype(null, this.createReader());
             LOGGER.debug("Determined mimetype {} from MimetypeService.guessMimetype()", mimetype);
 
             if (mimetype == null || MimetypeMap.MIMETYPE_BINARY.equals(mimetype))
@@ -216,7 +215,7 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
                     try (OutputStream compressedOutputStream = COMPRESSOR_STREAM_FACTORY.createCompressorOutputStream(compressiongType,
                             contentOutputStream))
                     {
-                        final ContentReader reader = this.getReader();
+                        final ContentReader reader = this.createReader();
                         try (final InputStream contentInputStream = reader.getContentInputStream())
                         {
                             IOUtils.copy(contentInputStream, compressedOutputStream);
@@ -231,7 +230,7 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
             else
             {
                 LOGGER.debug("Content will not be compressed to backing store (url={})", this.getContentUrl());
-                this.backingWriter.putContent(this.getReader());
+                this.backingWriter.putContent(this.createReader());
             }
 
             final String finalContentUrl = this.backingWriter.getContentUrl();

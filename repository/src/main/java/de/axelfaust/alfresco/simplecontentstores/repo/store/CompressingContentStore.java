@@ -14,9 +14,11 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.util.Collection;
+import java.util.Set;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
+import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
@@ -28,6 +30,8 @@ import org.slf4j.LoggerFactory;
  */
 public class CompressingContentStore extends CommonFacadingContentStore
 {
+
+    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentStore.class);
 
@@ -94,6 +98,11 @@ public class CompressingContentStore extends CommonFacadingContentStore
     public ContentWriter getWriter(final ContentContext context)
     {
         final ContentWriter backingWriter = super.getWriter(context);
+
+        // this is a new URL so register for rollback handling
+        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+        urlsToDelete.add(backingWriter.getContentUrl());
+
         final ContentWriter writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore,
                 backingWriter, this.compressionType, this.mimetypesToCompress);
         return writer;

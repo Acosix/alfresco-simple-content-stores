@@ -7,9 +7,9 @@ The addon currently provides the following content store types:
 - "Selector Property" content store which routes content to different backing content stores based on the value of a specific single-valued text property (similar to Enterprise store selector aspect store but configurable for any property)
 - deduplicating content store which uses hash / message digest mechanism to construct content URLs and ensure that stored content is unique (no two files in storage a binary identical)
 - "better" file content store allowing use of custom store protocols to better differentiate content via URLs and support better orphan handling in routing stores
+- compressing content store supporting transparent (de)compressing
 
 The following store types are planned at this time:
-- compressing store which transparently (un)compresses content to/from storage
 - content stores to store / retrieve content from remote locations (not file-based, e.g. S3 or arbitrary HTTP)
 - container stores which (asynchronously) combines content files into an aggregate (to reduce file handles / optimize compression)
 
@@ -56,6 +56,7 @@ The following types can currently be used to define custom content stores:
 - aggregatingStore (Alfresco standard store supporting aggregation of content from multiple stores while writing only to one)
 - deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
 - standardCachingStore (Alfresco standard caching content store, retrieving and temporarily storing content from a remote, potentially slow content store)
+- compressingFacadeStore (a store that transparently compressed and decompressed content)
 
 The different types of stores define their individual set of required / optional configuration properties.
 
@@ -126,3 +127,11 @@ Stores of type "standardCachingStore" support the following properties:
 | cleanerStartDelay | value | the amount of milliseconds to delay the start of the trigger relative to its initialization | 0 | yes |
 | cleanerRepeatInterval | value | the interval between cleaner job runs in milliseconds | 30000 | yes |
 | cleanerRepeatCount | value | the amount of times the cleaner job should run repeatedly | -1 ("indefinitely") | yes |
+
+Stores of type "compressingFacadeStore" support the following properties:
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| backingStore | ref | the (physical) store that stores the deduplicated content |  | no |
+| compressionType | value | name of the compression method to use (any of bzip2, gz, pack200, xz, deflate) | gz | yes |
+| mimetypesToCompress | list(value) | the list of mimetypes that should be compressed, supporting wildcard mimetypes in the form of "text/*" - if empty, all content will be compressed |  | yes |

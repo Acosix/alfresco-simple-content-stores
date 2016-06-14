@@ -495,7 +495,8 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         final String protocol = urlParts.getFirst();
         final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + oldContentUrl.substring(protocol.length());
 
-        if (newStore.isContentUrlSupported(oldWildcardContentUrl) && newStore.exists(oldWildcardContentUrl))
+        if (oldStore.isContentUrlSupported(oldWildcardContentUrl) && newStore.isContentUrlSupported(oldWildcardContentUrl)
+                && newStore.exists(oldWildcardContentUrl))
         {
             final ContentReader reader = oldStore.getReader(oldWildcardContentUrl);
             if (!EqualsHelper.nullSafeEquals(oldContentUrl, reader.getContentUrl()))
@@ -533,12 +534,11 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
             }
 
             writer.putContent(reader);
-            // unfortunately putContent doesn't copy mimetype et al
-            writer.setMimetype(oldData.getMimetype());
-            writer.setEncoding(oldData.getEncoding());
-            writer.setLocale(oldData.getLocale());
 
-            updatedContentData = writer.getContentData();
+            // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
+            // transformations, i.e. compression)
+            updatedContentData = new ContentData(writer.getContentUrl(), oldData.getMimetype(), oldData.getSize(), oldData.getEncoding(),
+                    oldData.getLocale());
         }
         else
         {
