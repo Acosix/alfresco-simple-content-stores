@@ -58,8 +58,8 @@ import org.springframework.context.event.ContextRefreshedEvent;
  *
  * @author Axel Faust
  */
-public class FileContentStore extends AbstractContentStore implements ApplicationContextAware, ApplicationListener<ContextRefreshedEvent>,
-        InitializingBean
+public class FileContentStore extends AbstractContentStore
+        implements ApplicationContextAware, ApplicationListener<ContextRefreshedEvent>, InitializingBean
 {
 
     protected static final String STORE_PROTOCOL = org.alfresco.repo.content.filestore.FileContentStore.STORE_PROTOCOL;
@@ -117,12 +117,9 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
         PropertyCheck.mandatory(this, "protocol", this.protocol);
 
         this.rootDirectory = new File(this.rootAbsolutePath);
-        if (!this.rootDirectory.exists())
+        if (!this.rootDirectory.exists() && !this.rootDirectory.mkdirs())
         {
-            if (!this.rootDirectory.mkdirs())
-            {
-                throw new ContentIOException("Failed to create store root: " + this.rootDirectory, null);
-            }
+            throw new ContentIOException("Failed to create store root: " + this.rootDirectory, null);
         }
 
         this.rootDirectory = this.rootDirectory.getAbsoluteFile();
@@ -286,7 +283,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final Pair<String, String> urlParts = super.getContentUrlParts(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
         final String protocol = urlParts.getFirst();
         final String relativePath = urlParts.getSecond();
 
@@ -307,18 +304,19 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
      * {@inheritDoc}
      */
     @Override
-    public ContentReader getReader(String contentUrl)
+    public ContentReader getReader(final String contentUrl)
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final Pair<String, String> urlParts = super.getContentUrlParts(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
         String protocol = urlParts.getFirst();
         final String relativePath = urlParts.getSecond();
+        String effectiveContentUrl = contentUrl;
 
         // need to correct protocol + contentUrl
         if (StoreConstants.WILDCARD_PROTOCOL.equals(protocol))
         {
-            contentUrl = this.protocol + contentUrl.substring(protocol.length());
+            effectiveContentUrl = this.protocol + PROTOCOL_DELIMITER + relativePath;
             protocol = this.protocol;
         }
 
@@ -326,7 +324,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
         // Handle the spoofed URL
         if (protocol.equals(SPOOF_PROTOCOL))
         {
-            reader = new SpoofedTextContentReader(contentUrl);
+            reader = new SpoofedTextContentReader(effectiveContentUrl);
         }
         else
         {
@@ -336,7 +334,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
                 final File file = this.makeFile(protocol, relativePath);
                 if (file.exists())
                 {
-                    final FileContentReader fileContentReader = new FileContentReader(file, contentUrl);
+                    final FileContentReader fileContentReader = new FileContentReader(file, effectiveContentUrl);
 
                     READER_SET_ALLOW_RANDOM_ACCESS.invoke(fileContentReader, Boolean.valueOf(this.allowRandomAccess));
 
@@ -344,11 +342,11 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
                 }
                 else
                 {
-                    reader = new EmptyContentReader(contentUrl);
+                    reader = new EmptyContentReader(effectiveContentUrl);
                 }
 
                 // done
-                LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {]", contentUrl, file, reader);
+                LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {]", effectiveContentUrl, file, reader);
             }
             catch (final UnsupportedContentUrlException e)
             {
@@ -357,7 +355,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
             }
             catch (final Throwable e)
             {
-                throw new ContentIOException("Failed to get reader for URL: " + contentUrl, e);
+                throw new ContentIOException("Failed to get reader for URL: " + effectiveContentUrl, e);
             }
         }
         return reader;
@@ -378,7 +376,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
 
         boolean deleted;
         // Dig out protocol
-        final Pair<String, String> urlParts = super.getContentUrlParts(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
         final String protocol = urlParts.getFirst();
         final String relativePath = urlParts.getSecond();
         if (protocol.equals(SPOOF_PROTOCOL))
@@ -416,7 +414,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
     /**
      * {@inheritDoc}
      */
-    @SuppressWarnings("deprecation")
+    @Deprecated
     @Override
     public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler)
     {
@@ -459,12 +457,12 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
             else
             // the URL has been given
             {
-                final Pair<String, String> urlParts = super.getContentUrlParts(newContentUrl);
+                final Pair<String, String> urlParts = this.getContentUrlParts(newContentUrl);
                 final String protocol = urlParts.getFirst();
                 // need to correct protocol + contentUrl
                 if (StoreConstants.WILDCARD_PROTOCOL.equals(protocol))
                 {
-                    contentUrl = this.protocol + newContentUrl.substring(protocol.length());
+                    contentUrl = this.protocol + PROTOCOL_DELIMITER + urlParts.getSecond();
                 }
 
                 file = this.createNewFile(contentUrl);
@@ -593,14 +591,16 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
      *            the file from which to create the URL
      * @return the equivalent content URL
      */
+    // only needed for deprecated getUrls
+    @Deprecated
     protected String makeContentUrl(final File file)
     {
         final String path = file.getAbsolutePath();
         // check if it belongs to this store
         if (!path.startsWith(this.rootAbsolutePath))
         {
-            throw new AlfrescoRuntimeException("File does not fall below the store's root: \n" + "   file: " + file + "\n" + "   store: "
-                    + this);
+            throw new AlfrescoRuntimeException(
+                    "File does not fall below the store's root: \n" + "   file: " + file + "\n" + "   store: " + this);
         }
         // strip off the file separator char, if present
         int index = this.rootAbsolutePath.length();
@@ -629,7 +629,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
     protected File makeFile(final String contentUrl)
     {
         // take just the part after the protocol
-        final Pair<String, String> urlParts = super.getContentUrlParts(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
         final String protocol = urlParts.getFirst();
         final String relativePath = urlParts.getSecond();
         return this.makeFile(protocol, relativePath);
@@ -711,7 +711,7 @@ public class FileContentStore extends AbstractContentStore implements Applicatio
      * @param createdBefore
      *            only get URLs for content created before this date
      */
-    @SuppressWarnings("deprecation")
+    @Deprecated
     protected void getUrls(final File directory, final ContentUrlHandler handler, final Date createdAfter, final Date createdBefore)
     {
         final File[] files = directory.listFiles();

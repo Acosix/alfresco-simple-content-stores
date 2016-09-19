@@ -21,6 +21,8 @@
     </bean>
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
+    
+    <bean id="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" abstract="true" class="${project.artifactId}.store.SiteAwareMultiDirectoryFileContentStore" />
 
     <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true" class="${project.artifactId}.store.DeduplicatingContentStore" parent="${project.artifactId}-commonFacadeStore">
         <property name="temporaryStore">

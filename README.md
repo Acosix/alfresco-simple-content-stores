@@ -7,6 +7,7 @@ The addon currently provides the following content store types:
 - "Selector Property" content store which routes content to different backing content stores based on the value of a specific single-valued text property (similar to Enterprise store selector aspect store but configurable for any property)
 - deduplicating content store which uses hash / message digest mechanism to construct content URLs and ensure that stored content is unique (no two files in storage a binary identical)
 - "better" file content store allowing use of custom store protocols to better differentiate content via URLs and support better orphan handling in routing stores
+- site-aware, multi-directory file content store - an extension of the "better" file content store - allowing different directories to be used to separately store site content without complex selector / routing setups based on either site name or site preset
 - compressing content store supporting transparent (de)compressing
 
 The following store types are planned at this time:
@@ -53,6 +54,7 @@ The following types can currently be used to define custom content stores:
 
 - selectorPropertyStore (the "Selector Property" store)
 - standardFileStore (file content store very similar to the Alfresco standard with some improvements, potentially storing content in a custom directory and using a custom store protocol)
+- siteAwareMultiDirectoryFileStore
 - aggregatingStore (Alfresco standard store supporting aggregation of content from multiple stores while writing only to one)
 - deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
 - standardCachingStore (Alfresco standard caching content store, retrieving and temporarily storing content from a remote, potentially slow content store)
@@ -84,6 +86,24 @@ Stores of type "standardFileStore" support the following properties:
 | deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
 | fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
 | contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
+
+Stores of type "siteAwareMultiDirectoryFileStore" support the following properties:
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| protocol | value | the protocol to be used on content URLs | store | yes |
+| rootDirectory | value | the path to the directory in which to store content outside of sites or when neither rootAbsolutePathsBySite nor rootAbsolutePathsBySitePreset contain an entry for the site of the content |  | no |
+| rootAbsolutePathsBySite | map(value) | the path to the directories in which to store content inside specific sites |  | yes |
+| protocolsBySite | map(value) | the protocols to be used on content URLs for content inside specific sites |  | yes |
+| rootAbsolutePathsBySitePreset | map(value) | the path to the directories in which to store content inside sites of specific preset |  | yes |
+| protocolsBySitePreset | map(value) | the protocols to be used on content URLs for content inside sites of specific presets |  | yes |
+| readOnly | value | true/false to mark the store as ready-only | false | yes |
+| allowRandomAccess | value | true/false to mark the store as capable of providing random access to content files | false | yes |
+| deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
+| fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
+| contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
+| useSiteFolderInGenericDirectories | value | true/false of the site name should be used to separate contents from different sites in either the rootDirectory or any entry of rootAbsolutePathsBySitePreset | false | yes |
+| moveStoresOnNodeMove | value | true/false if contents should be moved between directories when a content is moved between or in/out of sites | | yes |
 
 Stores of type "aggregatingStore" support the following properties:
 
