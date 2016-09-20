@@ -52,6 +52,8 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     protected Properties globalProperties;
 
+    protected String rootStoreProxyName;
+
     /**
      * @param globalProperties
      *            the globalProperties to set
@@ -59,6 +61,15 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     public void setGlobalProperties(final Properties globalProperties)
     {
         this.globalProperties = globalProperties;
+    }
+
+    /**
+     * @param rootStoreProxyName
+     *            the rootStoreProxyName to set
+     */
+    public void setRootStoreProxyName(final String rootStoreProxyName)
+    {
+        this.rootStoreProxyName = rootStoreProxyName;
     }
 
     /**
@@ -91,10 +102,26 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     protected void processRootStore(final BeanDefinitionRegistry registry)
     {
-        final String rootStore = this.globalProperties.getProperty(PROP_ROOT_STORE, "fileContentStore");
+        final String realRootStore = this.globalProperties.getProperty(PROP_ROOT_STORE, "fileContentStore");
+        LOGGER.info("Setting {} as root content store", realRootStore);
+
+        // complete the proxy definition
+        final BeanDefinition rootStoreProxyDefinition = registry.getBeanDefinition(this.rootStoreProxyName);
+        rootStoreProxyDefinition.getPropertyValues().add("target", new RuntimeBeanReference(realRootStore));
+        rootStoreProxyDefinition.getPropertyValues().add("singleton", Boolean.TRUE);
+
         final BeanDefinition contentServiceDefinition = registry.getBeanDefinition("contentService");
-        LOGGER.info("Setting {} as content service root store", rootStore);
-        contentServiceDefinition.getPropertyValues().add("store", new RuntimeBeanReference(rootStore));
+        contentServiceDefinition.getPropertyValues().add("store", new RuntimeBeanReference(this.rootStoreProxyName));
+
+        // baseMultiTAdminService may not be present if mt-*-context.xml files aren't included
+        final BeanDefinition baseMultiTAdminServiceDefinition = registry.getBeanDefinition("baseMultiTAdminService");
+        if (baseMultiTAdminServiceDefinition != null)
+        {
+            // though the property is named tenantFileContentStore it actually requires only ContentStore interface and runtime checks are
+            // against ContentStoreCaps or TenantDeployer (TenantRoutingContentStore was used sometime pre-5.x)
+            baseMultiTAdminServiceDefinition.getPropertyValues().add("tenantFileContentStore",
+                    new RuntimeBeanReference(this.rootStoreProxyName));
+        }
     }
 
     protected void emitCustomStoreBeanDefinitions(final BeanDefinitionRegistry registry)
@@ -127,8 +154,8 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     {
         if (registry.containsBeanDefinition(storeName))
         {
-            throw new AlfrescoRuntimeException(storeName
-                    + " (custom content store) cannot be defined - a bean with same name already exists");
+            throw new AlfrescoRuntimeException(
+                    storeName + " (custom content store) cannot be defined - a bean with same name already exists");
         }
 
         final String prefix = MessageFormat.format("{0}.{1}.", PROP_CUSTOM_STORE_PREFIX, storeName);
@@ -180,7 +207,7 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
             if (configuredValue == null)
             {
-                map = new ManagedMap<Object, Object>();
+                map = new ManagedMap<>();
                 beanPropertyValues.add(propertyName, map);
             }
             else
@@ -222,7 +249,7 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
                 throw new AlfrescoRuntimeException("Custom store property value already set");
             }
 
-            final ManagedList<Object> list = new ManagedList<Object>();
+            final ManagedList<Object> list = new ManagedList<>();
             final String[] values = propertyValue.split(",");
             for (final String value : values)
             {
