@@ -17,6 +17,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,7 +51,7 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore
 
     protected Map<String, String> protocolsBySite;
 
-    protected transient Map<String, File> rootDirectoriesByProtocol;
+    protected transient Map<String, File> rootDirectoriesByProtocol = new HashMap<>();
 
     protected boolean useSiteFolderInGenericDirectories;
 
@@ -355,8 +356,8 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore
         final String fileNormalizedAbsoultePath = FilenameUtils.normalize(file.getAbsolutePath());
         final List<String> absoluteRootPaths = new ArrayList<>();
         absoluteRootPaths.add(this.rootAbsolutePath);
-        absoluteRootPaths.addAll(this.rootAbsolutePathsBySitePreset.keySet());
-        absoluteRootPaths.addAll(this.rootAbsolutePathsBySite.keySet());
+        absoluteRootPaths.addAll(this.rootAbsolutePathsBySitePreset.values());
+        absoluteRootPaths.addAll(this.rootAbsolutePathsBySite.values());
 
         for (final String rootAbsolutePath : absoluteRootPaths)
         {
