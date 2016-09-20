@@ -35,6 +35,8 @@ import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+
 /**
  * @author Axel Faust
  */

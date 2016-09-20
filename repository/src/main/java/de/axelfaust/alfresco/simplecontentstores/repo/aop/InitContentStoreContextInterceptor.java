@@ -13,13 +13,20 @@
  */
 package de.axelfaust.alfresco.simplecontentstores.repo.aop;
 
+import java.util.Collection;
+
+import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
-import de.axelfaust.alfresco.simplecontentstores.repo.store.ContentStoreContext;
-import de.axelfaust.alfresco.simplecontentstores.repo.store.ContentStoreContext.ContentStoreOperation;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
  * This interceptor initializes the {@link ContentStoreContext} on any call to the root {@link ContentStore content store} and thus
@@ -27,8 +34,19 @@ import de.axelfaust.alfresco.simplecontentstores.repo.store.ContentStoreContext.
  *
  * @author Axel Faust
  */
-public class InitContentStoreContextInterceptor implements MethodInterceptor
+public class InitContentStoreContextInterceptor implements MethodInterceptor, ApplicationContextAware
 {
+
+    protected ApplicationContext applicationContext;
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
+    {
+        this.applicationContext = applicationContext;
+    }
 
     /**
      * {@inheritDoc}
@@ -45,6 +63,21 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor
             @Override
             public Object execute()
             {
+                final Object[] arguments = invocation.getArguments();
+                final Collection<ContentStoreContextInitializer> initializers = InitContentStoreContextInterceptor.this.applicationContext
+                        .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
+
+                for (final Object argument : arguments)
+                {
+                    if (argument instanceof ContentContext)
+                    {
+                        for (final ContentStoreContextInitializer initializer : initializers)
+                        {
+                            initializer.initialize((ContentContext) argument);
+                        }
+                    }
+                }
+
                 try
                 {
                     return invocation.proceed();

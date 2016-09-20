@@ -23,7 +23,6 @@
             <list>
                 <value>${project.artifactId}-contentStoreCapsInterceptor</value>
                 <value>${project.artifactId}-initContextInterceptor</value>
-                <value>${project.artifactId}-getWriterSiteContextInterceptor</value>
             </list>
         </property>
     </bean>
@@ -32,5 +31,7 @@
 
     <bean id="${project.artifactId}-initContextInterceptor" class="${project.artifactId}.aop.InitContentStoreContextInterceptor" />
 
-    <bean id="${project.artifactId}-getWriterSiteContextInterceptor" class="${project.artifactId}.aop.GetWriterContentStoreSiteContextInterceptor" />
+    <bean class="${project.artifactId}.store.context.SiteAttributesInitializer">
+        <property name="siteService" ref="SiteService" />
+    </bean>
 </beans>

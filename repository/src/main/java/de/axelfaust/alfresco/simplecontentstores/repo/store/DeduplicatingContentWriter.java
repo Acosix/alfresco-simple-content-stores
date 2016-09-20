@@ -41,6 +41,10 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreContextRestorator;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
+
 /**
  * @author Axel Faust
  */
@@ -50,6 +54,8 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
     private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicatingContentWriter.class);
+
+    protected final ContentStoreContextRestorator<Void> contextRestorator = ContentStoreContext.getContextRestorationHandle();
 
     protected final ContentContext context;
 
@@ -133,7 +139,20 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             this.findExistingContent();
             if (this.deduplicatedContentUrl == null)
             {
-                this.writeToBackingStore();
+                this.contextRestorator.withRestoredContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        DeduplicatingContentWriter.this.writeToBackingStore();
+                        return null;
+                    }
+
+                });
             }
             else if (this.backingContentStore.isWriteSupported())
             {
@@ -423,7 +442,8 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         contentUrlBuilder.append(ContentStore.PROTOCOL_DELIMITER);
 
         final int charsPerByte = this.bytesPerPathSegment * 2;
-        for (int segment = 0, digestLength = digest.length(); segment < this.pathSegments && digestLength >= (segment + 1) * charsPerByte; segment++)
+        for (int segment = 0, digestLength = digest.length(); segment < this.pathSegments
+                && digestLength >= (segment + 1) * charsPerByte; segment++)
         {
             final String digestFragment = digest.substring(segment * charsPerByte, (segment + 1) * charsPerByte);
             contentUrlBuilder.append(digestFragment);

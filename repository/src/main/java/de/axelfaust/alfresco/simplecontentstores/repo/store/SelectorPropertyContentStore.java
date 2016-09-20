@@ -51,17 +51,28 @@ import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
  * @author Axel Faust
  */
-public class SelectorPropertyContentStore extends CommonRoutingContentStore implements OnUpdatePropertiesPolicy, OnAddAspectPolicy,
-        BeforeRemoveAspectPolicy
+public class SelectorPropertyContentStore extends CommonRoutingContentStore
+        implements OnUpdatePropertiesPolicy, OnAddAspectPolicy, BeforeRemoveAspectPolicy, ApplicationContextAware
 {
 
     private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectorPropertyContentStore.class);
+
+    protected ApplicationContext applicationContext;
+
+    protected transient Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
 
     protected NodeService nodeService;
 
@@ -106,6 +117,15 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         this.afterPropertiesSet_setupStoreData();
         this.afterPropertiesSet_setupChangePolicies();
         this.afterPropertiesSet_setupConstraint();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
+    {
+        this.applicationContext = applicationContext;
     }
 
     /**
@@ -229,8 +249,23 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
 
             if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
             {
-                final Map<QName, Serializable> updates = new HashMap<QName, Serializable>();
-                this.processContentPropertiesMove(nodeRef, oldStore, newStore, updates, properties);
+                final Map<QName, Serializable> updates = new HashMap<>();
+
+                final ContentStore targetStore = newStore;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, oldStore, targetStore, updates, properties);
+                        return null;
+                    }
+
+                });
 
                 if (!updates.isEmpty())
                 {
@@ -281,8 +316,22 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
 
             if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
             {
-                final Map<QName, Serializable> updates = new HashMap<QName, Serializable>();
-                this.processContentPropertiesMove(nodeRef, oldStore, newStore, updates, properties);
+                final Map<QName, Serializable> updates = new HashMap<>();
+
+                final ContentStore sourceStore = oldStore;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, sourceStore, newStore, updates, properties);
+                        return null;
+                    }
+                });
 
                 if (!updates.isEmpty())
                 {
@@ -337,10 +386,26 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
 
                 if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
                 {
-                    final Map<QName, Serializable> updates = new HashMap<QName, Serializable>();
+                    final Map<QName, Serializable> updates = new HashMap<>();
                     // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
                     final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
-                    this.processContentPropertiesMove(nodeRef, oldStore, newStore, updates, properties);
+
+                    final ContentStore sourceStore = oldStore;
+                    final ContentStore targetStore = newStore;
+                    ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                    {
+
+                        /**
+                         * {@inheritDoc}
+                         */
+                        @Override
+                        public Void execute()
+                        {
+                            SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, sourceStore, targetStore, updates,
+                                    properties);
+                            return null;
+                        }
+                    });
 
                     if (!updates.isEmpty())
                     {
@@ -456,7 +521,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         else if (value instanceof Collection<?>)
         {
             final Collection<?> values = (Collection<?>) value;
-            final List<Object> updatedValues = new ArrayList<Object>();
+            final List<Object> updatedValues = new ArrayList<>();
             for (final Object valueElement : values)
             {
                 if (valueElement instanceof ContentData)
@@ -488,10 +553,17 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
     protected ContentData copyContent(final ContentStore oldStore, final ContentStore newStore, final ContentData oldData,
             final NodeRef nodeRef, final QName propertyQName)
     {
+        this.ensureInitializersAreSet();
+        final NodeContentContext initializerContext = new NodeContentContext(null, oldData.getContentUrl(), nodeRef, propertyQName);
+        for (final ContentStoreContextInitializer initializer : this.contentStoreContextInitializers)
+        {
+            initializer.initialize(initializerContext);
+        }
+
         ContentData updatedContentData;
 
         final String oldContentUrl = oldData.getContentUrl();
-        final Pair<String, String> urlParts = super.getContentUrlParts(oldContentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(oldContentUrl);
         final String protocol = urlParts.getFirst();
         final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + oldContentUrl.substring(protocol.length());
 
@@ -589,8 +661,8 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
         if (propertyDefinition == null || !DataTypeDefinition.TEXT.equals(propertyDefinition.getDataType().getName())
                 || propertyDefinition.isMultiValued())
         {
-            throw new IllegalStateException(this.selectorPropertyName
-                    + " is not a valid content model property of type single-valued d:text");
+            throw new IllegalStateException(
+                    this.selectorPropertyName + " is not a valid content model property of type single-valued d:text");
         }
     }
 
@@ -602,7 +674,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
             throw new IllegalStateException("No stores have been defined for property values");
         }
 
-        this.allStores = new ArrayList<ContentStore>();
+        this.allStores = new ArrayList<>();
         for (final ContentStore store : this.storeBySelectorPropertyValue.values())
         {
             if (!this.allStores.contains(store))
@@ -638,16 +710,16 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
 
         if (this.moveStoresOnChange || this.moveStoresOnChangeOptionPropertyQName != null)
         {
-            this.policyComponent.bindClassBehaviour(OnUpdatePropertiesPolicy.QNAME, this.selectorClassQName, new JavaBehaviour(this,
-                    "onUpdateProperties", NotificationFrequency.EVERY_EVENT));
+            this.policyComponent.bindClassBehaviour(OnUpdatePropertiesPolicy.QNAME, this.selectorClassQName,
+                    new JavaBehaviour(this, "onUpdateProperties", NotificationFrequency.EVERY_EVENT));
 
             final ClassDefinition classDefinition = this.dictionaryService.getClass(this.selectorClassQName);
             if (classDefinition.isAspect())
             {
-                this.policyComponent.bindClassBehaviour(BeforeRemoveAspectPolicy.QNAME, this.selectorClassQName, new JavaBehaviour(this,
-                        "beforeRemoveAspect", NotificationFrequency.EVERY_EVENT));
-                this.policyComponent.bindClassBehaviour(OnAddAspectPolicy.QNAME, this.selectorClassQName, new JavaBehaviour(this,
-                        "onAddAspect", NotificationFrequency.EVERY_EVENT));
+                this.policyComponent.bindClassBehaviour(BeforeRemoveAspectPolicy.QNAME, this.selectorClassQName,
+                        new JavaBehaviour(this, "beforeRemoveAspect", NotificationFrequency.EVERY_EVENT));
+                this.policyComponent.bindClassBehaviour(OnAddAspectPolicy.QNAME, this.selectorClassQName,
+                        new JavaBehaviour(this, "onAddAspect", NotificationFrequency.EVERY_EVENT));
             }
         }
     }
@@ -659,8 +731,23 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore impl
             final ListOfValuesConstraint lovConstraint = new ListOfValuesConstraint();
             lovConstraint.setShortName(this.selectorValuesConstraintShortName);
             lovConstraint.setRegistry(this.constraintRegistry);
-            lovConstraint.setAllowedValues(new ArrayList<String>(this.storeBySelectorPropertyValue.keySet()));
+            lovConstraint.setAllowedValues(new ArrayList<>(this.storeBySelectorPropertyValue.keySet()));
             lovConstraint.initialize();
+        }
+    }
+
+    protected void ensureInitializersAreSet()
+    {
+        if (this.contentStoreContextInitializers == null)
+        {
+            synchronized (this)
+            {
+                if (this.contentStoreContextInitializers == null)
+                {
+                    this.contentStoreContextInitializers = this.applicationContext
+                            .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
+                }
+            }
         }
     }
 }
