@@ -43,8 +43,6 @@ import org.springframework.beans.factory.InitializingBean;
 public abstract class CommonFacadingContentStore implements ContentStore, InitializingBean
 {
 
-    // TODO Handle ContentStoreCaps interface
-
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFacadingContentStore.class);
 
     protected NamespaceService namespaceService;
@@ -248,7 +246,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     {
         if (this.handleContentPropertyNames != null && !this.handleContentPropertyNames.isEmpty())
         {
-            this.handleContentPropertyQNames = new HashSet<QName>();
+            this.handleContentPropertyQNames = new HashSet<>();
             for (final String facadePropertyName : this.handleContentPropertyNames)
             {
                 final QName routePropertyQName = QName.resolveToQName(this.namespaceService, facadePropertyName);

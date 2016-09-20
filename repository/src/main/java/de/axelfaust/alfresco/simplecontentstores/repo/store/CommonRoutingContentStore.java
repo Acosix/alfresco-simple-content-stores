@@ -48,8 +48,6 @@ import org.springframework.beans.factory.InitializingBean;
 public abstract class CommonRoutingContentStore extends AbstractRoutingContentStore implements InitializingBean
 {
 
-    // TODO Handle ContentStoreCaps interface
-
     private static final int PROTOCOL_DELIMETER_LENGTH = PROTOCOL_DELIMITER.length();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonRoutingContentStore.class);
@@ -222,7 +220,7 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
                     if (store != null)
                     {
                         // Put the value in the cache
-                        final Pair<String, String> cacheKey = new Pair<String, String>(this.instanceKey, contentUrl);
+                        final Pair<String, String> cacheKey = new Pair<>(this.instanceKey, contentUrl);
                         this.storesByContentUrl.put(cacheKey, store);
                     }
                 }
@@ -306,7 +304,7 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
     protected ContentStore getStoreFromCache(final String contentUrl, final boolean mustExist)
     {
         ContentStore readStore = null;
-        final Pair<String, String> cacheKey = new Pair<String, String>(this.instanceKey, contentUrl);
+        final Pair<String, String> cacheKey = new Pair<>(this.instanceKey, contentUrl);
         this.storesCacheReadLock.lock();
         try
         {
@@ -376,14 +374,14 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
         {
             throw new UnsupportedContentUrlException(this, contentUrl);
         }
-        return new Pair<String, String>(protocol, identifier);
+        return new Pair<>(protocol, identifier);
     }
 
     private void afterPropertiesSet_setupRouteContentProperties()
     {
         if (this.routeContentPropertyNames != null && !this.routeContentPropertyNames.isEmpty())
         {
-            this.routeContentPropertyQNames = new HashSet<QName>();
+            this.routeContentPropertyQNames = new HashSet<>();
             for (final String routePropertyName : this.routeContentPropertyNames)
             {
                 final QName routePropertyQName = QName.resolveToQName(this.namespaceService, routePropertyName);
