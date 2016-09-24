@@ -418,7 +418,7 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
         }
     }
 
-    private void checkAndProcessContentPropertiesMove(final NodeRef affectedNode)
+    protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode)
     {
         final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
 

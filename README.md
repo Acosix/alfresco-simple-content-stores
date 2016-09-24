@@ -7,12 +7,14 @@ The addon currently provides the following content store types:
 - "Selector Property" content store which routes content to different backing content stores based on the value of a specific single-valued text property (similar to Enterprise store selector aspect store but configurable for any property)
 - deduplicating content store which uses hash / message digest mechanism to construct content URLs and ensure that stored content is unique (no two files in storage a binary identical)
 - "better" file content store allowing use of custom store protocols to better differentiate content via URLs and support better orphan handling in routing stores
-- site-aware, multi-directory file content store - an extension of the "better" file content store - allowing different directories to be used to separately store site content without complex selector / routing setups based on either site name or site preset
+- site-aware routing content store - content store which routes content to different backing content stores based on the name or preset of the site a content is located it
+- site-aware, multi-directory file content store - an extension of the "better" file content store - allowing different directories to be used to separately store site content based on either site name or site preset
 - compressing content store supporting transparent (de)compressing
 
 The following store types are planned at this time:
 - content stores to store / retrieve content from remote locations (not file-based, e.g. S3 or arbitrary HTTP)
 - container stores which (asynchronously) combines content files into an aggregate (to reduce file handles / optimize compression)
+- tenant-aware, multi-directory file content store as well as tenant-aware routing content store
 
 ### Content Store configuration without messing with Spring XML / beans
 Setting up a custom content store configuration in standard Alfresco requires writing Spring bean definitions in XML, understanding where to place configuration files and handling references to other content stores defined in either Alfresco or 3rd-party addon module Spring files. This can be very daunting for users / administrators new to Alfresco, and is unneccessarily complex / error-prone given how simple some other configurations in Alfresco can be.
@@ -52,7 +54,9 @@ Note: The above is meant as an example to illustrate how configuration works - i
 
 The following types can currently be used to define custom content stores:
 
-- selectorPropertyStore (the "Selector Property" store)
+- selectorPropertyRoutingStore (the "Selector Property" store)
+- selectorPropertyStore (just an alias for the above for backwards compatibility)
+- siteRoutingStore
 - standardFileStore (file content store very similar to the Alfresco standard with some improvements, potentially storing content in a custom directory and using a custom store protocol)
 - siteAwareMultiDirectoryFileStore
 - aggregatingStore (Alfresco standard store supporting aggregation of content from multiple stores while writing only to one)
@@ -74,6 +78,16 @@ Stores of type "selectorPropertyStore" support the following properties:
 | routeContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
 | moveStoresOnChange | value | true/false to mark if content should be moved between backing stores when the selector property value changes | false | yes |
 | moveStoresOnChangeOptionPropertyName | value | prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnChange |  | yes |
+
+Stores of type "siteRoutingStore" support the following properties:
+
+| name | type | description | default | optional |
+| :---| :--- | :--- | :--- | :--- |
+| storeBySite | map(ref) | backing content stores keyed by the site short name that select them - either storeBySite or storeBySitePreset must be provided |  | yes |
+| storeBySitePreset | map(ref) | backing content stores keyed by the site preset that select them - either storeBySite or storeBySitePreset must be provided |  | yes |
+| fallbackStore | ref | default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue |  | no |
+| routeContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
+| moveStoresOnNodeMoveOrCopy | value | true/false if contents should be moved to a (potentially) different directory when a content node is moved/copied between or in/out of sites | | yes |
 
 Stores of type "standardFileStore" support the following properties:
 

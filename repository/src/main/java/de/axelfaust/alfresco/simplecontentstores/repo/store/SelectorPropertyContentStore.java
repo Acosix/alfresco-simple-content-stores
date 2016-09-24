@@ -15,15 +15,10 @@ package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
-import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.NodeContentContext;
@@ -34,47 +29,29 @@ import org.alfresco.repo.node.NodeServicePolicies.OnAddAspectPolicy;
 import org.alfresco.repo.node.NodeServicePolicies.OnUpdatePropertiesPolicy;
 import org.alfresco.repo.policy.Behaviour.NotificationFrequency;
 import org.alfresco.repo.policy.JavaBehaviour;
-import org.alfresco.repo.policy.PolicyComponent;
-import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.ClassDefinition;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ContentData;
-import org.alfresco.service.cmr.repository.ContentReader;
-import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.NodeRef;
-import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.datatype.DefaultTypeConverter;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.EqualsHelper;
-import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
-import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
  * @author Axel Faust
  */
-public class SelectorPropertyContentStore extends CommonRoutingContentStore
-        implements OnUpdatePropertiesPolicy, OnAddAspectPolicy, BeforeRemoveAspectPolicy, ApplicationContextAware
+public class SelectorPropertyContentStore extends CommonRoutingContentStore<Serializable>
+        implements OnUpdatePropertiesPolicy, OnAddAspectPolicy, BeforeRemoveAspectPolicy
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectorPropertyContentStore.class);
-
-    protected ApplicationContext applicationContext;
-
-    protected transient Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
-
-    protected NodeService nodeService;
-
-    protected PolicyComponent policyComponent;
 
     protected ConstraintRegistry constraintRegistry;
 
@@ -115,33 +92,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         this.afterPropertiesSet_setupStoreData();
         this.afterPropertiesSet_setupChangePolicies();
         this.afterPropertiesSet_setupConstraint();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
-    {
-        this.applicationContext = applicationContext;
-    }
-
-    /**
-     * @param nodeService
-     *            the nodeService to set
-     */
-    public void setNodeService(final NodeService nodeService)
-    {
-        this.nodeService = nodeService;
-    }
-
-    /**
-     * @param policyComponent
-     *            the policyComponent to set
-     */
-    public void setPolicyComponent(final PolicyComponent policyComponent)
-    {
-        this.policyComponent = policyComponent;
     }
 
     /**
@@ -238,18 +188,9 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         {
             final Serializable selectorValue = properties.get(this.selectorPropertyQName);
 
-            final ContentStore oldStore = this.fallbackStore;
-            ContentStore newStore = this.storeBySelectorPropertyValue.get(selectorValue);
-            if (newStore == null)
+            // no need to move if no specific after value
+            if (selectorValue != null)
             {
-                newStore = this.fallbackStore;
-            }
-
-            if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
-            {
-                final Map<QName, Serializable> updates = new HashMap<>();
-
-                final ContentStore targetStore = newStore;
                 ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
                 {
 
@@ -259,16 +200,10 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
                     @Override
                     public Void execute()
                     {
-                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, oldStore, targetStore, updates, properties);
+                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, selectorValue);
                         return null;
                     }
-
                 });
-
-                if (!updates.isEmpty())
-                {
-                    this.nodeService.addProperties(nodeRef, updates);
-                }
             }
         }
     }
@@ -305,18 +240,9 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         {
             final Serializable selectorValue = properties.get(this.selectorPropertyQName);
 
-            ContentStore oldStore = this.storeBySelectorPropertyValue.get(selectorValue);
-            final ContentStore newStore = this.fallbackStore;
-            if (oldStore == null)
+            // no need to move if no specific before value
+            if (selectorValue != null)
             {
-                oldStore = this.fallbackStore;
-            }
-
-            if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
-            {
-                final Map<QName, Serializable> updates = new HashMap<>();
-
-                final ContentStore sourceStore = oldStore;
                 ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
                 {
 
@@ -326,15 +252,10 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
                     @Override
                     public Void execute()
                     {
-                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, sourceStore, newStore, updates, properties);
+                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, null);
                         return null;
                     }
                 });
-
-                if (!updates.isEmpty())
-                {
-                    this.nodeService.addProperties(nodeRef, updates);
-                }
             }
         }
     }
@@ -371,45 +292,22 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
 
             if (!EqualsHelper.nullSafeEquals(selectorValueBefore, selectorValueAfter))
             {
-                ContentStore oldStore = this.storeBySelectorPropertyValue.get(selectorValueBefore);
-                ContentStore newStore = this.storeBySelectorPropertyValue.get(selectorValueAfter);
-                if (oldStore == null)
-                {
-                    oldStore = this.fallbackStore;
-                }
-                if (newStore == null)
-                {
-                    newStore = this.fallbackStore;
-                }
+                // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
+                final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
 
-                if (oldStore != newStore || (oldStore == newStore && newStore != this.fallbackStore))
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
                 {
-                    final Map<QName, Serializable> updates = new HashMap<>();
-                    // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
-                    final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
 
-                    final ContentStore sourceStore = oldStore;
-                    final ContentStore targetStore = newStore;
-                    ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
                     {
-
-                        /**
-                         * {@inheritDoc}
-                         */
-                        @Override
-                        public Void execute()
-                        {
-                            SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, sourceStore, targetStore, updates,
-                                    properties);
-                            return null;
-                        }
-                    });
-
-                    if (!updates.isEmpty())
-                    {
-                        this.nodeService.addProperties(nodeRef, updates);
+                        SelectorPropertyContentStore.this.checkAndProcessContentPropertiesMove(nodeRef, properties, selectorValueAfter);
+                        return null;
                     }
-                }
+                });
             }
         }
     }
@@ -479,162 +377,16 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         return store;
     }
 
-    protected void processContentPropertiesMove(final NodeRef nodeRef, final ContentStore oldStore, final ContentStore newStore,
-            final Map<QName, Serializable> updates, final Map<QName, Serializable> properties)
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected ContentStore selectStoreForContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
+            final Serializable selectorValue)
     {
-        final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
-        if (this.routeContentPropertyQNames != null && !this.routeContentPropertyQNames.isEmpty())
-        {
-            for (final QName propertyQName : this.routeContentPropertyQNames)
-            {
-                if (contentProperties.contains(propertyQName))
-                {
-                    final Serializable value = properties.get(propertyQName);
-                    this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
-                }
-            }
-        }
-        else
-        {
-            for (final Entry<QName, Serializable> entry : properties.entrySet())
-            {
-                final QName propertyQName = entry.getKey();
-                if (contentProperties.contains(propertyQName))
-                {
-                    final Serializable value = entry.getValue();
-                    this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
-                }
-            }
-        }
-    }
-
-    protected void processContentPropertyMove(final NodeRef nodeRef, final ContentStore oldStore, final ContentStore newStore,
-            final QName propertyQName, final Serializable value, final Map<QName, Serializable> updates)
-    {
-        if (value instanceof ContentData)
-        {
-            final ContentData updatedContentData = this.copyContent(oldStore, newStore, (ContentData) value, nodeRef, propertyQName);
-            if (updatedContentData != null)
-            {
-                updates.put(propertyQName, updatedContentData);
-            }
-        }
-        else if (value instanceof Collection<?>)
-        {
-            final Collection<?> values = (Collection<?>) value;
-            final List<Object> updatedValues = new ArrayList<>();
-            for (final Object valueElement : values)
-            {
-                if (valueElement instanceof ContentData)
-                {
-                    final ContentData updatedContentData = this.copyContent(oldStore, newStore, (ContentData) valueElement, nodeRef,
-                            propertyQName);
-                    if (updatedContentData != null)
-                    {
-                        updatedValues.add(updatedContentData);
-                    }
-                    else
-                    {
-                        updatedValues.add(valueElement);
-                    }
-                }
-                else
-                {
-                    updatedValues.add(valueElement);
-                }
-            }
-
-            if (!EqualsHelper.nullSafeEquals(values, updatedValues))
-            {
-                updates.put(propertyQName, (Serializable) updatedValues);
-            }
-        }
-    }
-
-    protected ContentData copyContent(final ContentStore oldStore, final ContentStore newStore, final ContentData oldData,
-            final NodeRef nodeRef, final QName propertyQName)
-    {
-        this.ensureInitializersAreSet();
-        final NodeContentContext initializerContext = new NodeContentContext(null, oldData.getContentUrl(), nodeRef, propertyQName);
-        for (final ContentStoreContextInitializer initializer : this.contentStoreContextInitializers)
-        {
-            initializer.initialize(initializerContext);
-        }
-
-        ContentData updatedContentData;
-
-        final String oldContentUrl = oldData.getContentUrl();
-
-        if (oldStore.isContentUrlSupported(oldContentUrl) && oldStore.exists(oldContentUrl))
-        {
-            final Pair<String, String> urlParts = this.getContentUrlParts(oldContentUrl);
-            final String protocol = urlParts.getFirst();
-            final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + oldContentUrl.substring(protocol.length());
-
-            if (newStore.isContentUrlSupported(oldWildcardContentUrl) && newStore.exists(oldWildcardContentUrl))
-            {
-                final ContentReader reader = newStore.getReader(oldWildcardContentUrl);
-                if (!EqualsHelper.nullSafeEquals(oldContentUrl, reader.getContentUrl()))
-                {
-                    LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
-                            reader.getContentUrl());
-
-                    reader.setMimetype(oldData.getMimetype());
-                    reader.setEncoding(oldData.getEncoding());
-                    reader.setLocale(oldData.getLocale());
-
-                    updatedContentData = reader.getContentData();
-                }
-                else
-                {
-                    LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
-                    updatedContentData = null;
-                }
-            }
-            else if (newStore.isContentUrlSupported(oldContentUrl) && newStore.exists(oldContentUrl))
-            {
-                LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
-                updatedContentData = null;
-            }
-            else
-            {
-                final ContentReader reader = oldStore.getReader(oldContentUrl);
-                if (reader == null || !reader.exists())
-                {
-                    throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
-                }
-
-                final NodeContentContext contentContext = new NodeContentContext(reader,
-                        newStore.isContentUrlSupported(oldWildcardContentUrl) ? oldWildcardContentUrl : oldContentUrl, nodeRef,
-                        propertyQName);
-                final ContentWriter writer = newStore.getWriter(contentContext);
-
-                final String newContentUrl = writer.getContentUrl();
-
-                LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, oldContentUrl, newContentUrl);
-
-                // ensure content cleanup on rollback (only if a new, unique URL was created
-                if (!EqualsHelper.nullSafeEquals(oldContentUrl, newContentUrl))
-                {
-                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-                    urlsToDelete.add(newContentUrl);
-                }
-
-                writer.putContent(reader);
-
-                // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
-                // transformations, i.e. compression)
-                updatedContentData = new ContentData(writer.getContentUrl(), oldData.getMimetype(), oldData.getSize(),
-                        oldData.getEncoding(), oldData.getLocale());
-            }
-        }
-        else
-        {
-            LOGGER.trace("Content data for {} on {} not stored in old store", propertyQName, nodeRef);
-            updatedContentData = null;
-        }
-
-        return updatedContentData;
+        final ContentStore targetStore = this.storeBySelectorPropertyValue.get(selectorValue);
+        return targetStore;
     }
 
     /**
@@ -750,21 +502,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
             lovConstraint.setRegistry(this.constraintRegistry);
             lovConstraint.setAllowedValues(new ArrayList<>(this.storeBySelectorPropertyValue.keySet()));
             lovConstraint.initialize();
-        }
-    }
-
-    protected void ensureInitializersAreSet()
-    {
-        if (this.contentStoreContextInitializers == null)
-        {
-            synchronized (this)
-            {
-                if (this.contentStoreContextInitializers == null)
-                {
-                    this.contentStoreContextInitializers = this.applicationContext
-                            .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
-                }
-            }
         }
     }
 }

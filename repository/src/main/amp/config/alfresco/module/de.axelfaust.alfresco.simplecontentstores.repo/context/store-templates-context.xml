@@ -4,8 +4,10 @@
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
     <bean id="${project.artifactId}-commonRoutingStore" abstract="true">
+        <property name="policyComponent" ref="policyComponent" />
         <property name="namespaceService" ref="NamespaceService" />
         <property name="dictionaryService" ref="DictionaryService" />
+        <property name="nodeService" ref="NodeService" />
         <property name="storesCache" ref="routingContentStoreCache" />
     </bean>
 
@@ -14,11 +16,12 @@
         <property name="dictionaryService" ref="DictionaryService" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-selectorPropertyStore" abstract="true" class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-commonRoutingStore">
-        <property name="nodeService" ref="NodeService" />
-        <property name="policyComponent" ref="policyComponent" />
+    <bean id="simpleContentStoresTemplate-selectorPropertyRoutingStore" abstract="true" class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-commonRoutingStore">
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
+    <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
+    
+    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.SiteRoutingContentStore" parent="${project.artifactId}-commonRoutingStore" />
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
     

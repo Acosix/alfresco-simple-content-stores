@@ -13,14 +13,21 @@
  */
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
+import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.model.ContentModel;
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.content.AbstractRoutingContentStore;
 import org.alfresco.repo.content.ContentContext;
@@ -28,33 +35,55 @@ import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.EmptyContentReader;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.content.UnsupportedContentUrlException;
+import org.alfresco.repo.policy.PolicyComponent;
+import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
+import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
+import org.alfresco.service.cmr.repository.ContentWriter;
+import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
+import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.Pair;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
  * @author Axel Faust
  */
-public abstract class CommonRoutingContentStore extends AbstractRoutingContentStore implements InitializingBean
+public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingContentStore implements InitializingBean, ApplicationContextAware
 {
 
     private static final int PROTOCOL_DELIMETER_LENGTH = PROTOCOL_DELIMITER.length();
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonRoutingContentStore.class);
 
+    protected ApplicationContext applicationContext;
+
+    protected transient Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
+
+    protected PolicyComponent policyComponent;
+
     protected NamespaceService namespaceService;
 
     protected DictionaryService dictionaryService;
+
+    protected NodeService nodeService;
 
     protected List<String> routeContentPropertyNames;
 
@@ -117,6 +146,24 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
+    {
+        this.applicationContext = applicationContext;
+    }
+
+    /**
+     * @param policyComponent
+     *            the policyComponent to set
+     */
+    public void setPolicyComponent(final PolicyComponent policyComponent)
+    {
+        this.policyComponent = policyComponent;
+    }
+
+    /**
      * @param namespaceService
      *            the namespaceService to set
      */
@@ -132,6 +179,15 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
     public void setDictionaryService(final DictionaryService dictionaryService)
     {
         this.dictionaryService = dictionaryService;
+    }
+
+    /**
+     * @param nodeService
+     *            the nodeService to set
+     */
+    public void setNodeService(final NodeService nodeService)
+    {
+        this.nodeService = nodeService;
     }
 
     /**
@@ -345,6 +401,214 @@ public abstract class CommonRoutingContentStore extends AbstractRoutingContentSt
         final boolean result = this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentPropertyQName);
 
         return result;
+    }
+
+    protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode, final Map<QName, Serializable> properties,
+            final CD customData)
+    {
+        final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
+
+        final Collection<QName> setProperties = new HashSet<>(properties.keySet());
+        setProperties.retainAll(contentProperties);
+
+        // only act if node actually has content properties set
+        if (!setProperties.isEmpty())
+        {
+            final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
+            for (final QName contentProperty : setProperties)
+            {
+                final Serializable value = properties.get(contentProperty);
+                contentPropertiesMap.put(contentProperty, value);
+            }
+
+            if (!contentPropertiesMap.isEmpty())
+            {
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        CommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, customData);
+                        return null;
+                    }
+                });
+            }
+        }
+    }
+
+    protected void processContentPropertiesMove(final NodeRef nodeRef, final Map<QName, Serializable> contentProperties,
+            final CD customData)
+    {
+        final Map<QName, Serializable> updates = new HashMap<>();
+        for (final Entry<QName, Serializable> contentPropertyEntry : contentProperties.entrySet())
+        {
+            final QName contentProperty = contentPropertyEntry.getKey();
+            if (this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentProperty))
+            {
+                this.processContentPropertyMove(nodeRef, contentProperty, contentPropertyEntry.getValue(), updates, customData);
+            }
+        }
+
+        if (!updates.isEmpty())
+        {
+            this.nodeService.addProperties(nodeRef, updates);
+        }
+    }
+
+    protected void processContentPropertyMove(final NodeRef nodeRef, final QName propertyQName, final Serializable value,
+            final Map<QName, Serializable> updates, final CD customData)
+    {
+        if (value instanceof ContentData)
+        {
+            final ContentData contentData = (ContentData) value;
+            final ContentData updatedContentData = this.processContentDataMove(nodeRef, propertyQName, contentData, customData);
+            if (updatedContentData != null)
+            {
+                updates.put(propertyQName, updatedContentData);
+            }
+        }
+        else if (value instanceof Collection<?>)
+        {
+            final Collection<?> values = (Collection<?>) value;
+            final List<Object> updatedValues = new ArrayList<>();
+            for (final Object valueElement : values)
+            {
+                if (valueElement instanceof ContentData)
+                {
+                    final ContentData updatedContentData = this.processContentDataMove(nodeRef, propertyQName, (ContentData) valueElement,
+                            customData);
+                    if (updatedContentData != null)
+                    {
+                        updatedValues.add(updatedContentData);
+                    }
+                    else
+                    {
+                        updatedValues.add(valueElement);
+                    }
+                }
+                else
+                {
+                    updatedValues.add(valueElement);
+                }
+            }
+
+            if (!EqualsHelper.nullSafeEquals(values, updatedValues))
+            {
+                updates.put(propertyQName, (Serializable) updatedValues);
+            }
+        }
+    }
+
+    protected abstract ContentStore selectStoreForContentDataMove(NodeRef nodeRef, QName propertyQName, ContentData contentData,
+            CD customData);
+
+    protected ContentData processContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
+            final CD customData)
+    {
+        ContentData updatedContentData = null;
+        final String currentContentUrl = contentData.getContentUrl();
+
+        // only act if actually managed in this store
+        if (this.exists(currentContentUrl))
+        {
+            this.initializeContentStoreContext(nodeRef);
+
+            final ContentStore targetStore = this.selectStoreForContentDataMove(nodeRef, propertyQName, contentData, customData);
+
+            final Pair<String, String> urlParts = this.getContentUrlParts(currentContentUrl);
+            final String protocol = urlParts.getFirst();
+            final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + currentContentUrl.substring(protocol.length());
+
+            if (targetStore.isContentUrlSupported(oldWildcardContentUrl) && targetStore.exists(oldWildcardContentUrl))
+            {
+                final ContentReader reader = targetStore.getReader(oldWildcardContentUrl);
+                if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
+                {
+                    LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
+                            reader.getContentUrl());
+
+                    reader.setMimetype(contentData.getMimetype());
+                    reader.setEncoding(contentData.getEncoding());
+                    reader.setLocale(contentData.getLocale());
+
+                    updatedContentData = reader.getContentData();
+                }
+                else
+                {
+                    LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
+                    updatedContentData = null;
+                }
+            }
+            else if (targetStore.isContentUrlSupported(currentContentUrl) && targetStore.exists(currentContentUrl))
+            {
+                LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
+                updatedContentData = null;
+            }
+            else
+            {
+                final ContentReader reader = this.getReader(currentContentUrl);
+                if (reader == null || !reader.exists())
+                {
+                    throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
+                }
+
+                final NodeContentContext contentContext = new NodeContentContext(reader,
+                        targetStore.isContentUrlSupported(oldWildcardContentUrl) ? oldWildcardContentUrl : currentContentUrl, nodeRef,
+                        propertyQName);
+                final ContentWriter writer = targetStore.getWriter(contentContext);
+
+                final String newContentUrl = writer.getContentUrl();
+
+                LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentContentUrl, newContentUrl);
+
+                // ensure content cleanup on rollback (only if a new, unique URL was created
+                if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
+                {
+                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+                    urlsToDelete.add(newContentUrl);
+                }
+
+                writer.putContent(reader);
+
+                // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
+                // transformations, i.e. compression)
+                updatedContentData = new ContentData(writer.getContentUrl(), contentData.getMimetype(), contentData.getSize(),
+                        contentData.getEncoding(), contentData.getLocale());
+            }
+        }
+
+        return updatedContentData;
+    }
+
+    protected void ensureInitializersAreSet()
+    {
+        if (this.contentStoreContextInitializers == null)
+        {
+            synchronized (this)
+            {
+                if (this.contentStoreContextInitializers == null)
+                {
+                    this.contentStoreContextInitializers = this.applicationContext
+                            .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
+                }
+            }
+        }
+    }
+
+    protected void initializeContentStoreContext(final NodeRef nodeRef)
+    {
+        this.ensureInitializersAreSet();
+
+        // use ContentModel.PROP_CONTENT as a dummy we need for initialization
+        final NodeContentContext initializerContext = new NodeContentContext(null, null, nodeRef, ContentModel.PROP_CONTENT);
+        for (final ContentStoreContextInitializer initializer : this.contentStoreContextInitializers)
+        {
+            initializer.initialize(initializerContext);
+        }
     }
 
     // copied from AbstractContentStore
