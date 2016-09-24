@@ -45,8 +45,6 @@ import org.slf4j.LoggerFactory;
 public class CompressingContentWriter extends AbstractContentWriter implements ContentStreamListener
 {
 
-    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentWriter.class);
 
     private static final CompressorStreamFactory COMPRESSOR_STREAM_FACTORY = new CompressorStreamFactory();

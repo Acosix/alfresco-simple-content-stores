@@ -71,8 +71,6 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
 
     private static final String SITE_PATH_INDICATOR = "_site_/";
 
-    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(SiteAwareMultiDirectoryFileContentStore.class);
 
     protected transient Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
@@ -559,7 +557,7 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
                 {
                     LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentUrl, newContentUrl);
 
-                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
                     urlsToDelete.add(newContentUrl);
 
                     final ContentReader reader = this.getReader(currentUrl);

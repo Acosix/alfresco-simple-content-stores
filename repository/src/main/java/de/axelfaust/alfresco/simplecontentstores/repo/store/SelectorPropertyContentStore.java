@@ -66,8 +66,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         implements OnUpdatePropertiesPolicy, OnAddAspectPolicy, BeforeRemoveAspectPolicy, ApplicationContextAware
 {
 
-    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectorPropertyContentStore.class);
 
     protected ApplicationContext applicationContext;
@@ -618,7 +616,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
                 // ensure content cleanup on rollback (only if a new, unique URL was created
                 if (!EqualsHelper.nullSafeEquals(oldContentUrl, newContentUrl))
                 {
-                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
                     urlsToDelete.add(newContentUrl);
                 }
 

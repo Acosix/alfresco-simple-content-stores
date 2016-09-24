@@ -28,4 +28,9 @@ public interface StoreConstants
      */
     String WILDCARD_PROTOCOL = "dummy-wildcard-store-protocol";
 
+    /**
+     * Transactional key for content URLs that should have their content deleted when the current transaction rolls back. This constant is
+     * necessary because it is not exposed by Alfresco code itself.
+     */
+    String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
 }

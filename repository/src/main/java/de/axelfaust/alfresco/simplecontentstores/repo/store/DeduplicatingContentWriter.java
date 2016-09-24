@@ -51,8 +51,6 @@ import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStore
 public class DeduplicatingContentWriter extends AbstractContentWriter implements ContentStreamListener
 {
 
-    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicatingContentWriter.class);
 
     protected final ContentStoreContextRestorator<Void> contextRestorator = ContentStoreContext.getContextRestorationHandle();
@@ -369,7 +367,7 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         super.setContentUrl(this.deduplicatedContentUrl);
 
         // this is a new URL so register for rollback handling
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
         urlsToDelete.add(this.deduplicatedContentUrl);
     }
 

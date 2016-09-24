@@ -31,8 +31,6 @@ import org.slf4j.LoggerFactory;
 public class CompressingContentStore extends CommonFacadingContentStore
 {
 
-    private static final String KEY_POST_ROLLBACK_DELETION_URLS = "ContentStoreCleaner.PostRollbackDeletionUrls";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentStore.class);
 
     protected ContentStore temporaryStore;
@@ -100,7 +98,7 @@ public class CompressingContentStore extends CommonFacadingContentStore
         final ContentWriter backingWriter = super.getWriter(context);
 
         // this is a new URL so register for rollback handling
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
         urlsToDelete.add(backingWriter.getContentUrl());
 
         final ContentWriter writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore,
