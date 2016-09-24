@@ -484,12 +484,16 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
     protected void processContentPropertiesMove(final NodeRef nodeRef, final ContentStore oldStore, final ContentStore newStore,
             final Map<QName, Serializable> updates, final Map<QName, Serializable> properties)
     {
+        final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
         if (this.routeContentPropertyQNames != null && !this.routeContentPropertyQNames.isEmpty())
         {
             for (final QName propertyQName : this.routeContentPropertyQNames)
             {
-                final Serializable value = properties.get(propertyQName);
-                this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
+                if (contentProperties.contains(propertyQName))
+                {
+                    final Serializable value = properties.get(propertyQName);
+                    this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
+                }
             }
         }
         else
@@ -497,8 +501,7 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
             for (final Entry<QName, Serializable> entry : properties.entrySet())
             {
                 final QName propertyQName = entry.getKey();
-                final PropertyDefinition propertyDefinition = this.dictionaryService.getProperty(propertyQName);
-                if (propertyDefinition != null && DataTypeDefinition.CONTENT.equals(propertyDefinition.getDataType().getName()))
+                if (contentProperties.contains(propertyQName))
                 {
                     final Serializable value = entry.getValue();
                     this.processContentPropertyMove(nodeRef, oldStore, newStore, propertyQName, value, updates);
@@ -563,57 +566,73 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore
         ContentData updatedContentData;
 
         final String oldContentUrl = oldData.getContentUrl();
-        final Pair<String, String> urlParts = this.getContentUrlParts(oldContentUrl);
-        final String protocol = urlParts.getFirst();
-        final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + oldContentUrl.substring(protocol.length());
 
-        if (oldStore.isContentUrlSupported(oldWildcardContentUrl) && newStore.isContentUrlSupported(oldWildcardContentUrl)
-                && newStore.exists(oldWildcardContentUrl))
+        if (oldStore.isContentUrlSupported(oldContentUrl) && oldStore.exists(oldContentUrl))
         {
-            final ContentReader reader = oldStore.getReader(oldWildcardContentUrl);
-            if (!EqualsHelper.nullSafeEquals(oldContentUrl, reader.getContentUrl()))
-            {
-                reader.setMimetype(oldData.getMimetype());
-                reader.setEncoding(oldData.getEncoding());
-                reader.setLocale(oldData.getLocale());
+            final Pair<String, String> urlParts = this.getContentUrlParts(oldContentUrl);
+            final String protocol = urlParts.getFirst();
+            final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + oldContentUrl.substring(protocol.length());
 
-                updatedContentData = reader.getContentData();
+            if (newStore.isContentUrlSupported(oldWildcardContentUrl) && newStore.exists(oldWildcardContentUrl))
+            {
+                final ContentReader reader = newStore.getReader(oldWildcardContentUrl);
+                if (!EqualsHelper.nullSafeEquals(oldContentUrl, reader.getContentUrl()))
+                {
+                    LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
+                            reader.getContentUrl());
+
+                    reader.setMimetype(oldData.getMimetype());
+                    reader.setEncoding(oldData.getEncoding());
+                    reader.setLocale(oldData.getLocale());
+
+                    updatedContentData = reader.getContentData();
+                }
+                else
+                {
+                    LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
+                    updatedContentData = null;
+                }
+            }
+            else if (newStore.isContentUrlSupported(oldContentUrl) && newStore.exists(oldContentUrl))
+            {
+                LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
+                updatedContentData = null;
             }
             else
             {
-                updatedContentData = null;
+                final ContentReader reader = oldStore.getReader(oldContentUrl);
+                if (reader == null || !reader.exists())
+                {
+                    throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
+                }
+
+                final NodeContentContext contentContext = new NodeContentContext(reader,
+                        newStore.isContentUrlSupported(oldWildcardContentUrl) ? oldWildcardContentUrl : oldContentUrl, nodeRef,
+                        propertyQName);
+                final ContentWriter writer = newStore.getWriter(contentContext);
+
+                final String newContentUrl = writer.getContentUrl();
+
+                LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, oldContentUrl, newContentUrl);
+
+                // ensure content cleanup on rollback (only if a new, unique URL was created
+                if (!EqualsHelper.nullSafeEquals(oldContentUrl, newContentUrl))
+                {
+                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
+                    urlsToDelete.add(newContentUrl);
+                }
+
+                writer.putContent(reader);
+
+                // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
+                // transformations, i.e. compression)
+                updatedContentData = new ContentData(writer.getContentUrl(), oldData.getMimetype(), oldData.getSize(),
+                        oldData.getEncoding(), oldData.getLocale());
             }
-        }
-        else if (!newStore.isContentUrlSupported(oldContentUrl) || !newStore.exists(oldContentUrl))
-        {
-            final ContentReader reader = oldStore.getReader(oldContentUrl);
-            if (reader == null || !reader.exists())
-            {
-                throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
-            }
-
-            final NodeContentContext contentContext = new NodeContentContext(reader,
-                    newStore.isContentUrlSupported(oldWildcardContentUrl) ? oldWildcardContentUrl : oldContentUrl, nodeRef, propertyQName);
-            final ContentWriter writer = newStore.getWriter(contentContext);
-
-            final String newContentUrl = writer.getContentUrl();
-
-            // ensure content cleanup on rollback (only if a new, unique URL was created
-            if (!EqualsHelper.nullSafeEquals(oldContentUrl, newContentUrl))
-            {
-                final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_ROLLBACK_DELETION_URLS);
-                urlsToDelete.add(newContentUrl);
-            }
-
-            writer.putContent(reader);
-
-            // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
-            // transformations, i.e. compression)
-            updatedContentData = new ContentData(writer.getContentUrl(), oldData.getMimetype(), oldData.getSize(), oldData.getEncoding(),
-                    oldData.getLocale());
         }
         else
         {
+            LOGGER.trace("Content data for {} on {} not stored in old store", propertyQName, nodeRef);
             updatedContentData = null;
         }
 

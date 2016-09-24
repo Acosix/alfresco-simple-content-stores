@@ -102,8 +102,12 @@ Stores of type "siteAwareMultiDirectoryFileStore" support the following properti
 | deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
 | fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
 | contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
+| fixedLimitBySite | map(value) | the fixed file size limit for content items of a specific site stored in this store | | yes
+| contentLimitProviderBySite | map(ref) | the limit provider for content items of a specific site stored in this store |  | yes |
+| fixedLimitBySitePreset | map(value) | the fixed file size limit for content items in sites of a specific site preset stored in this store | | yes
+| contentLimitProviderSitePreset | map(ref) | the limit provider for content items in sites of a specific site preset stored in this store |  | yes |
 | useSiteFolderInGenericDirectories | value | true/false of the site name should be used to separate contents from different sites in either the rootDirectory or any entry of rootAbsolutePathsBySitePreset | false | yes |
-| moveStoresOnNodeMove | value | true/false if contents should be moved between directories when a content is moved between or in/out of sites | | yes |
+| moveStoresOnNodeMoveOrCopy | value | true/false if contents should be moved to a (potentially) different directory when a content node is moved/copied between or in/out of sites | | yes |
 
 Stores of type "aggregatingStore" support the following properties:
 

@@ -283,9 +283,9 @@ public class FileContentStore extends AbstractContentStore
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
+        final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
+        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
         final String protocol = urlParts.getFirst();
-        final String relativePath = urlParts.getSecond();
 
         boolean result;
         if (protocol.equals(SPOOF_PROTOCOL))
@@ -294,7 +294,7 @@ public class FileContentStore extends AbstractContentStore
         }
         else
         {
-            final File file = this.makeFile(protocol, relativePath);
+            final File file = this.makeFile(effectiveContentUrl);
             result = file.exists();
         }
         return result;
@@ -308,17 +308,9 @@ public class FileContentStore extends AbstractContentStore
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
-        String protocol = urlParts.getFirst();
-        final String relativePath = urlParts.getSecond();
-        String effectiveContentUrl = contentUrl;
-
-        // need to correct protocol + contentUrl
-        if (StoreConstants.WILDCARD_PROTOCOL.equals(protocol))
-        {
-            effectiveContentUrl = this.protocol + PROTOCOL_DELIMITER + relativePath;
-            protocol = this.protocol;
-        }
+        final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
+        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
+        final String protocol = urlParts.getFirst();
 
         ContentReader reader;
         // Handle the spoofed URL
@@ -331,7 +323,7 @@ public class FileContentStore extends AbstractContentStore
             // else, it's a real file we are after
             try
             {
-                final File file = this.makeFile(protocol, relativePath);
+                final File file = this.makeFile(effectiveContentUrl);
                 if (file.exists())
                 {
                     final FileContentReader fileContentReader = new FileContentReader(file, effectiveContentUrl);
@@ -375,10 +367,10 @@ public class FileContentStore extends AbstractContentStore
         }
 
         boolean deleted;
-        // Dig out protocol
-        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
+        final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
+        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
         final String protocol = urlParts.getFirst();
-        final String relativePath = urlParts.getSecond();
+
         if (protocol.equals(SPOOF_PROTOCOL))
         {
             // This is not a failure but the content can never actually be deleted
@@ -387,7 +379,7 @@ public class FileContentStore extends AbstractContentStore
         else
         {
             // Handle regular files based on the real files
-            final File file = this.makeFile(protocol, relativePath);
+            final File file = this.makeFile(effectiveContentUrl);
             if (!file.exists())
             {
                 // File does not exist
@@ -405,7 +397,7 @@ public class FileContentStore extends AbstractContentStore
             }
 
             // done
-            LOGGER.debug("Delete content directly: \n   store: {}\n   url: {}", this, contentUrl);
+            LOGGER.debug("Delete content directly: \n   store: {}\n   url: {}", this, effectiveContentUrl);
         }
 
         return deleted;
@@ -449,24 +441,14 @@ public class FileContentStore extends AbstractContentStore
             File file = null;
             if (newContentUrl == null) // a specific URL was not supplied
             {
-                // get a new file with a new URL
-                file = this.createNewFile();
-                // make a URL
-                contentUrl = this.makeContentUrl(file);
+                contentUrl = this.createNewFileStoreUrl();
             }
             else
             // the URL has been given
             {
-                final Pair<String, String> urlParts = this.getContentUrlParts(newContentUrl);
-                final String protocol = urlParts.getFirst();
-                // need to correct protocol + contentUrl
-                if (StoreConstants.WILDCARD_PROTOCOL.equals(protocol))
-                {
-                    contentUrl = this.protocol + PROTOCOL_DELIMITER + urlParts.getSecond();
-                }
-
-                file = this.createNewFile(contentUrl);
+                contentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(newContentUrl, this.protocol);
             }
+            file = this.createNewFile(contentUrl);
             // create the writer
             final FileContentWriter writer = new FileContentWriter(file, contentUrl, existingContentReader);
 
@@ -485,19 +467,6 @@ public class FileContentStore extends AbstractContentStore
         {
             throw new ContentIOException("Failed to get writer for URL: " + contentUrl, e);
         }
-    }
-
-    /**
-     * Generates a new URL and file appropriate to it.
-     *
-     * @return a new and unique file
-     * @throws IOException
-     *             if the file or parent directories couldn't be created
-     */
-    protected File createNewFile() throws IOException
-    {
-        final String contentUrl = this.createNewFileStoreUrl();
-        return this.createNewFile(contentUrl);
     }
 
     /**
@@ -628,8 +597,8 @@ public class FileContentStore extends AbstractContentStore
      */
     protected File makeFile(final String contentUrl)
     {
-        // take just the part after the protocol
-        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
+        final String baseContentUrl = ContentUrlUtils.getBaseContentUrl(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(baseContentUrl);
         final String protocol = urlParts.getFirst();
         final String relativePath = urlParts.getSecond();
         return this.makeFile(protocol, relativePath);
