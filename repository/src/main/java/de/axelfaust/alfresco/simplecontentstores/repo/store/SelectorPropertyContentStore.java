@@ -417,8 +417,8 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore<Seri
 
         this.selectorClassQName = QName.resolveToQName(this.namespaceService, this.selectorClassName);
         this.selectorPropertyQName = QName.resolveToQName(this.namespaceService, this.selectorPropertyName);
-        PropertyCheck.mandatory(this, "classQName", this.selectorClassQName);
-        PropertyCheck.mandatory(this, "propertyQName", this.selectorPropertyQName);
+        PropertyCheck.mandatory(this, "selectorClassQName", this.selectorClassQName);
+        PropertyCheck.mandatory(this, "selectorPropertyQName", this.selectorPropertyQName);
 
         final ClassDefinition classDefinition = this.dictionaryService.getClass(this.selectorClassQName);
         if (classDefinition == null)

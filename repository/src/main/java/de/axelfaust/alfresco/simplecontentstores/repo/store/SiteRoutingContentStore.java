@@ -26,6 +26,8 @@ import org.alfresco.repo.copy.CopyServicePolicies.OnCopyCompletePolicy;
 import org.alfresco.repo.node.NodeServicePolicies.OnMoveNodePolicy;
 import org.alfresco.repo.policy.Behaviour.NotificationFrequency;
 import org.alfresco.repo.policy.JavaBehaviour;
+import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
+import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.NodeRef;
@@ -52,6 +54,10 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
     protected transient List<ContentStore> allStores;
 
     protected boolean moveStoresOnNodeMoveOrCopy;
+
+    protected String moveStoresOnNodeMoveOrCopyName;
+
+    protected transient QName moveStoresOnNodeMoveOrCopyQName;
 
     /**
      *
@@ -94,6 +100,15 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
     }
 
     /**
+     * @param moveStoresOnNodeMoveOrCopyName
+     *            the moveStoresOnNodeMoveOrCopyName to set
+     */
+    public void setMoveStoresOnNodeMoveOrCopyName(final String moveStoresOnNodeMoveOrCopyName)
+    {
+        this.moveStoresOnNodeMoveOrCopyName = moveStoresOnNodeMoveOrCopyName;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -103,11 +118,7 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
         final NodeRef movedNode = oldChildAssocRef.getChildRef();
         if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(movedNode.getStoreRef()))
         {
-            // TODO Introduce similar (optional) moveStoresOnChangeOptionPropertyQName for override control as in
-            // SelectorPropertyContentStore
-
-            final Map<QName, Serializable> properties = this.nodeService.getProperties(movedNode);
-            this.checkAndProcessContentPropertiesMove(movedNode, properties, null);
+            this.checkAndProcessContentPropertiesMove(movedNode);
         }
     }
 
@@ -121,10 +132,35 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
         // only act on active nodes which can actually be in a site
         if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(targetNodeRef.getStoreRef()))
         {
-            // TODO Introduce similar (optional) moveStoresOnChangeOptionPropertyQName for override control as in
-            // SelectorPropertyContentStore
+            this.checkAndProcessContentPropertiesMove(targetNodeRef);
+        }
+    }
 
-            final Map<QName, Serializable> properties = this.nodeService.getProperties(targetNodeRef);
+    protected void checkAndProcessContentPropertiesMove(final NodeRef targetNodeRef)
+    {
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(targetNodeRef);
+
+        boolean doMove = false;
+        if (this.moveStoresOnNodeMoveOrCopyQName != null)
+        {
+            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnNodeMoveOrCopyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
+            {
+                doMove = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
+            }
+            else
+            {
+                doMove = this.moveStoresOnNodeMoveOrCopy;
+            }
+        }
+        else
+        {
+            doMove = this.moveStoresOnNodeMoveOrCopy;
+        }
+
+        if (doMove)
+        {
             this.checkAndProcessContentPropertiesMove(targetNodeRef, properties, null);
         }
     }
@@ -229,7 +265,23 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
 
     private void afterPropertiesSet_setupChangePolicies()
     {
-        if (this.moveStoresOnNodeMoveOrCopy)
+        if (this.moveStoresOnNodeMoveOrCopyName != null)
+        {
+            this.moveStoresOnNodeMoveOrCopyQName = QName.resolveToQName(this.namespaceService, this.moveStoresOnNodeMoveOrCopyName);
+            PropertyCheck.mandatory(this, "moveStoresOnChangeOptionPropertyQName", this.moveStoresOnNodeMoveOrCopyQName);
+
+            final PropertyDefinition moveStoresOnChangeOptionPropertyDefinition = this.dictionaryService
+                    .getProperty(this.moveStoresOnNodeMoveOrCopyQName);
+            if (moveStoresOnChangeOptionPropertyDefinition == null
+                    || !DataTypeDefinition.BOOLEAN.equals(moveStoresOnChangeOptionPropertyDefinition.getDataType().getName())
+                    || moveStoresOnChangeOptionPropertyDefinition.isMultiValued())
+            {
+                throw new IllegalStateException(
+                        this.moveStoresOnNodeMoveOrCopyName + " is not a valid content model property of type single-valued d:boolean");
+            }
+        }
+
+        if (this.moveStoresOnNodeMoveOrCopy || this.moveStoresOnNodeMoveOrCopyQName != null)
         {
             PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
             PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);

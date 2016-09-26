@@ -88,6 +88,7 @@ Stores of type "siteRoutingStore" support the following properties:
 | fallbackStore | ref | default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue |  | no |
 | routeContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
 | moveStoresOnNodeMoveOrCopy | value | true/false if contents should be moved to a (potentially) different directory when a content node is moved/copied between or in/out of sites | | yes |
+| moveStoresOnNodeMoveOrCopyName | value | prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnNodeMoveOrCopy |  | yes |
 
 Stores of type "standardFileStore" support the following properties:
 
@@ -122,6 +123,7 @@ Stores of type "siteAwareMultiDirectoryFileStore" support the following properti
 | contentLimitProviderSitePreset | map(ref) | the limit provider for content items in sites of a specific site preset stored in this store |  | yes |
 | useSiteFolderInGenericDirectories | value | true/false of the site name should be used to separate contents from different sites in either the rootDirectory or any entry of rootAbsolutePathsBySitePreset | false | yes |
 | moveStoresOnNodeMoveOrCopy | value | true/false if contents should be moved to a (potentially) different directory when a content node is moved/copied between or in/out of sites | | yes |
+| moveStoresOnNodeMoveOrCopyName | value | prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnNodeMoveOrCopy |  | yes |
 
 Stores of type "aggregatingStore" support the following properties:
 

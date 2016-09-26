@@ -27,6 +27,7 @@
     
     <bean id="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" abstract="true" class="${project.artifactId}.store.SiteAwareMultiDirectoryFileContentStore">
         <property name="policyComponent" ref="policyComponent" />
+        <property name="namespaceService" ref="NamespaceService" />
         <property name="dictionaryService" ref="DictionaryService" />
         <property name="nodeService" ref="NodeService" />
     </bean>

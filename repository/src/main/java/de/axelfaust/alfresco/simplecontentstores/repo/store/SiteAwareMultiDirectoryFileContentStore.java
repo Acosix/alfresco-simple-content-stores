@@ -42,6 +42,7 @@ import org.alfresco.repo.policy.PolicyComponent;
 import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
+import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
@@ -50,6 +51,7 @@ import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.repository.StoreRef;
+import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.Pair;
@@ -77,6 +79,8 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
 
     protected PolicyComponent policyComponent;
 
+    protected NamespaceService namespaceService;
+
     protected DictionaryService dictionaryService;
 
     protected NodeService nodeService;
@@ -99,6 +103,10 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
 
     protected Map<String, ContentLimitProvider> contentLimitProviderBySite;
 
+    protected String moveStoresOnNodeMoveOrCopyName;
+
+    protected transient QName moveStoresOnNodeMoveOrCopyQName;
+
     /**
      *
      * {@inheritDoc}
@@ -106,86 +114,11 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
     @Override
     public void afterPropertiesSet()
     {
-        if (this.rootAbsolutePathsBySite != null)
-        {
-            PropertyCheck.mandatory(this, "protocolBySite", this.protocolsBySite);
-
-            for (final Entry<String, String> entry : this.rootAbsolutePathsBySite.entrySet())
-            {
-                final String site = entry.getKey();
-                final String protocol = this.protocolsBySite.get(site);
-                PropertyCheck.mandatory(this, "protocolBySite." + site, protocol);
-
-                if (this.rootDirectoriesByProtocol.containsKey(protocol))
-                {
-                    throw new ContentIOException("Failed to set up site aware content store - duplicate protocol: " + protocol, null);
-                }
-
-                final File directory = new File(entry.getValue());
-                if (!directory.exists() && !directory.mkdirs())
-                {
-                    throw new ContentIOException("Failed to create store root: " + directory, null);
-                }
-
-                this.rootDirectoriesByProtocol.put(protocol, directory);
-                entry.setValue(directory.getAbsolutePath());
-            }
-        }
-        else
-        {
-            this.rootAbsolutePathsBySite = Collections.emptyMap();
-        }
-
-        if (this.rootAbsolutePathsBySitePreset != null)
-        {
-            PropertyCheck.mandatory(this, "protocolBySitePreset", this.protocolsBySitePreset);
-
-            for (final Entry<String, String> entry : this.rootAbsolutePathsBySitePreset.entrySet())
-            {
-                final String sitePreset = entry.getKey();
-                final String protocol = this.protocolsBySitePreset.get(sitePreset);
-                PropertyCheck.mandatory(this, "protocolBySitePreset." + sitePreset, protocol);
-
-                if (this.rootDirectoriesByProtocol.containsKey(protocol))
-                {
-                    throw new ContentIOException("Failed to set up site aware content store - duplicate protocol: " + protocol, null);
-                }
-
-                final File directory = new File(entry.getValue());
-                if (!directory.exists() && !directory.mkdirs())
-                {
-                    throw new ContentIOException("Failed to create store root: " + directory, null);
-                }
-
-                this.rootDirectoriesByProtocol.put(protocol, directory);
-                entry.setValue(directory.getAbsolutePath());
-            }
-        }
-        else
-        {
-            this.rootAbsolutePathsBySitePreset = Collections.emptyMap();
-        }
-
-        if (this.rootDirectoriesByProtocol.containsKey(this.protocol))
-        {
-            throw new ContentIOException("Failed to set up site aware content store - duplicate protocol: " + this.protocol, null);
-        }
-
         super.afterPropertiesSet();
+        PropertyCheck.mandatory(this, "namespaceService", this.namespaceService);
 
-        this.rootDirectoriesByProtocol.put(this.protocol, this.rootDirectory);
-
-        if (this.moveStoresOnNodeMoveOrCopy)
-        {
-            PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
-            PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
-            PropertyCheck.mandatory(this, "nodeService", this.nodeService);
-
-            this.policyComponent.bindClassBehaviour(OnCopyCompletePolicy.QNAME, ContentModel.TYPE_BASE,
-                    new JavaBehaviour(this, "onCopyComplete", NotificationFrequency.EVERY_EVENT));
-            this.policyComponent.bindClassBehaviour(OnMoveNodePolicy.QNAME, ContentModel.TYPE_BASE,
-                    new JavaBehaviour(this, "onMoveNode", NotificationFrequency.EVERY_EVENT));
-        }
+        this.afterPropertiesSet_setupRootDirectoriesByProtocol();
+        this.afterPropertiesSet_setupChangePolicies();
     }
 
     /**
@@ -195,6 +128,15 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
     public void setPolicyComponent(final PolicyComponent policyComponent)
     {
         this.policyComponent = policyComponent;
+    }
+
+    /**
+     * @param namespaceService
+     *            the namespaceService to set
+     */
+    public void setNamespaceService(final NamespaceService namespaceService)
+    {
+        this.namespaceService = namespaceService;
     }
 
     /**
@@ -258,15 +200,6 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
     public void setUseSiteFolderInGenericDirectories(final boolean useSiteFolderInGenericDirectories)
     {
         this.useSiteFolderInGenericDirectories = useSiteFolderInGenericDirectories;
-    }
-
-    /**
-     * @param moveStoresOnNodeMoveOrCopy
-     *            the moveStoresOnNodeMoveOrCopy to set
-     */
-    public void setMoveStoresOnNodeMoveOrCopy(final boolean moveStoresOnNodeMoveOrCopy)
-    {
-        this.moveStoresOnNodeMoveOrCopy = moveStoresOnNodeMoveOrCopy;
     }
 
     /**
@@ -335,6 +268,24 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
             }
             this.contentLimitProviderBySite.put(limitEntry.getKey(), new SimpleFixedLimitProvider(limit));
         }
+    }
+
+    /**
+     * @param moveStoresOnNodeMoveOrCopy
+     *            the moveStoresOnNodeMoveOrCopy to set
+     */
+    public void setMoveStoresOnNodeMoveOrCopy(final boolean moveStoresOnNodeMoveOrCopy)
+    {
+        this.moveStoresOnNodeMoveOrCopy = moveStoresOnNodeMoveOrCopy;
+    }
+
+    /**
+     * @param moveStoresOnNodeMoveOrCopyName
+     *            the moveStoresOnNodeMoveOrCopyName to set
+     */
+    public void setMoveStoresOnNodeMoveOrCopyName(final String moveStoresOnNodeMoveOrCopyName)
+    {
+        this.moveStoresOnNodeMoveOrCopyName = moveStoresOnNodeMoveOrCopyName;
     }
 
     /**
@@ -425,36 +376,56 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
         // just copied/moved so properties should be cached
         final Map<QName, Serializable> properties = this.nodeService.getProperties(affectedNode);
 
-        // TODO Introduce similar (optional) moveStoresOnChangeOptionPropertyQName for override control as in SelectorPropertyContentStore
-
-        final Collection<QName> setProperties = new HashSet<>(properties.keySet());
-        setProperties.retainAll(contentProperties);
-
-        // only act if node actually has content properties set
-        if (!setProperties.isEmpty())
+        boolean doMove = false;
+        if (this.moveStoresOnNodeMoveOrCopyQName != null)
         {
-            final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
-            for (final QName contentProperty : setProperties)
+            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnNodeMoveOrCopyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
             {
-                final Serializable value = properties.get(contentProperty);
-                contentPropertiesMap.put(contentProperty, value);
+                doMove = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
             }
-
-            if (!contentPropertiesMap.isEmpty())
+            else
             {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
+                doMove = this.moveStoresOnNodeMoveOrCopy;
+            }
+        }
+        else
+        {
+            doMove = this.moveStoresOnNodeMoveOrCopy;
+        }
 
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
+        if (doMove)
+        {
+            final Collection<QName> setProperties = new HashSet<>(properties.keySet());
+            setProperties.retainAll(contentProperties);
+
+            // only act if node actually has content properties set
+            if (!setProperties.isEmpty())
+            {
+                final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
+                for (final QName contentProperty : setProperties)
+                {
+                    final Serializable value = properties.get(contentProperty);
+                    contentPropertiesMap.put(contentProperty, value);
+                }
+
+                if (!contentPropertiesMap.isEmpty())
+                {
+                    ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
                     {
-                        SiteAwareMultiDirectoryFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap);
-                        return null;
-                    }
-                });
+
+                        /**
+                         * {@inheritDoc}
+                         */
+                        @Override
+                        public Void execute()
+                        {
+                            SiteAwareMultiDirectoryFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap);
+                            return null;
+                        }
+                    });
+                }
             }
         }
     }
@@ -857,6 +828,107 @@ public class SiteAwareMultiDirectoryFileContentStore extends FileContentStore im
                             .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
                 }
             }
+        }
+    }
+
+    protected void afterPropertiesSet_setupRootDirectoriesByProtocol()
+    {
+        if (this.rootAbsolutePathsBySite != null)
+        {
+            PropertyCheck.mandatory(this, "protocolBySite", this.protocolsBySite);
+
+            for (final Entry<String, String> entry : this.rootAbsolutePathsBySite.entrySet())
+            {
+                final String site = entry.getKey();
+                final String protocol = this.protocolsBySite.get(site);
+                PropertyCheck.mandatory(this, "protocolBySite." + site, protocol);
+
+                if (this.rootDirectoriesByProtocol.containsKey(protocol))
+                {
+                    throw new ContentIOException("Failed to set up site aware content store - duplicate protocol: " + protocol, null);
+                }
+
+                final File directory = new File(entry.getValue());
+                if (!directory.exists() && !directory.mkdirs())
+                {
+                    throw new ContentIOException("Failed to create store root: " + directory, null);
+                }
+
+                this.rootDirectoriesByProtocol.put(protocol, directory);
+                entry.setValue(directory.getAbsolutePath());
+            }
+        }
+        else
+        {
+            this.rootAbsolutePathsBySite = Collections.emptyMap();
+        }
+
+        if (this.rootAbsolutePathsBySitePreset != null)
+        {
+            PropertyCheck.mandatory(this, "protocolBySitePreset", this.protocolsBySitePreset);
+
+            for (final Entry<String, String> entry : this.rootAbsolutePathsBySitePreset.entrySet())
+            {
+                final String sitePreset = entry.getKey();
+                final String protocol = this.protocolsBySitePreset.get(sitePreset);
+                PropertyCheck.mandatory(this, "protocolBySitePreset." + sitePreset, protocol);
+
+                if (this.rootDirectoriesByProtocol.containsKey(protocol))
+                {
+                    throw new ContentIOException("Failed to set up site aware content store - duplicate protocol: " + protocol, null);
+                }
+
+                final File directory = new File(entry.getValue());
+                if (!directory.exists() && !directory.mkdirs())
+                {
+                    throw new ContentIOException("Failed to create store root: " + directory, null);
+                }
+
+                this.rootDirectoriesByProtocol.put(protocol, directory);
+                entry.setValue(directory.getAbsolutePath());
+            }
+        }
+        else
+        {
+            this.rootAbsolutePathsBySitePreset = Collections.emptyMap();
+        }
+
+        if (this.rootDirectoriesByProtocol.containsKey(this.protocol))
+        {
+            throw new ContentIOException("Failed to set up site aware content store - duplicate protocol: " + this.protocol, null);
+        }
+
+        this.rootDirectoriesByProtocol.put(this.protocol, this.rootDirectory);
+    }
+
+    protected void afterPropertiesSet_setupChangePolicies()
+    {
+        if (this.moveStoresOnNodeMoveOrCopyName != null)
+        {
+            this.moveStoresOnNodeMoveOrCopyQName = QName.resolveToQName(this.namespaceService, this.moveStoresOnNodeMoveOrCopyName);
+            PropertyCheck.mandatory(this, "moveStoresOnChangeOptionPropertyQName", this.moveStoresOnNodeMoveOrCopyQName);
+
+            final PropertyDefinition moveStoresOnChangeOptionPropertyDefinition = this.dictionaryService
+                    .getProperty(this.moveStoresOnNodeMoveOrCopyQName);
+            if (moveStoresOnChangeOptionPropertyDefinition == null
+                    || !DataTypeDefinition.BOOLEAN.equals(moveStoresOnChangeOptionPropertyDefinition.getDataType().getName())
+                    || moveStoresOnChangeOptionPropertyDefinition.isMultiValued())
+            {
+                throw new IllegalStateException(
+                        this.moveStoresOnNodeMoveOrCopyName + " is not a valid content model property of type single-valued d:boolean");
+            }
+        }
+
+        if (this.moveStoresOnNodeMoveOrCopy || this.moveStoresOnNodeMoveOrCopyQName != null)
+        {
+            PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
+            PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
+            PropertyCheck.mandatory(this, "nodeService", this.nodeService);
+
+            this.policyComponent.bindClassBehaviour(OnCopyCompletePolicy.QNAME, ContentModel.TYPE_BASE,
+                    new JavaBehaviour(this, "onCopyComplete", NotificationFrequency.EVERY_EVENT));
+            this.policyComponent.bindClassBehaviour(OnMoveNodePolicy.QNAME, ContentModel.TYPE_BASE,
+                    new JavaBehaviour(this, "onMoveNode", NotificationFrequency.EVERY_EVENT));
         }
     }
 }
