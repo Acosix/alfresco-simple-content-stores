@@ -503,8 +503,11 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
         }
     }
 
-    protected abstract ContentStore selectStoreForContentDataMove(NodeRef nodeRef, QName propertyQName, ContentData contentData,
-            CD customData);
+    protected ContentStore selectStoreForContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
+            final CD customData)
+    {
+        return this.fallbackStore;
+    }
 
     protected ContentData processContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
             final CD customData)

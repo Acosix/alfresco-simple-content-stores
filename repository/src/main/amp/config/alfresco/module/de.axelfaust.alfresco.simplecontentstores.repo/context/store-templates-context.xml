@@ -22,6 +22,8 @@
     <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
     
     <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.SiteRoutingContentStore" parent="${project.artifactId}-commonRoutingStore" />
+    
+    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true" class="${project.artifactId}.store.TenantRoutingContentStore" parent="${project.artifactId}-commonRoutingStore" />
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
     
