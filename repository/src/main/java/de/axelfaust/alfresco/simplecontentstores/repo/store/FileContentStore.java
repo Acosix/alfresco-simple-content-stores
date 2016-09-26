@@ -113,7 +113,7 @@ public class FileContentStore extends AbstractContentStore
     {
         PropertyCheck.mandatory(this, "applicationContext", this.applicationContext);
 
-        PropertyCheck.mandatory(this, "rootAbsoluatePath", this.rootAbsolutePath);
+        PropertyCheck.mandatory(this, "rootAbsolutePath", this.rootAbsolutePath);
         PropertyCheck.mandatory(this, "protocol", this.protocol);
 
         this.rootDirectory = new File(this.rootAbsolutePath);
