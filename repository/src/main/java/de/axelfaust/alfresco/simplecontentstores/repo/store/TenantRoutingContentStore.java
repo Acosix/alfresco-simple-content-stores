@@ -73,6 +73,34 @@ public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
      * {@inheritDoc}
      */
     @Override
+    protected ContentStore getStore(final String contentUrl, final boolean mustExist)
+    {
+        ContentStore readStore = null;
+
+        final String currentDomain = TenantUtil.getCurrentDomain();
+        if (currentDomain != null && !currentDomain.trim().isEmpty() && this.storeByTenant.containsKey(currentDomain))
+        {
+            readStore = this.storeByTenant.get(currentDomain);
+
+            if (!readStore.isContentUrlSupported(contentUrl) || (mustExist && !readStore.exists(contentUrl)))
+            {
+                readStore = null;
+            }
+        }
+
+        if (readStore == null)
+        {
+            readStore = super.getStore(contentUrl, mustExist);
+        }
+
+        return readStore;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     protected ContentStore selectWriteStore(final ContentContext ctx)
     {
         final ContentStore store;
@@ -82,7 +110,7 @@ public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
             final String currentDomain = TenantUtil.getCurrentDomain();
 
             ContentStore valueStore = null;
-            if (currentDomain != null && !currentDomain.trim().isEmpty())
+            if (currentDomain != null && !currentDomain.trim().isEmpty() && this.storeByTenant.containsKey(currentDomain))
             {
                 valueStore = this.storeByTenant.get(currentDomain);
                 LOGGER.debug("Selecting store for tenant {} to write {}", currentDomain, ctx);
