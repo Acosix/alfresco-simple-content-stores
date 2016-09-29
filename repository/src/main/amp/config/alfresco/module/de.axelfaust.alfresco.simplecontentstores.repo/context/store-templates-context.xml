@@ -1,14 +1,18 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <bean id="${project.artifactId}-commonRoutingStore" abstract="true">
+    <bean id="${project.artifactId}-moveCapableRoutingStore" abstract="true">
         <property name="policyComponent" ref="policyComponent" />
-        <property name="namespaceService" ref="NamespaceService" />
         <property name="dictionaryService" ref="DictionaryService" />
         <property name="nodeService" ref="NodeService" />
         <property name="storesCache" ref="routingContentStoreCache" />
+    </bean>
+
+    <bean id="${project.artifactId}-propertyRestrictableRoutingStore" abstract="true" parent="${project.artifactId}-moveCapableRoutingStore">
+        <property name="namespaceService" ref="NamespaceService" />
     </bean>
 
     <bean id="${project.artifactId}-commonFacadeStore" abstract="true">
@@ -16,25 +20,29 @@
         <property name="dictionaryService" ref="DictionaryService" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-selectorPropertyRoutingStore" abstract="true" class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-commonRoutingStore">
+    <bean id="simpleContentStoresTemplate-selectorPropertyRoutingStore" abstract="true"
+        class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-propertyRestrictableRoutingStore">
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
     <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
-    
-    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.SiteRoutingContentStore" parent="${project.artifactId}-commonRoutingStore" />
-    
-    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true" class="${project.artifactId}.store.TenantRoutingContentStore" parent="${project.artifactId}-commonRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
-    
-    <bean id="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" abstract="true" class="${project.artifactId}.store.SiteAwareMultiDirectoryFileContentStore">
-        <property name="policyComponent" ref="policyComponent" />
+    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.SiteRoutingContentStore"
+        parent="${project.artifactId}-propertyRestrictableRoutingStore" />
+
+    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true" class="${project.artifactId}.store.TenantRoutingContentStore"
+        parent="${project.artifactId}-propertyRestrictableRoutingStore" />
+
+    <bean id="simpleContentStoresTemplate-siteRoutingFileStore" abstract="true" class="${project.artifactId}.store.SiteRoutingFileContentStore"
+        parent="${project.artifactId}-moveCapableRoutingStore">
         <property name="namespaceService" ref="NamespaceService" />
-        <property name="dictionaryService" ref="DictionaryService" />
-        <property name="nodeService" ref="NodeService" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true" class="${project.artifactId}.store.DeduplicatingContentStore" parent="${project.artifactId}-commonFacadeStore">
+    <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
+
+    <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" name="simpleContentStoresTemplate-siteRoutingFileStore" />
+
+    <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true" class="${project.artifactId}.store.DeduplicatingContentStore"
+        parent="${project.artifactId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="org.alfresco.repo.content.filestore.FileContentStore">
                 <constructor-arg index="0">
@@ -44,14 +52,16 @@
         </property>
     </bean>
 
-    <bean id="simpleContentStoresTemplate-standardCachingStore" class="${project.artifactId}.beans.CachingContentStoreFactoryBean" scope="prototype">
+    <bean id="simpleContentStoresTemplate-standardCachingStore" class="${project.artifactId}.beans.CachingContentStoreFactoryBean"
+        scope="prototype">
         <property name="cacheFactory" ref="cacheFactory" />
         <property name="scheduler" ref="schedulerFactory" />
     </bean>
 
     <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true" class="org.alfresco.repo.content.replication.AggregatingContentStore" />
 
-    <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true" class="${project.artifactId}.store.CompressingContentStore" parent="${project.artifactId}-commonFacadeStore">
+    <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true" class="${project.artifactId}.store.CompressingContentStore"
+        parent="${project.artifactId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="org.alfresco.repo.content.filestore.FileContentStore">
                 <constructor-arg index="0">

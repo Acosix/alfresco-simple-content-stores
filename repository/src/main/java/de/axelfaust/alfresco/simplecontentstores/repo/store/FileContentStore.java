@@ -21,6 +21,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Map;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.AbstractContentStore;
@@ -92,6 +93,8 @@ public class FileContentStore extends AbstractContentStore
 
     protected ApplicationContext applicationContext;
 
+    protected Map<String, Serializable> extendedEventParameters;
+
     protected transient File rootDirectory;
 
     protected String rootAbsolutePath;
@@ -116,6 +119,11 @@ public class FileContentStore extends AbstractContentStore
         PropertyCheck.mandatory(this, "rootAbsolutePath", this.rootAbsolutePath);
         PropertyCheck.mandatory(this, "protocol", this.protocol);
 
+        if (this.extendedEventParameters == null)
+        {
+            this.extendedEventParameters = Collections.<String, Serializable> emptyMap();
+        }
+
         this.rootDirectory = new File(this.rootAbsolutePath);
         if (!this.rootDirectory.exists() && !this.rootDirectory.mkdirs())
         {
@@ -125,7 +133,26 @@ public class FileContentStore extends AbstractContentStore
         this.rootDirectory = this.rootDirectory.getAbsoluteFile();
         this.rootAbsolutePath = this.rootDirectory.getAbsolutePath();
 
-        this.applicationContext.publishEvent(new ContentStoreCreatedEvent(this, Collections.<String, Serializable> emptyMap()));
+        this.applicationContext.publishEvent(new ContentStoreCreatedEvent(this, this.extendedEventParameters));
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
+    {
+        this.applicationContext = applicationContext;
+    }
+
+    /**
+     * @param extendedEventParameters
+     *            the extendedEventParameters to set
+     */
+    public void setExtendedEventParameters(final Map<String, Serializable> extendedEventParameters)
+    {
+        this.extendedEventParameters = extendedEventParameters;
     }
 
     /**
@@ -203,24 +230,19 @@ public class FileContentStore extends AbstractContentStore
      * {@inheritDoc}
      */
     @Override
-    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
-    {
-        this.applicationContext = applicationContext;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
     public void onApplicationEvent(final ContextRefreshedEvent event)
     {
+        if (this.extendedEventParameters == null)
+        {
+            this.extendedEventParameters = Collections.<String, Serializable> emptyMap();
+        }
+
         // Once the context has been refreshed, we tell other interested beans about the existence of this content store
         // (e.g. for monitoring purposes)
         if (event.getSource() == this.applicationContext)
         {
             final ApplicationContext context = event.getApplicationContext();
-            context.publishEvent(new ContentStoreCreatedEvent(this, Collections.<String, Serializable> emptyMap()));
+            context.publishEvent(new ContentStoreCreatedEvent(this, this.extendedEventParameters));
         }
     }
 

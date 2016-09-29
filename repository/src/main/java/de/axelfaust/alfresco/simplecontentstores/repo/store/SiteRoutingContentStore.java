@@ -15,8 +15,6 @@ package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import org.alfresco.model.ContentModel;
@@ -42,7 +40,7 @@ import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStore
 /**
  * @author Axel Faust
  */
-public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> implements OnCopyCompletePolicy, OnMoveNodePolicy
+public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentStore<Void> implements OnCopyCompletePolicy, OnMoveNodePolicy
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SiteRoutingContentStore.class);
@@ -50,8 +48,6 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
     protected Map<String, ContentStore> storeBySitePreset;
 
     protected Map<String, ContentStore> storeBySite;
-
-    protected transient List<ContentStore> allStores;
 
     protected boolean moveStoresOnNodeMoveOrCopy;
 
@@ -176,7 +172,7 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
         final Object site = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
         final Object sitePreset = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET);
 
-        ContentStore targetStore = this.fallbackStore;
+        final ContentStore targetStore;
         if (site != null && this.storeBySite != null && this.storeBySite.containsKey(site))
         {
             targetStore = this.storeBySite.get(site);
@@ -184,6 +180,10 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
         else if (sitePreset != null && this.storeBySitePreset != null && this.storeBySitePreset.containsKey(sitePreset))
         {
             targetStore = this.storeBySite.get(sitePreset);
+        }
+        else
+        {
+            targetStore = super.selectStoreForContentDataMove(nodeRef, propertyQName, contentData, customData);
         }
 
         return targetStore;
@@ -194,60 +194,29 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
      * {@inheritDoc}
      */
     @Override
-    protected List<ContentStore> getAllStores()
+    protected ContentStore selectWriteStoreFromRoutes(final ContentContext ctx)
     {
-        return Collections.unmodifiableList(this.allStores);
-    }
+        final Object site = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
+        final Object sitePreset = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET);
 
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    protected ContentStore selectWriteStore(final ContentContext ctx)
-    {
-        final ContentStore store;
-
-        if (this.isRoutable(ctx))
+        final ContentStore writeStore;
+        if (site != null && this.storeBySite != null && this.storeBySite.containsKey(site))
         {
-            final String contentUrl = ctx.getContentUrl();
-
-            final Object site = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
-            final Object sitePreset = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET);
-
-            ContentStore valueStore = null;
-            if (site != null && this.storeBySite != null && this.storeBySite.containsKey(site))
-            {
-                valueStore = this.storeBySite.get(site);
-                LOGGER.debug("Selecting store for site {} to write {}", site, ctx);
-            }
-            else if (sitePreset != null && this.storeBySitePreset != null && this.storeBySitePreset.containsKey(sitePreset))
-            {
-                valueStore = this.storeBySite.get(sitePreset);
-                LOGGER.debug("Selecting store for site preset {} to write {}", sitePreset, ctx);
-            }
-
-            if (valueStore == null && contentUrl != null)
-            {
-                LOGGER.debug("Selecting store based on provided content URL to write {}", ctx);
-                valueStore = this.getStore(contentUrl, false);
-            }
-
-            if (valueStore == null)
-            {
-                LOGGER.debug("Selecting fallback store to write {}", ctx);
-                valueStore = this.fallbackStore;
-            }
-
-            store = valueStore;
+            LOGGER.debug("Selecting store for site {} to write {}", site, ctx);
+            writeStore = this.storeBySite.get(site);
+        }
+        else if (sitePreset != null && this.storeBySitePreset != null && this.storeBySitePreset.containsKey(sitePreset))
+        {
+            LOGGER.debug("Selecting store for site preset {} to write {}", sitePreset, ctx);
+            writeStore = this.storeBySitePreset.get(sitePreset);
         }
         else
         {
-            LOGGER.debug("Selecting fallback store to write {}", ctx);
-            store = this.fallbackStore;
+            LOGGER.debug("ContentContext {} cannot be handled - delegating to super.selectWiteStoreFromRoute", ctx);
+            writeStore = super.selectWriteStoreFromRoutes(ctx);
         }
 
-        return store;
+        return writeStore;
     }
 
     /**
@@ -302,7 +271,10 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
             throw new IllegalStateException("No stores have been defined for sites / site presets");
         }
 
-        this.allStores = new ArrayList<>();
+        if (this.allStores == null)
+        {
+            this.allStores = new ArrayList<>();
+        }
 
         if (this.storeBySite != null)
         {
@@ -324,11 +296,6 @@ public class SiteRoutingContentStore extends CommonRoutingContentStore<Void> imp
                     this.allStores.add(store);
                 }
             }
-        }
-
-        if (!this.allStores.contains(this.fallbackStore))
-        {
-            this.allStores.add(this.fallbackStore);
         }
     }
 }

@@ -15,8 +15,6 @@ package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import org.alfresco.repo.content.ContentContext;
@@ -47,7 +45,7 @@ import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStore
 /**
  * @author Axel Faust
  */
-public class SelectorPropertyContentStore extends CommonRoutingContentStore<Serializable>
+public class SelectorPropertyContentStore extends PropertyRestrictableRoutingContentStore<Serializable>
         implements OnUpdatePropertiesPolicy, OnAddAspectPolicy, BeforeRemoveAspectPolicy
 {
 
@@ -64,8 +62,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore<Seri
     protected transient QName selectorPropertyQName;
 
     protected Map<String, ContentStore> storeBySelectorPropertyValue;
-
-    protected transient List<ContentStore> allStores;
 
     protected boolean moveStoresOnChange;
 
@@ -84,8 +80,6 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore<Seri
     {
         super.afterPropertiesSet();
 
-        PropertyCheck.mandatory(this, "nodeService", this.nodeService);
-        PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
         PropertyCheck.mandatory(this, "constraintRegistry", this.constraintRegistry);
 
         this.afterPropertiesSet_validateSelectors();
@@ -317,64 +311,35 @@ public class SelectorPropertyContentStore extends CommonRoutingContentStore<Seri
      * {@inheritDoc}
      */
     @Override
-    protected List<ContentStore> getAllStores()
+    protected ContentStore selectWriteStoreFromRoutes(final ContentContext ctx)
     {
-        return Collections.unmodifiableList(this.allStores);
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    protected ContentStore selectWriteStore(final ContentContext ctx)
-    {
-        final ContentStore store;
-
-        if (this.isRoutable(ctx))
+        final ContentStore writeStore;
+        if (ctx instanceof NodeContentContext)
         {
-            final String contentUrl = ctx.getContentUrl();
-            ContentStore valueStore = null;
+            final NodeRef nodeRef = ((NodeContentContext) ctx).getNodeRef();
+            final String value = DefaultTypeConverter.INSTANCE.convert(String.class,
+                    this.nodeService.getProperty(nodeRef, this.selectorPropertyQName));
 
-            if (ctx instanceof NodeContentContext)
+            LOGGER.debug("Looking up store for node {} and value {} of property {}", nodeRef, value, this.selectorPropertyQName);
+            final ContentStore valueStore = this.storeBySelectorPropertyValue.get(value);
+            if (valueStore != null)
             {
-                final NodeRef nodeRef = ((NodeContentContext) ctx).getNodeRef();
-                final String value = DefaultTypeConverter.INSTANCE.convert(String.class,
-                        this.nodeService.getProperty(nodeRef, this.selectorPropertyQName));
-
-                LOGGER.debug("Looking up store for node {} and value {} of property {}", nodeRef, value, this.selectorPropertyQName);
-                valueStore = this.storeBySelectorPropertyValue.get(value);
-                if (valueStore != null)
-                {
-                    LOGGER.debug("Selecting store for value {} to write {}", value, ctx);
-                }
-                else
-                {
-                    LOGGER.debug("No store registered for value {}", value, ctx);
-                }
+                LOGGER.debug("Selecting store for value {} to write {}", value, ctx);
+                writeStore = valueStore;
             }
-
-            if (valueStore == null && contentUrl != null)
+            else
             {
-                LOGGER.debug("Selecting store based on provided content URL to write {}", ctx);
-                valueStore = this.getStore(contentUrl, false);
+                LOGGER.debug("No store registered for value {} - delegating to super.selectWiteStoreFromRoute", value);
+                writeStore = super.selectWriteStoreFromRoutes(ctx);
             }
-
-            if (valueStore == null)
-            {
-                LOGGER.debug("Selecting fallback store to write {}", ctx);
-                valueStore = this.fallbackStore;
-            }
-
-            store = valueStore;
         }
         else
         {
-            LOGGER.debug("Selecting fallback store to write {}", ctx);
-            store = this.fallbackStore;
+            LOGGER.debug("ContentContext {} cannot be handled - delegating to super.selectWiteStoreFromRoute", ctx);
+            writeStore = super.selectWriteStoreFromRoutes(ctx);
         }
 
-        return store;
+        return writeStore;
     }
 
     /**

@@ -14,8 +14,6 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import org.alfresco.repo.content.ContentContext;
@@ -28,14 +26,12 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Axel Faust
  */
-public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
+public class TenantRoutingContentStore extends PropertyRestrictableRoutingContentStore<Void>
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TenantRoutingContentStore.class);
 
     protected Map<String, ContentStore> storeByTenant;
-
-    protected transient List<ContentStore> allStores;
 
     /**
      *
@@ -63,28 +59,21 @@ public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
      * {@inheritDoc}
      */
     @Override
-    protected List<ContentStore> getAllStores()
-    {
-        return Collections.unmodifiableList(this.allStores);
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
     protected ContentStore getStore(final String contentUrl, final boolean mustExist)
     {
         ContentStore readStore = null;
 
-        final String currentDomain = TenantUtil.getCurrentDomain();
-        if (currentDomain != null && !currentDomain.trim().isEmpty() && this.storeByTenant.containsKey(currentDomain))
+        if (!TenantUtil.isCurrentDomainDefault())
         {
-            readStore = this.storeByTenant.get(currentDomain);
-
-            if (!readStore.isContentUrlSupported(contentUrl) || (mustExist && !readStore.exists(contentUrl)))
+            final String currentDomain = TenantUtil.getCurrentDomain();
+            if (this.storeByTenant.containsKey(currentDomain))
             {
-                readStore = null;
+                readStore = this.storeByTenant.get(currentDomain);
+
+                if (!readStore.isContentUrlSupported(contentUrl) || (mustExist && !readStore.exists(contentUrl)))
+                {
+                    readStore = null;
+                }
             }
         }
 
@@ -101,35 +90,22 @@ public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
      * {@inheritDoc}
      */
     @Override
-    protected ContentStore selectWriteStore(final ContentContext ctx)
+    protected ContentStore selectWriteStoreFromRoutes(final ContentContext ctx)
     {
-        final ContentStore store;
-
-        if (this.isRoutable(ctx))
+        final ContentStore writeStore;
+        final String tenant = TenantUtil.getCurrentDomain();
+        if (this.storeByTenant.containsKey(tenant))
         {
-            final String currentDomain = TenantUtil.getCurrentDomain();
-
-            ContentStore valueStore = null;
-            if (currentDomain != null && !currentDomain.trim().isEmpty() && this.storeByTenant.containsKey(currentDomain))
-            {
-                valueStore = this.storeByTenant.get(currentDomain);
-                LOGGER.debug("Selecting store for tenant {} to write {}", currentDomain, ctx);
-            }
-            else
-            {
-                LOGGER.debug("Selecting fallback store to write {}", ctx);
-                valueStore = this.fallbackStore;
-            }
-
-            store = valueStore;
+            LOGGER.debug("Selecting store for tenant {} to write {}", tenant, ctx);
+            writeStore = this.storeByTenant.get(tenant);
         }
         else
         {
-            LOGGER.debug("Selecting fallback store to write {}", ctx);
-            store = this.fallbackStore;
+            LOGGER.debug("No store defined for tenant {} - delegating to super.selectWiteStoreFromRoute", tenant);
+            writeStore = super.selectWriteStoreFromRoutes(ctx);
         }
 
-        return store;
+        return writeStore;
     }
 
     /**
@@ -138,14 +114,18 @@ public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
     @Override
     protected boolean isRoutable(final ContentContext ctx)
     {
-        return true;
+        final boolean isRoutable = !TenantUtil.isCurrentDomainDefault();
+        return isRoutable;
     }
 
     private void afterPropertiesSet_setupStoreData()
     {
         PropertyCheck.mandatory(this, "storeByTenant", this.storeByTenant);
 
-        this.allStores = new ArrayList<>();
+        if (this.allStores == null)
+        {
+            this.allStores = new ArrayList<>();
+        }
 
         for (final ContentStore store : this.storeByTenant.values())
         {
@@ -153,11 +133,6 @@ public class TenantRoutingContentStore extends CommonRoutingContentStore<Void>
             {
                 this.allStores.add(store);
             }
-        }
-
-        if (!this.allStores.contains(this.fallbackStore))
-        {
-            this.allStores.add(this.fallbackStore);
         }
     }
 }

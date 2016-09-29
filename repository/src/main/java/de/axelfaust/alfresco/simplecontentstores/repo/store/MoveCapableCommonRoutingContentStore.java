@@ -17,6 +17,7 @@ import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -39,18 +40,15 @@ import org.alfresco.repo.policy.PolicyComponent;
 import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
-import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
-import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.Pair;
-import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,12 +64,13 @@ import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStore
 /**
  * @author Axel Faust
  */
-public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingContentStore implements InitializingBean, ApplicationContextAware
+public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractRoutingContentStore
+        implements ApplicationContextAware, InitializingBean
 {
 
-    private static final int PROTOCOL_DELIMETER_LENGTH = PROTOCOL_DELIMITER.length();
+    private static final Logger LOGGER = LoggerFactory.getLogger(MoveCapableCommonRoutingContentStore.class);
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CommonRoutingContentStore.class);
+    private static final int PROTOCOL_DELIMETER_LENGTH = PROTOCOL_DELIMITER.length();
 
     protected ApplicationContext applicationContext;
 
@@ -79,27 +78,23 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
 
     protected PolicyComponent policyComponent;
 
-    protected NamespaceService namespaceService;
-
     protected DictionaryService dictionaryService;
 
     protected NodeService nodeService;
 
-    protected List<String> routeContentPropertyNames;
-
-    protected transient Set<QName> routeContentPropertyQNames;
+    protected SimpleCache<Pair<String, String>, ContentStore> storesByContentUrl;
 
     protected ContentStore fallbackStore;
 
-    protected final String instanceKey;
+    protected transient List<ContentStore> allStores;
 
-    protected SimpleCache<Pair<String, String>, ContentStore> storesByContentUrl;
+    protected final String instanceKey;
 
     protected final ReadLock storesCacheReadLock;
 
     protected final WriteLock storesCacheWriteLock;
 
-    public CommonRoutingContentStore()
+    public MoveCapableCommonRoutingContentStore()
     {
         super();
 
@@ -135,14 +130,24 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
     @Override
     public void afterPropertiesSet()
     {
-        PropertyCheck.mandatory(this, "namespaceService", this.namespaceService);
-        PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
+        PropertyCheck.mandatory(this, "applicationContext", this.applicationContext);
 
-        PropertyCheck.mandatory(this, "fallbackStore", this.fallbackStore);
+        PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
+        PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
+        PropertyCheck.mandatory(this, "nodeService", this.nodeService);
 
         PropertyCheck.mandatory(this, "storesByContentUrl", this.storesByContentUrl);
+        PropertyCheck.mandatory(this, "fallbackStore", this.fallbackStore);
 
-        this.afterPropertiesSet_setupRouteContentProperties();
+        if (this.allStores == null)
+        {
+            this.allStores = new ArrayList<>();
+        }
+
+        if (!this.allStores.contains(this.fallbackStore))
+        {
+            this.allStores.add(this.fallbackStore);
+        }
     }
 
     /**
@@ -164,15 +169,6 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
     }
 
     /**
-     * @param namespaceService
-     *            the namespaceService to set
-     */
-    public void setNamespaceService(final NamespaceService namespaceService)
-    {
-        this.namespaceService = namespaceService;
-    }
-
-    /**
      * @param dictionaryService
      *            the dictionaryService to set
      */
@@ -188,24 +184,6 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
     public void setNodeService(final NodeService nodeService)
     {
         this.nodeService = nodeService;
-    }
-
-    /**
-     * @param routeContentPropertyNames
-     *            the routeContentPropertyNames to set
-     */
-    public void setRouteContentPropertyNames(final List<String> routeContentPropertyNames)
-    {
-        this.routeContentPropertyNames = routeContentPropertyNames;
-    }
-
-    /**
-     * @param fallbackStore
-     *            the fallbackStore to set
-     */
-    public void setFallbackStore(final ContentStore fallbackStore)
-    {
-        this.fallbackStore = fallbackStore;
     }
 
     /**
@@ -239,7 +217,7 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
         final ContentReader reader;
         if (store != null)
         {
-            LOGGER.debug("Getting reader from store: \n   Content URL: {0}\n   Store:       {1}", contentUrl, store);
+            LOGGER.debug("Getting reader from store: \n\tContent URL: {0}\n\tStore: {1}", contentUrl, store);
             reader = store.getReader(contentUrl);
         }
         else
@@ -256,6 +234,28 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
     {
         final ContentStore readStore = this.getStore(contentUrl, true);
         return readStore;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected List<ContentStore> getAllStores()
+    {
+        return Collections.unmodifiableList(this.allStores);
+    }
+
+    /**
+     * Retrieves the (sub-)list of stores that may be relevant to handle a specific content URL
+     *
+     * @param contentUrl
+     *            the content URL to handle
+     * @return the (sub-)liust of stores
+     */
+    protected List<ContentStore> getStores(final String contentUrl)
+    {
+        return this.getAllStores();
     }
 
     protected ContentStore getStore(final String contentUrl, final boolean mustExist)
@@ -345,18 +345,6 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
         return store;
     }
 
-    /**
-     * Retrieves the (sub-)list of stores that may be relevant to handle a specific content URL
-     *
-     * @param contentUrl
-     *            the content URL to handle
-     * @return the (sub-)liust of stores
-     */
-    protected List<ContentStore> getStores(final String contentUrl)
-    {
-        return this.getAllStores();
-    }
-
     protected ContentStore getStoreFromCache(final String contentUrl, final boolean mustExist)
     {
         ContentStore readStore = null;
@@ -384,7 +372,7 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
                     // This is odd. The store that previously supported the content URL
                     // no longer does so. I can't think of a reason why that would be.
                     throw new AlfrescoRuntimeException("Found a content store that previously supported a URL, but no longer does: \n"
-                            + "   Store:       " + store + "\n" + "   Content URL: " + contentUrl);
+                            + "\tStore: " + store + "\n" + "\tContent URL: " + contentUrl);
                 }
             }
         }
@@ -395,12 +383,55 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
         return readStore;
     }
 
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected ContentStore selectWriteStore(final ContentContext ctx)
+    {
+        final ContentStore writeStore;
+
+        if (this.isRoutable(ctx))
+        {
+            writeStore = this.selectWriteStoreFromRoutes(ctx);
+        }
+        else
+        {
+            writeStore = this.fallbackStore;
+        }
+
+        return writeStore;
+    }
+
+    protected ContentStore selectWriteStoreFromRoutes(final ContentContext ctx)
+    {
+        final String contentUrl = ctx.getContentUrl();
+
+        final ContentStore writeStore;
+        if (contentUrl != null)
+        {
+            LOGGER.debug("Selecting store based on provided content URL to write {}", ctx);
+            writeStore = this.getStore(contentUrl, false);
+        }
+        else
+        {
+            LOGGER.debug("Selecting fallback store to write {}", ctx);
+            writeStore = this.fallbackStore;
+        }
+
+        return writeStore;
+    }
+
     protected boolean isRoutable(final ContentContext ctx)
     {
-        final QName contentPropertyQName = ctx instanceof NodeContentContext ? ((NodeContentContext) ctx).getPropertyQName() : null;
-        final boolean result = this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentPropertyQName);
+        return true;
+    }
 
-        return result;
+    protected ContentStore selectStoreForContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
+            final CD customData)
+    {
+        return this.fallbackStore;
     }
 
     protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode, final Map<QName, Serializable> properties,
@@ -432,7 +463,8 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
                     @Override
                     public Void execute()
                     {
-                        CommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, customData);
+                        MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap,
+                                customData);
                         return null;
                     }
                 });
@@ -447,10 +479,7 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
         for (final Entry<QName, Serializable> contentPropertyEntry : contentProperties.entrySet())
         {
             final QName contentProperty = contentPropertyEntry.getKey();
-            if (this.routeContentPropertyQNames == null || this.routeContentPropertyQNames.contains(contentProperty))
-            {
-                this.processContentPropertyMove(nodeRef, contentProperty, contentPropertyEntry.getValue(), updates, customData);
-            }
+            this.processContentPropertyMove(nodeRef, contentProperty, contentPropertyEntry.getValue(), updates, customData);
         }
 
         if (!updates.isEmpty())
@@ -501,12 +530,6 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
                 updates.put(propertyQName, (Serializable) updatedValues);
             }
         }
-    }
-
-    protected ContentStore selectStoreForContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
-            final CD customData)
-    {
-        return this.fallbackStore;
     }
 
     protected ContentData processContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
@@ -642,26 +665,5 @@ public abstract class CommonRoutingContentStore<CD> extends AbstractRoutingConte
             throw new UnsupportedContentUrlException(this, contentUrl);
         }
         return new Pair<>(protocol, identifier);
-    }
-
-    private void afterPropertiesSet_setupRouteContentProperties()
-    {
-        if (this.routeContentPropertyNames != null && !this.routeContentPropertyNames.isEmpty())
-        {
-            this.routeContentPropertyQNames = new HashSet<>();
-            for (final String routePropertyName : this.routeContentPropertyNames)
-            {
-                final QName routePropertyQName = QName.resolveToQName(this.namespaceService, routePropertyName);
-                ParameterCheck.mandatory("routePropertyQName", routePropertyQName);
-
-                final PropertyDefinition contentPropertyDefinition = this.dictionaryService.getProperty(routePropertyQName);
-                if (contentPropertyDefinition == null
-                        || !DataTypeDefinition.CONTENT.equals(contentPropertyDefinition.getDataType().getName()))
-                {
-                    throw new IllegalStateException(routePropertyName + " is not a valid content model property of type d:content");
-                }
-                this.routeContentPropertyQNames.add(routePropertyQName);
-            }
-        }
     }
 }
