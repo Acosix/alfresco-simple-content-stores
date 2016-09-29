@@ -60,7 +60,7 @@ The following types can currently be used to define custom content stores:
 - siteRoutingStore
 - tenantRoutingStore
 - standardFileStore (file content store very similar to the Alfresco standard with some improvements, potentially storing content in a custom directory and using a custom store protocol)
-- siteAwareMultiDirectoryFileStore
+- siteRoutingFileStore (cross between siteRoutingStore and standardFileStore for simplified setup)
 - aggregatingStore (Alfresco standard store supporting aggregation of content from multiple stores while writing only to one)
 - deduplicatingFacadeStore (a deduplicating store that acts as a facade to an actual, physical store)
 - standardCachingStore (Alfresco standard caching content store, retrieving and temporarily storing content from a remote, potentially slow content store)
@@ -112,7 +112,7 @@ Stores of type "standardFileStore" support the following properties:
 | fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
 | contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
 
-Stores of type "siteAwareMultiDirectoryFileStore" support the following properties:
+Stores of type "siteRoutingFileStore" support the following properties:
 
 | name | type | description | default | optional |
 | :---| :--- | :--- | :--- | :--- |
