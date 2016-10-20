@@ -27,64 +27,29 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
-import org.alfresco.repo.content.AbstractContentAccessor;
 import org.alfresco.repo.content.filestore.FileContentWriter;
-import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
-import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.TempFileProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.util.FileCopyUtils;
 
 /**
  * @author Axel Faust
  */
-public class ContentReaderFacade extends AbstractContentAccessor implements ContentReader
+public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> implements ContentReader
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ContentReaderFacade.class);
 
-    protected final ContentReader delegate;
-
-    protected final List<ContentStreamListener> listeners = new ArrayList<ContentStreamListener>();
-
-    protected ReadableByteChannel channel;
+    protected final List<ContentStreamListener> listeners = new ArrayList<>();
 
     public ContentReaderFacade(final ContentReader delegate)
     {
-        super(delegate.getContentUrl());
-        ParameterCheck.mandatory("delegate", delegate);
-        this.delegate = delegate;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean isChannelOpen()
-    {
-        final boolean isOpen = (this.channel != null && this.channel.isOpen()) || this.delegate.isChannelOpen();
-        return isOpen;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addListener(final ContentStreamListener listener)
-    {
-        if (this.channel != null)
-        {
-            throw new RuntimeException("Channel is already in use");
-        }
-        this.listeners.add(listener);
-        this.delegate.addListener(listener);
+        super(delegate);
     }
 
     /**
@@ -100,27 +65,9 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
      * {@inheritDoc}
      */
     @Override
-    public long getSize()
-    {
-        return this.delegate.getSize();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public boolean exists()
     {
         return this.delegate.exists();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ContentData getContentData()
-    {
-        return this.delegate.getContentData();
     }
 
     /**
@@ -136,50 +83,17 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
      * {@inheritDoc}
      */
     @Override
-    public String getContentUrl()
-    {
-        return this.delegate.getContentUrl();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public boolean isClosed()
     {
-        final boolean isClosed = (this.channel != null && !this.channel.isOpen()) || this.delegate.isClosed();
-        return isClosed;
+        return this.delegate.isClosed();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public String getMimetype()
+    public ReadableByteChannel getReadableChannel() throws ContentIOException
     {
-        return this.delegate.getMimetype();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setMimetype(final String mimetype)
-    {
-        this.delegate.setMimetype(mimetype);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public synchronized ReadableByteChannel getReadableChannel() throws ContentIOException
-    {
-        if (this.channel != null)
-        {
-            throw new RuntimeException("A channel has already been opened");
-        }
-
         return this.delegate.getReadableChannel();
     }
 
@@ -187,61 +101,37 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
      * {@inheritDoc}
      */
     @Override
-    public String getEncoding()
+    public FileChannel getFileChannel() throws ContentIOException
     {
-        return this.delegate.getEncoding();
-    }
+        final ReadableByteChannel readableChannel = this.getReadableChannel();
+        final FileChannel fileChannel;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setEncoding(final String encoding)
-    {
-        this.delegate.setEncoding(encoding);
-    }
+        // since specific facade sub-classes may adapt getReadableChannel to facade the channel from delegate we should handle file channel
+        // support here for consistency (else we would have to implement this in each sub-class)
 
-    /**
-     * {@inheritDoc}
-     */
-    @SuppressWarnings("resource")
-    @Override
-    // overriden with same implementation as AbstractContentReader
-    public synchronized FileChannel getFileChannel() throws ContentIOException
-    {
-        /*
-         * Where the underlying support is not present for this method, a temporary file will be used as a substitute. When the write is
-         * complete, the results are copied directly to the underlying channel.
-         */
+        // the following has been taken from AbstractContentReader to spoof FileChannel (with various modifications)
 
-        // get the underlying implementation's best readable channel
-        this.channel = this.getReadableChannel();
-        // now use this channel if it can provide the random access, otherwise spoof it
-        FileChannel clientFileChannel = null;
-        if (this.channel instanceof FileChannel)
+        if (readableChannel instanceof FileChannel)
         {
-            // all the support is provided by the underlying implementation
-            clientFileChannel = (FileChannel) this.channel;
-            // debug
-            LOGGER.debug("Content reader provided direct support for FileChannel: \n   reader: {}", this);
+            fileChannel = (FileChannel) readableChannel;
+            LOGGER.debug("Content reader {} provided direct support for FileChannel", this);
         }
         else
         {
-            // No random access support is provided by the implementation.
-            // Spoof it by providing a 2-stage read from a temp file
             final File tempFile = TempFileProvider.createTempFile("random_read_spoof_", ".bin");
             final FileContentWriter spoofWriter = new FileContentWriter(tempFile);
-            // pull the content in from the underlying channel
             final FileChannel spoofWriterChannel = spoofWriter.getFileChannel(false);
             try
             {
                 final long spoofFileSize = this.getSize();
-                spoofWriterChannel.transferFrom(this.channel, 0, spoofFileSize);
+                spoofWriterChannel.transferFrom(readableChannel, 0, spoofFileSize);
+                LOGGER.debug("Content reader {} copied content to enable random access", this);
             }
             catch (final IOException e)
             {
-                throw new ContentIOException("Failed to copy from permanent channel to spoofed temporary channel: \n" + "   reader: "
-                        + this + "\n" + "   temp: " + spoofWriter, e);
+                LOGGER.error("Content reader {} failed to copy content to enable random access", this, e);
+                throw new ContentIOException("Failed to copy from permanent channel to spoofed temporary channel: \n\treader: " + this
+                        + "\n\ttemp: " + spoofWriter, e);
             }
             finally
             {
@@ -254,10 +144,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
                     LOGGER.debug("Error closing spoofed writer channel", e);
                 }
             }
-            // get a reader onto the spoofed content
             final ContentReader spoofReader = spoofWriter.getReader();
-            // Attach a listener
-            // - ensure that the close call gets propogated to the underlying channel
             final ContentStreamListener spoofListener = new ContentStreamListener()
             {
 
@@ -270,7 +157,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
                 {
                     try
                     {
-                        ContentReaderFacade.this.channel.close();
+                        readableChannel.close();
                     }
                     catch (final IOException e)
                     {
@@ -279,37 +166,16 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
                 }
             };
             spoofReader.addListener(spoofListener);
-            // we now have the spoofed up channel that the client can work with
-            clientFileChannel = spoofReader.getFileChannel();
-            // debug
-            LOGGER.debug("Content writer provided indirect support for FileChannel: \n   writer: {}\n   temp writer: {}", this, spoofWriter);
+            fileChannel = spoofReader.getFileChannel();
+            LOGGER.debug("Content reader {} provided indirect support for FileChannel via {}", this, spoofWriter);
         }
-        // the file is now available for random access
-        return clientFileChannel;
+
+        return fileChannel;
     }
 
     /**
      * {@inheritDoc}
      */
-    @Override
-    public Locale getLocale()
-    {
-        return this.delegate.getLocale();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setLocale(final Locale locale)
-    {
-        this.delegate.setLocale(locale);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @SuppressWarnings("resource")
     @Override
     public InputStream getContentInputStream() throws ContentIOException
     {
@@ -322,6 +188,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
         }
         catch (final Throwable e)
         {
+            LOGGER.error("Failed to open stream onto channel for reader {]", this, e);
             throw new ContentIOException("Failed to open stream onto channel: \n   accessor: " + this, e);
         }
     }
@@ -330,12 +197,11 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
      * {@inheritDoc}
      */
     @Override
-    // overriden with same implementation as AbstractContentReader
+    // same implementation as AbstractContentReader
     public void getContent(final OutputStream os) throws ContentIOException
     {
         try
         {
-            @SuppressWarnings("resource")
             final InputStream is = this.getContentInputStream();
             FileCopyUtils.copy(is, os);
         }
@@ -354,9 +220,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
     {
         try
         {
-            @SuppressWarnings("resource")
             final InputStream is = this.getContentInputStream();
-            @SuppressWarnings("resource")
             final FileOutputStream os = new FileOutputStream(file);
             FileCopyUtils.copy(is, os); // both streams are closed
         }
@@ -370,8 +234,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
      * {@inheritDoc}
      */
     @Override
-    @SuppressWarnings("resource")
-    // overriden with same implementation as AbstractContentReader
+    // same implementation as AbstractContentReader
     public String getContentString() throws ContentIOException
     {
         try
@@ -388,7 +251,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
             // done
             return content;
         }
-        catch (final Exception e)
+        catch (final IOException e)
         {
             throw new ContentIOException("Failed to copy content to string: \n" + "   accessor: " + this, e);
         }
@@ -398,7 +261,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
      * {@inheritDoc}
      */
     @Override
-    // overriden with same implementation as AbstractContentReader
+    // same implementation as AbstractContentReader
     public String getContentString(final int length) throws ContentIOException
     {
         if (length < 0 || length > Integer.MAX_VALUE)
@@ -429,7 +292,7 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
         }
         catch (final IOException e)
         {
-            throw new ContentIOException("Failed to copy content to string: \n" + "   accessor: " + this + "\n" + "   length: " + length, e);
+            throw new ContentIOException("Failed to copy content to string: \n\taccessor: " + this + "\n\tlength: " + length, e);
         }
         finally
         {
@@ -445,37 +308,5 @@ public class ContentReaderFacade extends AbstractContentAccessor implements Cont
                 }
             }
         }
-    }
-
-    @SuppressWarnings("resource")
-    // same base implementation as AbstractContentReader
-    protected ReadableByteChannel getCallbackReadableChannel(final ReadableByteChannel directChannel,
-            final List<ContentStreamListener> listeners) throws ContentIOException
-    {
-        ReadableByteChannel callbackChannel = null;
-        if (directChannel instanceof FileChannel)
-        {
-            callbackChannel = this.getCallbackFileChannel((FileChannel) directChannel, listeners);
-        }
-        else
-        {
-            // introduce an advistor to handle the callbacks to the listeners
-            final ChannelCloseCallbackAdvise advise = new ChannelCloseCallbackAdvise(listeners);
-            final ProxyFactory proxyFactory = new ProxyFactory(directChannel);
-            proxyFactory.addAdvice(advise);
-            callbackChannel = (ReadableByteChannel) proxyFactory.getProxy();
-        }
-        // done
-        LOGGER.debug("Created callback byte channel: \n   original: {}\n   new: {}", directChannel, callbackChannel);
-        return callbackChannel;
-    }
-
-    // same base implementation as AbstractContentReader
-    protected FileChannel getCallbackFileChannel(final FileChannel directChannel, final List<ContentStreamListener> listeners)
-            throws ContentIOException
-    {
-        final FileChannel ret = new CallbackFileChannel(directChannel, listeners);
-        // done
-        return ret;
     }
 }

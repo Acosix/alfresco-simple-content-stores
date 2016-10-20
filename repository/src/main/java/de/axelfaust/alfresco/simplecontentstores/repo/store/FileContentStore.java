@@ -82,7 +82,7 @@ public class FileContentStore extends AbstractContentStore
             WRITER_SET_ALLOW_RANDOM_ACCESS = FileContentWriter.class.getDeclaredMethod("setAllowRandomAccess", boolean.class);
             WRITER_SET_ALLOW_RANDOM_ACCESS.setAccessible(true);
         }
-        catch (NoSuchMethodException | SecurityException e)
+        catch (final NoSuchMethodException | SecurityException e)
         {
             throw new AlfrescoRuntimeException(
                     "Incompatible Alfresco version - FileContentReader/FileContentWriter do not provide a setAllowRandomgAccess method", e);

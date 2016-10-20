@@ -19,6 +19,7 @@ import java.util.Collection;
 
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
+import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.slf4j.Logger;
@@ -38,7 +39,8 @@ public class CompressingContentReader extends ContentReaderFacade
 
     protected final Collection<String> mimetypesToCompress;
 
-    protected CompressingContentReader(final ContentReader delegate, final String compressionType, final Collection<String> mimetypesToCompress)
+    protected CompressingContentReader(final ContentReader delegate, final String compressionType,
+            final Collection<String> mimetypesToCompress)
     {
         super(delegate);
 
@@ -58,7 +60,6 @@ public class CompressingContentReader extends ContentReaderFacade
     /**
      * {@inheritDoc}
      */
-    @SuppressWarnings("resource")
     @Override
     public synchronized ReadableByteChannel getReadableChannel() throws ContentIOException
     {
@@ -71,12 +72,20 @@ public class CompressingContentReader extends ContentReaderFacade
         if (shouldCompress)
         {
             LOGGER.debug("Content will be decompressed from backing store (url={})", this.getContentUrl());
-            final ReadableByteChannel directChannel = this.getDirectReadableChannel();
-            this.channel = this.getCallbackReadableChannel(directChannel, this.listeners);
 
-            super.channelOpened();
-
-            channel = this.channel;
+            final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty() ? this.compressionType
+                    : CompressorStreamFactory.GZIP;
+            try
+            {
+                final CompressorInputStream is = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(compressiongType,
+                        this.delegate.getContentInputStream());
+                channel = Channels.newChannel(is);
+            }
+            catch (final CompressorException e)
+            {
+                LOGGER.error("Failed to open decompressing channel", e);
+                throw new ContentIOException("Failed to open channel: " + this, e);
+            }
         }
         else
         {
@@ -85,24 +94,6 @@ public class CompressingContentReader extends ContentReaderFacade
         }
 
         return channel;
-    }
-
-    @SuppressWarnings("resource")
-    protected ReadableByteChannel getDirectReadableChannel() throws ContentIOException
-    {
-        try
-        {
-            final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty() ? this.compressionType
-                    : CompressorStreamFactory.GZIP;
-            final CompressorInputStream is = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(compressiongType,
-                    this.delegate.getContentInputStream());
-            final ReadableByteChannel channel = Channels.newChannel(is);
-            return channel;
-        }
-        catch (final Throwable e)
-        {
-            throw new ContentIOException("Failed to open channel: " + this, e);
-        }
     }
 
     protected boolean isMimetypeToCompressWildcardMatch(final String mimetype)
