@@ -28,10 +28,10 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
  */
-public class CompressingContentReader extends ContentReaderFacade
+public class DecompressingContentReader extends ContentReaderFacade
 {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentReader.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DecompressingContentReader.class);
 
     private static final CompressorStreamFactory COMPRESSOR_STREAM_FACTORY = new CompressorStreamFactory();
 
@@ -39,7 +39,7 @@ public class CompressingContentReader extends ContentReaderFacade
 
     protected final Collection<String> mimetypesToCompress;
 
-    protected CompressingContentReader(final ContentReader delegate, final String compressionType,
+    protected DecompressingContentReader(final ContentReader delegate, final String compressionType,
             final Collection<String> mimetypesToCompress)
     {
         super(delegate);
@@ -54,7 +54,7 @@ public class CompressingContentReader extends ContentReaderFacade
     @Override
     public ContentReader getReader() throws ContentIOException
     {
-        return new CompressingContentReader(this.delegate.getReader(), this.compressionType, this.mimetypesToCompress);
+        return new DecompressingContentReader(this.delegate.getReader(), this.compressionType, this.mimetypesToCompress);
     }
 
     /**

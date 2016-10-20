@@ -30,6 +30,8 @@ import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
+import org.alfresco.service.cmr.repository.MimetypeService;
+import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.TempFileProvider;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -38,7 +40,7 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
  */
-public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> implements ContentWriter
+public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> implements ContentWriter, MimetypeServiceAware
 {
 
     protected static class SpoofStreamListener implements ContentStreamListener
@@ -313,6 +315,19 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
     public void guessEncoding()
     {
         this.delegate.guessEncoding();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setMimetypeService(final MimetypeService mimetypeService)
+    {
+        if (this.delegate instanceof MimetypeServiceAware)
+        {
+            ((MimetypeServiceAware) this.delegate).setMimetypeService(mimetypeService);
+        }
+
     }
 
 }

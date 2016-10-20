@@ -41,8 +41,6 @@ import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
-import org.alfresco.service.cmr.repository.MimetypeService;
-import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.PropertyCheck;
 import org.apache.commons.codec.DecoderException;
 import org.slf4j.Logger;
@@ -58,7 +56,7 @@ import com.googlecode.mp4parser.ByteBufferByteChannel;
 /**
  * @author Axel Faust
  */
-public class EncryptingContentStore extends CommonFacadingContentStore implements ApplicationContextAware, MimetypeServiceAware
+public class EncryptingContentStore extends CommonFacadingContentStore implements ApplicationContextAware
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EncryptingContentStore.class);
@@ -68,8 +66,6 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
     private static final int DEFAULT_KEY_SIZE = 512;
 
     protected ApplicationContext applicationContext;
-
-    protected MimetypeService mimetypeService;
 
     protected ContentDataDAO contentDataDAO;
 
@@ -102,8 +98,6 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
     {
         super.afterPropertiesSet();
 
-        PropertyCheck.mandatory(this, "mimetypeService", this.mimetypeService);
-
         PropertyCheck.mandatory(this, "contentDataDAO", this.contentDataDAO);
         PropertyCheck.mandatory(this, "keyStorePath", this.keyStorePath);
         PropertyCheck.mandatory(this, "keyStoreType", this.keyStoreType);
@@ -121,16 +115,6 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
     public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException
     {
         this.applicationContext = applicationContext;
-    }
-
-    /**
-     * @param mimetypeService
-     *            the mimetypeService to set
-     */
-    @Override
-    public void setMimetypeService(final MimetypeService mimetypeService)
-    {
-        this.mimetypeService = mimetypeService;
     }
 
     /**
@@ -249,39 +233,41 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                 throw new ContentIOException("Missing content URL entity for " + effectiveContentUrl);
             }
             final ContentUrlKeyEntity urlKeyEntity = urlEntity.getContentUrlKey();
-            if (urlKeyEntity == null)
+            if (urlKeyEntity != null)
             {
-                throw new ContentIOException("Missing content URL key entity for " + effectiveContentUrl);
-            }
-
-            try
-            {
-                final Key key;
-                final EncryptedKey encryptedKey = urlKeyEntity.getEncryptedKey();
-
-                final ByteBuffer ekBuffer = encryptedKey.getByteBuffer();
-                try (final ByteBufferByteChannel ekChannel = new ByteBufferByteChannel(ekBuffer))
+                try
                 {
-                    try (final DecryptingReadableByteChannel dkChannel = new DecryptingReadableByteChannel(ekChannel, this.masterKey))
+                    final Key key;
+                    final EncryptedKey encryptedKey = urlKeyEntity.getEncryptedKey();
+
+                    final ByteBuffer ekBuffer = encryptedKey.getByteBuffer();
+                    try (final ByteBufferByteChannel ekChannel = new ByteBufferByteChannel(ekBuffer))
                     {
-                        // allocate generously
-                        final ByteBuffer dkBuffer = ByteBuffer.allocate(ekBuffer.capacity() * 2);
-                        dkChannel.read(dkBuffer);
+                        try (final DecryptingReadableByteChannel dkChannel = new DecryptingReadableByteChannel(ekChannel, this.masterKey))
+                        {
+                            // allocate generously
+                            final ByteBuffer dkBuffer = ByteBuffer.allocate(ekBuffer.capacity() * 2);
+                            dkChannel.read(dkBuffer);
 
-                        dkBuffer.flip();
-                        final byte[] keyBytes = new byte[dkBuffer.remaining()];
-                        dkBuffer.get(keyBytes);
+                            dkBuffer.flip();
+                            final byte[] keyBytes = new byte[dkBuffer.remaining()];
+                            dkBuffer.get(keyBytes);
 
-                        key = new SecretKeySpec(keyBytes, encryptedKey.getAlgorithm());
+                            key = new SecretKeySpec(keyBytes, encryptedKey.getAlgorithm());
+                        }
                     }
-                }
 
-                reader = new DecryptingContentReaderFacade(backingReader, key, urlKeyEntity.getUnencryptedFileSize());
+                    reader = new DecryptingContentReaderFacade(backingReader, key, urlKeyEntity.getUnencryptedFileSize());
+                }
+                catch (final DecoderException | IOException e)
+                {
+                    LOGGER.error("Error loading symmetric content encryption key", e);
+                    throw new ContentIOException("Error loading symmetric content encryption key", e);
+                }
             }
-            catch (final DecoderException | IOException e)
+            else
             {
-                LOGGER.error("Error loading symmetric content encryption key", e);
-                throw new ContentIOException("Error loading symmetric content encryption key", e);
+                reader = backingReader;
             }
         }
         else
@@ -297,11 +283,10 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
     @Override
     public ContentWriter getWriter(final ContentContext context)
     {
-        final ContentWriter backingWriter = super.getWriter(context);
         final ContentReader existingContentReader;
 
-        final String contentUrl = backingWriter.getContentUrl();
-        if (this.exists(contentUrl))
+        final String contentUrl = context.getContentUrl();
+        if (contentUrl != null && this.isContentUrlSupported(contentUrl) && this.exists(contentUrl))
         {
             final ContentReader reader = this.getReader(contentUrl);
             if (reader != null && reader.exists())
@@ -318,10 +303,11 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
             existingContentReader = null;
         }
 
+        final ContentWriter backingWriter = super.getWriter(context);
+
         final Key key = this.createNewKey();
         final EncryptingContentWriterFacade facadeWriter = new EncryptingContentWriterFacade(backingWriter, context, key,
                 existingContentReader);
-        facadeWriter.setMimetypeService(this.mimetypeService);
 
         facadeWriter.addListener(new ContentStreamListener()
         {

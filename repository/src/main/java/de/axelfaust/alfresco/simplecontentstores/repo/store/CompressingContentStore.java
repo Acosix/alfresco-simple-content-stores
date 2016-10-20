@@ -84,7 +84,7 @@ public class CompressingContentStore extends CommonFacadingContentStore
     @Override
     public ContentReader getReader(final String contentUrl)
     {
-        final CompressingContentReader reader = new CompressingContentReader(super.getReader(contentUrl), this.compressionType,
+        final DecompressingContentReader reader = new DecompressingContentReader(super.getReader(contentUrl), this.compressionType,
                 this.mimetypesToCompress);
         return reader;
     }

@@ -70,4 +70,9 @@
             </bean>
         </property>
     </bean>
+    
+    <bean id="simpleContentStoresTemplate-encryptingFacadeStore" abstract="true" class="${project.artifactId}.store.EncryptingContentStore"
+        parent="${project.artifactId}-commonFacadeStore">
+        <property name="contentDataDAO" ref="contentDataDAO" />
+    </bean>
 </beans>

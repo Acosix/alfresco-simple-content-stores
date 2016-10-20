@@ -28,7 +28,6 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
-import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.ParameterCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +37,7 @@ import de.axelfaust.alfresco.simplecontentstores.repo.store.EncryptingWritableBy
 /**
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
  */
-public class EncryptingContentWriterFacade extends ContentWriterFacade implements MimetypeServiceAware
+public class EncryptingContentWriterFacade extends ContentWriterFacade
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EncryptingContentWriterFacade.class);
@@ -105,6 +104,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade implement
     @Override
     public void setMimetypeService(final MimetypeService mimetypeService)
     {
+        super.setMimetypeService(mimetypeService);
         this.mimetypeService = mimetypeService;
     }
 

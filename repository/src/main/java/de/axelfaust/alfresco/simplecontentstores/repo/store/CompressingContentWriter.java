@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 /**
  * @author Axel Faust
  */
+// TODO Refactor into a proper facade similar to EncryptingContentWriterFacade
 public class CompressingContentWriter extends AbstractContentWriter implements ContentStreamListener
 {
 
@@ -138,7 +139,7 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
 
         if (this.writtenToBackingWriter)
         {
-            reader = new CompressingContentReader(this.backingWriter.getReader(), this.compressionType, this.mimetypesToCompress);
+            reader = new DecompressingContentReader(this.backingWriter.getReader(), this.compressionType, this.mimetypesToCompress);
         }
         else
         {
