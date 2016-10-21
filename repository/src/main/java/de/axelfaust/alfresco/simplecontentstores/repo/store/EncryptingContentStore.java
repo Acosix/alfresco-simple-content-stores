@@ -41,6 +41,7 @@ import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
+import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.PropertyCheck;
 import org.apache.commons.codec.DecoderException;
 import org.slf4j.Logger;
@@ -50,8 +51,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.io.Resource;
 import org.springframework.util.ResourceUtils;
-
-import com.googlecode.mp4parser.ByteBufferByteChannel;
 
 /**
  * @author Axel Faust
@@ -64,6 +63,9 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
     private static final String DEFAULT_KEY_ALGORITHM = "AES";
 
     private static final int DEFAULT_KEY_SIZE = 128;
+
+    // assume at least 4096 bit key to properly initialise buffers for symmetric key encryption
+    private static final int DEFAULT_MASTER_KEY_SIZE = 4096;
 
     protected ApplicationContext applicationContext;
 
@@ -87,7 +89,13 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
 
     protected int keySize = DEFAULT_KEY_SIZE;
 
-    protected transient Key masterKey;
+    protected String masterKeyStoreId;
+
+    protected int masterKeySize = DEFAULT_MASTER_KEY_SIZE;
+
+    protected transient Key masterPublicKey;
+
+    protected transient Key masterPrivateKey;
 
     /**
      *
@@ -102,6 +110,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         PropertyCheck.mandatory(this, "keyStorePath", this.keyStorePath);
         PropertyCheck.mandatory(this, "keyStoreType", this.keyStoreType);
         PropertyCheck.mandatory(this, "masterKeyAlias", this.masterKeyAlias);
+        PropertyCheck.mandatory(this, "masterKeyStoreId", this.masterKeyStoreId);
 
         PropertyCheck.mandatory(this, "keyAlgorithm", this.keyAlgorithm);
 
@@ -186,7 +195,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
      */
     public void setMasterKey(final Key masterKey)
     {
-        this.masterKey = masterKey;
+        this.masterPrivateKey = masterKey;
     }
 
     /**
@@ -205,6 +214,15 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
     public void setKeyAlgorithmProvider(final String keyAlgorithmProvider)
     {
         this.keyAlgorithmProvider = keyAlgorithmProvider;
+    }
+
+    /**
+     * @param masterKeyStoreId
+     *            the masterKeyStoreId to set
+     */
+    public void setMasterKeyStoreId(final String masterKeyStoreId)
+    {
+        this.masterKeyStoreId = masterKeyStoreId;
     }
 
     /**
@@ -240,13 +258,21 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                     final Key key;
                     final EncryptedKey encryptedKey = urlKeyEntity.getEncryptedKey();
 
+                    if (!EqualsHelper.nullSafeEquals(this.masterKeyStoreId, encryptedKey.getMasterKeystoreId())
+                            || !EqualsHelper.nullSafeEquals(this.masterKeyAlias, encryptedKey.getMasterKeyAlias()))
+                    {
+                        throw new ContentIOException(
+                                "Content encryption key was encrypted with a master key from a different master key store / with a different key alias");
+                    }
+
                     final ByteBuffer ekBuffer = encryptedKey.getByteBuffer();
                     try (final ByteBufferByteChannel ekChannel = new ByteBufferByteChannel(ekBuffer))
                     {
-                        try (final DecryptingReadableByteChannel dkChannel = new DecryptingReadableByteChannel(ekChannel, this.masterKey))
+                        try (final DecryptingReadableByteChannel dkChannel = new DecryptingReadableByteChannel(ekChannel,
+                                this.masterPrivateKey))
                         {
-                            // allocate generously
-                            final ByteBuffer dkBuffer = ByteBuffer.allocate(ekBuffer.capacity() * 2);
+                            // due to overhead the key should always have fewer bytes than the encrypted key
+                            final ByteBuffer dkBuffer = ByteBuffer.allocate(ekBuffer.capacity());
                             dkChannel.read(dkBuffer);
 
                             dkBuffer.flip();
@@ -325,11 +351,24 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                 EncryptedKey eKey;
                 try
                 {
-                    final ByteBuffer ekBuffer = ByteBuffer.allocateDirect(dkBuffer.capacity() * 2);
+                    // allocate twice as many bytes for buffer then we actually expect
+                    // min expectation: master key size in bits / 8
+                    // key-dependant expectation: key byte count + buffer => rounded up to next power of 2
+                    final int masterKeyMinBlockSize = EncryptingContentStore.this.masterKeySize / 8;
+
+                    final int keyBlockOverhead = 42; // (RSA with default SHA-1)
+                    int expectedKeyBlockSize = dkBuffer.capacity() + keyBlockOverhead;
+                    if (Integer.highestOneBit(expectedKeyBlockSize) != Integer.lowestOneBit(expectedKeyBlockSize))
+                    {
+                        // round up to next power of two
+                        expectedKeyBlockSize = Integer.highestOneBit(expectedKeyBlockSize) << 1;
+                    }
+
+                    final ByteBuffer ekBuffer = ByteBuffer.allocateDirect(Math.max(masterKeyMinBlockSize, expectedKeyBlockSize) * 2);
                     try (final ByteBufferByteChannel ekChannel = new ByteBufferByteChannel(ekBuffer))
                     {
                         try (final EncryptingWritableByteChannel dkChannel = new EncryptingWritableByteChannel(ekChannel,
-                                EncryptingContentStore.this.masterKey))
+                                EncryptingContentStore.this.masterPublicKey))
                         {
                             dkChannel.write(dkBuffer);
                         }
@@ -337,7 +376,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
 
                     ekBuffer.flip();
 
-                    eKey = new EncryptedKey(EncryptingContentWriterFacade.class.getSimpleName(), EncryptingContentStore.this.masterKeyAlias,
+                    eKey = new EncryptedKey(EncryptingContentStore.this.masterKeyStoreId, EncryptingContentStore.this.masterKeyAlias,
                             key.getAlgorithm(), ekBuffer);
                 }
                 catch (final IOException e)
@@ -346,11 +385,20 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                     throw new ContentIOException("Error storing symmetric content encryption key", e);
                 }
 
+                final String finalContentUrl = facadeWriter.getContentUrl();
+                final ContentUrlEntity contentUrlEntity = EncryptingContentStore.this.contentDataDAO.getContentUrl(finalContentUrl);
+
+                if (contentUrlEntity == null)
+                {
+                    // can't create content URL entity directly so create via ContentData
+                    EncryptingContentStore.this.contentDataDAO.createContentData(facadeWriter.getContentData());
+                }
+
                 final ContentUrlKeyEntity contentUrlKeyEntity = new ContentUrlKeyEntity();
                 contentUrlKeyEntity.setUnencryptedFileSize(Long.valueOf(facadeWriter.getSize()));
                 contentUrlKeyEntity.setEncryptedKey(eKey);
 
-                EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(facadeWriter.getContentUrl(), contentUrlKeyEntity);
+                EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(finalContentUrl, contentUrlKeyEntity);
             }
 
         });
@@ -390,7 +438,8 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                     : KeyStore.getInstance(this.keyStoreType);
             keyStore.load(keyStoreInput, this.keyStorePassword != null ? this.keyStorePassword.toCharArray() : null);
 
-            this.masterKey = keyStore.getKey(this.masterKeyAlias,
+            this.masterPublicKey = keyStore.getCertificate(this.masterKeyAlias).getPublicKey();
+            this.masterPrivateKey = keyStore.getKey(this.masterKeyAlias,
                     this.masterKeyPassword != null ? this.masterKeyPassword.toCharArray() : null);
         }
         catch (final NoSuchAlgorithmException | NoSuchProviderException | KeyStoreException | UnrecoverableKeyException | IOException

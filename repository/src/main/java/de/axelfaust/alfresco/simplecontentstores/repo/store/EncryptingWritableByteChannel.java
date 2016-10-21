@@ -47,6 +47,8 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
 
     protected final Cipher cipher;
 
+    protected ByteBuffer writeBuffer = ByteBuffer.allocateDirect(8192);
+
     protected volatile boolean open = true;
 
     protected Collection<EncryptionListener> listeners;
@@ -104,11 +106,14 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
         try
         {
             final int expectedOutputSize = this.cipher.getOutputSize(0);
-            final ByteBuffer remainingEncryptedOutput = ByteBuffer.allocateDirect(expectedOutputSize);
-            this.cipher.doFinal(ByteBuffer.allocate(0), remainingEncryptedOutput);
+            if (this.writeBuffer.capacity() < expectedOutputSize)
+            {
+                this.writeBuffer = ByteBuffer.allocateDirect(expectedOutputSize);
+            }
+            this.cipher.doFinal(ByteBuffer.allocate(0), this.writeBuffer);
 
-            remainingEncryptedOutput.flip();
-            final int bytesWritten = this.delegateChannel.write(remainingEncryptedOutput);
+            this.writeBuffer.flip();
+            final int bytesWritten = this.delegateChannel.write(this.writeBuffer);
 
             if (this.listeners != null)
             {
@@ -146,10 +151,13 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
         final int bytesRead = src.remaining();
 
         final int expectedOutputSize = this.cipher.getOutputSize(bytesRead);
-        final ByteBuffer remainingEncryptedOutput = ByteBuffer.allocateDirect(expectedOutputSize);
+        if (this.writeBuffer.capacity() < expectedOutputSize)
+        {
+            this.writeBuffer = ByteBuffer.allocateDirect(expectedOutputSize);
+        }
         try
         {
-            this.cipher.update(src, remainingEncryptedOutput);
+            this.cipher.update(src, this.writeBuffer);
         }
         catch (final ShortBufferException e)
         {
@@ -157,8 +165,9 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
             throw new IOException("Unexpected encryption error", e);
         }
 
-        remainingEncryptedOutput.flip();
-        final int bytesWritten = this.delegateChannel.write(remainingEncryptedOutput);
+        this.writeBuffer.flip();
+        final int bytesWritten = this.delegateChannel.write(this.writeBuffer);
+        this.writeBuffer.clear();
 
         if (this.listeners != null)
         {
@@ -168,7 +177,8 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
             }
         }
 
-        return bytesWritten;
+        // needs to be the bytes we read from input because buffering in cipher is an internal detail
+        return bytesRead;
     }
 
     public void addListener(final EncryptionListener listener)

@@ -120,7 +120,7 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
                 throw new IOException("Destination buffer has no more available space");
             }
 
-            boolean canReadMore = this.decryptedInputBuffer.hasRemaining() || this.doRead() > 0;
+            boolean canReadMore = (this.decryptedInputBuffer != null && this.decryptedInputBuffer.hasRemaining()) || this.doRead() > 0;
             while (remaining > 0 && canReadMore)
             {
                 if (remaining < this.decryptedInputBuffer.remaining())
@@ -155,48 +155,53 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
 
     protected int doRead() throws IOException
     {
-        this.readBuffer.clear();
-
-        int bytesRead = 0;
-        while (this.readBuffer.hasRemaining() && bytesRead != -1)
+        int effectiveBytesRead = -1;
+        if (this.open)
         {
-            bytesRead = this.delegateChannel.read(this.readBuffer);
-        }
+            this.readBuffer.clear();
 
-        this.readBuffer.flip();
-        final int expectedDecryptedSize = this.cipher.getOutputSize(this.readBuffer.limit());
-
-        if (this.decryptedInputBuffer == null || this.decryptedInputBuffer.capacity() < expectedDecryptedSize)
-        {
-            this.decryptedInputBuffer = ByteBuffer.allocateDirect(expectedDecryptedSize);
-        }
-        else
-        {
-            this.decryptedInputBuffer.clear();
-            this.decryptedInputBuffer.limit(expectedDecryptedSize);
-        }
-
-        try
-        {
-            if (bytesRead != -1)
+            int bytesRead = 0;
+            while (this.readBuffer.hasRemaining() && bytesRead != -1)
             {
-                this.cipher.update(this.readBuffer, this.decryptedInputBuffer);
+                bytesRead = this.delegateChannel.read(this.readBuffer);
+            }
+
+            this.readBuffer.flip();
+            final int expectedDecryptedSize = this.cipher.getOutputSize(this.readBuffer.limit());
+
+            if (this.decryptedInputBuffer == null || this.decryptedInputBuffer.capacity() < expectedDecryptedSize)
+            {
+                this.decryptedInputBuffer = ByteBuffer.allocateDirect(expectedDecryptedSize);
             }
             else
             {
-                this.cipher.doFinal(this.readBuffer, this.decryptedInputBuffer);
-
-                this.close();
+                this.decryptedInputBuffer.clear();
+                this.decryptedInputBuffer.limit(expectedDecryptedSize);
             }
-        }
-        catch (final BadPaddingException | IllegalBlockSizeException | ShortBufferException e)
-        {
-            LOGGER.error("Unexepted error during read from decrypting channel", e);
-            throw new IOException("Unexpected decryption error", e);
-        }
-        this.decryptedInputBuffer.flip();
 
-        return this.decryptedInputBuffer.limit();
+            try
+            {
+                this.cipher.update(this.readBuffer, this.decryptedInputBuffer);
+
+                if (bytesRead == -1)
+                {
+                    final ByteBuffer finalInput = ByteBuffer.allocate(0);
+                    this.cipher.doFinal(finalInput, this.decryptedInputBuffer);
+
+                    this.close();
+                }
+            }
+            catch (final BadPaddingException | IllegalBlockSizeException | ShortBufferException e)
+            {
+                LOGGER.error("Unexepted error during read from decrypting channel", e);
+                throw new IOException("Unexpected decryption error", e);
+            }
+            this.decryptedInputBuffer.flip();
+
+            effectiveBytesRead = this.decryptedInputBuffer.limit();
+        }
+
+        return effectiveBytesRead;
     }
 
 }
