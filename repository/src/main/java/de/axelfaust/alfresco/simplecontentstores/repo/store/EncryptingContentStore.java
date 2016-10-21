@@ -231,6 +231,10 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
      */
     public void setKeySize(final int keySize)
     {
+        if (keySize <= 0)
+        {
+            throw new IllegalArgumentException("keySize must be a positive integer");
+        }
         this.keySize = keySize;
     }
 
