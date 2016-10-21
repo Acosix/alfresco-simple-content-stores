@@ -117,9 +117,6 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
                     listener.bytesProcessed(0, bytesWritten);
                 }
             }
-
-            // this'll trigger the listeners on the backing channel
-            this.delegateChannel.close();
         }
         catch (final BadPaddingException | IllegalBlockSizeException | ShortBufferException e)
         {
@@ -128,6 +125,8 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
         }
         finally
         {
+            // this'll trigger the listeners on the backing channel
+            this.delegateChannel.close();
             this.open = false;
         }
     }

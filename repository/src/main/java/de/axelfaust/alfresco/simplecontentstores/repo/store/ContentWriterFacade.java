@@ -33,9 +33,9 @@ import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
 import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.TempFileProvider;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.FileCopyUtils;
 
 /**
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
@@ -205,17 +205,9 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
     @Override
     public OutputStream getContentOutputStream() throws ContentIOException
     {
-        try
-        {
-            final WritableByteChannel channel = this.getWritableChannel();
-            final OutputStream is = new BufferedOutputStream(Channels.newOutputStream(channel));
-            return is;
-        }
-        catch (final Throwable e)
-        {
-            LOGGER.error("Failed to open stream onto channel for writer {]", this, e);
-            throw new ContentIOException("Failed to open stream onto channel: \n\twriter: " + this, e);
-        }
+        final WritableByteChannel channel = this.getWritableChannel();
+        final OutputStream os = new BufferedOutputStream(Channels.newOutputStream(channel));
+        return os;
     }
 
     /**
@@ -236,8 +228,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
         try
         {
             final OutputStream os = this.getContentOutputStream();
-            // we never know how large the input can be
-            IOUtils.copyLarge(is, os);
+            FileCopyUtils.copy(is, os);
         }
         catch (final IOException e)
         {

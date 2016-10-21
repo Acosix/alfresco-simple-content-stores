@@ -35,9 +35,9 @@ import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.ParameterCheck;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
-import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.FileCopyUtils;
 
 /**
  * @author Axel Faust
@@ -69,8 +69,8 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
     protected CompressingContentWriter(final String contentUrl, final ContentContext context, final ContentStore temporaryContentStore,
             final ContentWriter backingWriter, final String compressionType, final Collection<String> mimetypesToCompress)
     {
-        super(backingWriter.getContentUrl() != null ? backingWriter.getContentUrl() : context.getContentUrl(), context
-                .getExistingContentReader());
+        super(backingWriter.getContentUrl() != null ? backingWriter.getContentUrl() : context.getContentUrl(),
+                context.getExistingContentReader());
 
         ParameterCheck.mandatory("context", context);
         ParameterCheck.mandatory("temporaryContentStore", temporaryContentStore);
@@ -200,25 +200,21 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
 
         try
         {
-            final boolean shouldCompress = this.mimetypesToCompress == null
-                    || this.mimetypesToCompress.isEmpty()
-                    || (mimetype != null && (this.mimetypesToCompress.contains(mimetype) || this
-                            .isMimetypeToCompressWildcardMatch(mimetype)));
+            final boolean shouldCompress = this.mimetypesToCompress == null || this.mimetypesToCompress.isEmpty() || (mimetype != null
+                    && (this.mimetypesToCompress.contains(mimetype) || this.isMimetypeToCompressWildcardMatch(mimetype)));
             if (shouldCompress)
             {
                 LOGGER.debug("Content will be compressed to backing store (url={})", this.getContentUrl());
-                final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty() ? this.compressionType
-                        : CompressorStreamFactory.GZIP;
+                final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty()
+                        ? this.compressionType : CompressorStreamFactory.GZIP;
                 try (final OutputStream contentOutputStream = this.backingWriter.getContentOutputStream())
                 {
                     try (OutputStream compressedOutputStream = COMPRESSOR_STREAM_FACTORY.createCompressorOutputStream(compressiongType,
                             contentOutputStream))
                     {
                         final ContentReader reader = this.createReader();
-                        try (final InputStream contentInputStream = reader.getContentInputStream())
-                        {
-                            IOUtils.copy(contentInputStream, compressedOutputStream);
-                        }
+                        final InputStream contentInputStream = reader.getContentInputStream();
+                        FileCopyUtils.copy(contentInputStream, compressedOutputStream);
                     }
                 }
                 catch (final IOException | CompressorException ex)

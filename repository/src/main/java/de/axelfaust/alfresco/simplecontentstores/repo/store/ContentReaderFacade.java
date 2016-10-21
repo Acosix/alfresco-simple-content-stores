@@ -222,7 +222,7 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
         {
             final InputStream is = this.getContentInputStream();
             final FileOutputStream os = new FileOutputStream(file);
-            FileCopyUtils.copy(is, os); // both streams are closed
+            FileCopyUtils.copy(is, os);
         }
         catch (final IOException e)
         {

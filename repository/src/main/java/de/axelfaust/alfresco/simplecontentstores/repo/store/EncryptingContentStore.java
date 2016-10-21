@@ -63,7 +63,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
 
     private static final String DEFAULT_KEY_ALGORITHM = "AES";
 
-    private static final int DEFAULT_KEY_SIZE = 512;
+    private static final int DEFAULT_KEY_SIZE = 128;
 
     protected ApplicationContext applicationContext;
 
