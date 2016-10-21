@@ -51,6 +51,8 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
 
     protected volatile boolean open = true;
 
+    protected volatile boolean readToEnd = false;
+
     public DecryptingReadableByteChannel(final ReadableByteChannel delegateChannel, final Key key)
     {
         this.delegateChannel = delegateChannel;
@@ -133,14 +135,13 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
                 else
                 {
                     dst.put(this.decryptedInputBuffer);
-                    this.decryptedInputBuffer.clear();
                     canReadMore = this.doRead() > 0;
                 }
                 remaining = dst.remaining();
             }
 
             bytesRead = dst.position() - position;
-            if (bytesRead == 0 && !this.open)
+            if (bytesRead == 0 && this.readToEnd)
             {
                 bytesRead = -1;
             }
@@ -156,7 +157,7 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
     protected int doRead() throws IOException
     {
         int effectiveBytesRead = -1;
-        if (this.open)
+        if (!this.readToEnd)
         {
             this.readBuffer.clear();
 
@@ -188,7 +189,7 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
                     final ByteBuffer finalInput = ByteBuffer.allocate(0);
                     this.cipher.doFinal(finalInput, this.decryptedInputBuffer);
 
-                    this.close();
+                    this.readToEnd = true;
                 }
             }
             catch (final BadPaddingException | IllegalBlockSizeException | ShortBufferException e)
