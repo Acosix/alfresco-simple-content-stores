@@ -14,6 +14,7 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.beans;
 
 import java.text.MessageFormat;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 
@@ -158,7 +159,8 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
                     storeName + " (custom content store) cannot be defined - a bean with same name already exists");
         }
 
-        final String prefix = MessageFormat.format("{0}.{1}.", PROP_CUSTOM_STORE_PREFIX, storeName);
+        final MessageFormat mf = new MessageFormat("{0}.{1}.", Locale.ENGLISH);
+        final String prefix = mf.format(new Object[] { PROP_CUSTOM_STORE_PREFIX, storeName });
         final String typeProperty = prefix + "type";
         final String typeValue = this.globalProperties.getProperty(typeProperty);
 

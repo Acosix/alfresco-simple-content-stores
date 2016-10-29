@@ -14,16 +14,17 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.io.Serializable;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
@@ -32,6 +33,7 @@ import org.alfresco.model.ContentModel;
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.content.AbstractRoutingContentStore;
 import org.alfresco.repo.content.ContentContext;
+import org.alfresco.repo.content.ContentExistsException;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.EmptyContentReader;
 import org.alfresco.repo.content.NodeContentContext;
@@ -48,6 +50,7 @@ import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.EqualsHelper;
+import org.alfresco.util.GUID;
 import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
@@ -58,14 +61,18 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
+ * Instances of this class provide a content store that may support moving of binary contents between different backing stores upon changes
+ * to the node referencing the content, e.g. property changes or path relocations.
+ *
+ * This class partially duplicates code from {@link AbstractRoutingContentStore} since the class hides some relevant internals behind
+ * limited visibility modifiers.
+ *
  * @author Axel Faust
  */
-public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractRoutingContentStore
-        implements ApplicationContextAware, InitializingBean
+public abstract class MoveCapableCommonRoutingContentStore<CD> implements ContentStore, ApplicationContextAware, InitializingBean
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MoveCapableCommonRoutingContentStore.class);
@@ -74,7 +81,9 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
 
     protected ApplicationContext applicationContext;
 
-    protected transient Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
+    private final Object contentStoreContextInitializersLock = new Object();
+
+    protected transient volatile Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
 
     protected PolicyComponent policyComponent;
 
@@ -82,45 +91,25 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
 
     protected NodeService nodeService;
 
+    protected final String instanceKey = GUID.generate();
+
     protected SimpleCache<Pair<String, String>, ContentStore> storesByContentUrl;
-
-    protected ContentStore fallbackStore;
-
-    protected transient List<ContentStore> allStores;
-
-    protected final String instanceKey;
 
     protected final ReadLock storesCacheReadLock;
 
     protected final WriteLock storesCacheWriteLock;
 
+    protected ContentStore fallbackStore;
+
+    protected transient List<ContentStore> allStores;
+
     public MoveCapableCommonRoutingContentStore()
     {
         super();
 
-        // we may need those locks and the instance key but base class does not allow simple access to them
-        try
-        {
-            final Field readLockField = AbstractRoutingContentStore.class.getDeclaredField("storesCacheReadLock");
-            readLockField.setAccessible(true);
-            this.storesCacheReadLock = (ReadLock) readLockField.get(this);
-
-            final Field writeLockField = AbstractRoutingContentStore.class.getDeclaredField("storesCacheWriteLock");
-            writeLockField.setAccessible(true);
-            this.storesCacheWriteLock = (WriteLock) writeLockField.get(this);
-
-            final Field instanceKeyField = AbstractRoutingContentStore.class.getDeclaredField("instanceKey");
-            instanceKeyField.setAccessible(true);
-            this.instanceKey = (String) instanceKeyField.get(this);
-        }
-        catch (final NoSuchFieldException nsfe)
-        {
-            throw new AlfrescoRuntimeException("Can't access required fields from base class", nsfe);
-        }
-        catch (final IllegalAccessException iae)
-        {
-            throw new AlfrescoRuntimeException("Can't access required fields from base class", iae);
-        }
+        final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+        this.storesCacheReadLock = lock.readLock();
+        this.storesCacheWriteLock = lock.writeLock();
     }
 
     /**
@@ -187,14 +176,89 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
     }
 
     /**
+     * Sets the store cache for avoiding repeated content store lookups.
+     *
+     * @param storesCache
+     *            cache of stores used to access URLs
+     */
+    public void setStoresCache(final SimpleCache<Pair<String, String>, ContentStore> storesCache)
+    {
+        this.storesByContentUrl = storesCache;
+    }
+
+    /**
      *
      * {@inheritDoc}
      */
     @Override
-    public void setStoresCache(final SimpleCache<Pair<String, String>, ContentStore> storesCache)
+    public boolean isContentUrlSupported(final String contentUrl)
     {
-        super.setStoresCache(storesCache);
-        this.storesByContentUrl = storesCache;
+        final List<ContentStore> stores = this.getAllStores();
+        boolean supported = false;
+        for (final ContentStore store : stores)
+        {
+            if (store.isContentUrlSupported(contentUrl))
+            {
+                supported = true;
+                break;
+            }
+        }
+
+        LOGGER.debug("The url {} supported by at least one store", (supported ? "is" : "is not"));
+
+        return supported;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isWriteSupported()
+    {
+        final List<ContentStore> stores = this.getAllStores();
+        boolean supported = false;
+        for (final ContentStore store : stores)
+        {
+            if (store.isWriteSupported())
+            {
+                supported = true;
+                break;
+            }
+        }
+
+        LOGGER.debug("Writing {} supported by at least one store", (supported ? "is" : "is not"));
+        return supported;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public String getRootLocation()
+    {
+        return ".";
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public long getSpaceFree()
+    {
+        return -1L;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public long getSpaceTotal()
+    {
+        return -1L;
     }
 
     /**
@@ -217,19 +281,150 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
         final ContentReader reader;
         if (store != null)
         {
-            LOGGER.debug("Getting reader from store: \n\tContent URL: {0}\n\tStore: {1}", contentUrl, store);
+            LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
             reader = store.getReader(contentUrl);
         }
         else
         {
-            LOGGER.debug("Getting empty reader for content URL: {0}", contentUrl);
+            LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
             reader = new EmptyContentReader(contentUrl);
         }
 
         return reader;
     }
 
-    // needed to copy this private-visibility method from AbstractRoutingContentStore for improved granularity
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public ContentWriter getWriter(final ContentContext context) throws ContentIOException
+    {
+        final String contentUrl = context.getContentUrl();
+        final Pair<String, String> cacheKey = new Pair<>(this.instanceKey, contentUrl);
+        if (contentUrl != null)
+        {
+            // Check to see if it is in the cache
+            this.storesCacheReadLock.lock();
+            try
+            {
+                // Check if the store is in the cache
+                final ContentStore store = this.storesByContentUrl.get(cacheKey);
+                if (store != null)
+                {
+                    throw new ContentExistsException(this, contentUrl);
+                }
+                /*
+                 * We could go further and check each store for the existence of the URL,
+                 * but that would be overkill. The main problem we need to prevent is
+                 * the simultaneous access of the same store. The router represents
+                 * a single store and therefore if the URL is present in any of the stores,
+                 * it is effectively present in all of them.
+                 */
+            }
+            finally
+            {
+                this.storesCacheReadLock.unlock();
+            }
+        }
+        // Select the store for writing
+        final ContentStore store = this.selectWriteStore(context);
+        // Check that we were given a valid store
+        if (store == null)
+        {
+            throw new NullPointerException(
+                    "Unable to find a writer. 'selectWriteStore' may not return null: \n\tRouter: " + this + "\n\tChose: null");
+        }
+        else if (!store.isWriteSupported())
+        {
+            throw new AlfrescoRuntimeException(
+                    "A write store was chosen that doesn't support writes: \n\tRouter: " + this + "\n\tChose:  " + store);
+        }
+        final ContentWriter writer = store.getWriter(context);
+        final String newContentUrl = writer.getContentUrl();
+        final Pair<String, String> newCacheKey = new Pair<>(this.instanceKey, newContentUrl);
+        // Cache the store against the URL
+        this.storesCacheWriteLock.lock();
+        try
+        {
+            this.storesByContentUrl.put(newCacheKey, store);
+        }
+        finally
+        {
+            this.storesCacheWriteLock.unlock();
+        }
+
+        LOGGER.debug("Got writer and cache URL from store: \n\tContext: {}\n\tWriter:  {}\n\tStore:   {}", context, writer, store);
+        return writer;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    @SuppressWarnings("deprecation")
+    public void getUrls(final ContentUrlHandler handler) throws ContentIOException
+    {
+        this.getUrls(null, null, handler);
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    @SuppressWarnings("deprecation")
+    public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler) throws ContentIOException
+    {
+        final List<ContentStore> stores = this.getAllStores();
+        for (final ContentStore store : stores)
+        {
+            try
+            {
+                store.getUrls(createdAfter, createdBefore, handler);
+            }
+            catch (final UnsupportedOperationException e)
+            {
+                // Support of this is not mandatory
+            }
+        }
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean delete(final String contentUrl) throws ContentIOException
+    {
+        boolean deleted = true;
+        final List<ContentStore> stores = this.getAllStores();
+
+        /*
+         * This operation has to be performed on all the stores in order to maintain the
+         * {@link ContentStore#exists(String)} contract.
+         */
+        for (final ContentStore store : stores)
+        {
+            if (store.isWriteSupported())
+            {
+                deleted &= store.delete(contentUrl);
+            }
+        }
+
+        LOGGER.debug("Deleted content URL from stores: \n\tStores:  {}\n\tDeleted: {}", stores.size(), deleted);
+
+        return deleted;
+    }
+
+    /**
+     * Checks the cache for the store and ensures that the URL is in the store.
+     *
+     * @param contentUrl
+     *            the content URL to search for
+     * @return the store matching the content URL
+     */
     protected ContentStore selectReadStore(final String contentUrl)
     {
         final ContentStore readStore = this.getStore(contentUrl, true);
@@ -238,9 +433,10 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
 
     /**
      *
-     * {@inheritDoc}
+     * Retrieves all the stores backing this instance.
+     *
+     * @return the list of all possible stores available for reading or writing
      */
-    @Override
     protected List<ContentStore> getAllStores()
     {
         return Collections.unmodifiableList(this.allStores);
@@ -384,10 +580,16 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
     }
 
     /**
+     * Gets a content store based on the context provided. The applicability of the
+     * context and even the types of context allowed are up to the implementation, but
+     * normally there should be a fallback case for when the parameters are not adequate
+     * to make a decision.
      *
-     * {@inheritDoc}
+     * @param ctx
+     *            the context to use to make the choice
+     * @return the store most appropriate for the given context and
+     *         <b>never <tt>null</tt></b>
      */
-    @Override
     protected ContentStore selectWriteStore(final ContentContext ctx)
     {
         final ContentStore writeStore;
@@ -454,19 +656,9 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
 
             if (!contentPropertiesMap.isEmpty())
             {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap,
-                                customData);
-                        return null;
-                    }
+                ContentStoreContext.executeInNewContext(() -> {
+                    MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, customData);
+                    return null;
                 });
             }
         }
@@ -614,7 +806,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> extends AbstractR
     {
         if (this.contentStoreContextInitializers == null)
         {
-            synchronized (this)
+            synchronized (this.contentStoreContextInitializersLock)
             {
                 if (this.contentStoreContextInitializers == null)
                 {

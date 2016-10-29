@@ -88,7 +88,7 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
     @Override
     public boolean isOpen()
     {
-        return this.isOpen();
+        return this.open;
     }
 
     /**

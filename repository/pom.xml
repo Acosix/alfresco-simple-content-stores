@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.axelfaust.alfresco</groupId>
@@ -8,18 +9,16 @@
     </parent>
 
     <artifactId>de.axelfaust.alfresco.simplecontentstores.repo</artifactId>
-
     <name>Simple Content Stores - Repository Module</name>
-    <packaging>amp</packaging>
 
     <properties>
-        <alfresco.client.war>alfresco</alfresco.client.war>
     </properties>
 
     <dependencies>
-
+        <!-- need alfresco-data-model because we exclude some dependencies from alfresco-repository (to limit transitive inclusion of e.g. JLAN) 
+            which indirectly excludes alfresco-data-model as well -->
         <dependency>
-            <groupId>${alfresco.groupId}</groupId>
+            <groupId>org.alfresco</groupId>
             <artifactId>alfresco-data-model</artifactId>
             <exclusions>
                 <!-- No need for any CMIS -->
@@ -61,7 +60,7 @@
         </dependency>
 
         <dependency>
-            <groupId>${alfresco.groupId}</groupId>
+            <groupId>org.alfresco</groupId>
             <artifactId>alfresco-repository</artifactId>
             <exclusions>
                 <!-- Why the heck is a different JSR-223 API included? -->
@@ -152,7 +151,7 @@
                 <!-- the exclusions above are convenient enough to handle -->
             </exclusions>
         </dependency>
-        
+
         <dependency>
             <groupId>org.tukaani</groupId>
             <artifactId>xz</artifactId>
@@ -162,16 +161,99 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <excludes>
+                    <exclude>.gitkeep</exclude>
+                </excludes>
+            </resource>
+            <!-- the following are only for mapping source folders in Eclipse -->
+            <resource>
+                <directory>src/main/config</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/globalConfig</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/messages</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/webscripts</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/webapp</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
         <plugins>
+
+            <plugin>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+
             <plugin>
                 <artifactId>maven-resources-plugin</artifactId>
-                <configuration>
-                    <escapeString>\</escapeString>
-                </configuration>
             </plugin>
-        </plugins>
 
-        <!-- TODO Handle "standard" JAR, sources + JavaDoc creation which SDK sucks at -->
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>de.thetaphi</groupId>
+                <artifactId>forbiddenapis</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>de.acosix.alfresco.maven</groupId>
+                <artifactId>de.acosix.alfresco.maven.plugins</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.alfresco.maven.plugin</groupId>
+                <artifactId>alfresco-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>de.acosix.maven</groupId>
+                <artifactId>jshint-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>findbugs-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+            </plugin>
+
+        </plugins>
     </build>
 
 </project>

@@ -88,7 +88,7 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
     @Override
     public boolean isOpen()
     {
-        return this.isOpen();
+        return this.open;
     }
 
     /**

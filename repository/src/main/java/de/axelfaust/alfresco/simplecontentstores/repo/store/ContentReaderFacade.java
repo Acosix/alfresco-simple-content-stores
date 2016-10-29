@@ -145,24 +145,14 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
                 }
             }
             final ContentReader spoofReader = spoofWriter.getReader();
-            final ContentStreamListener spoofListener = new ContentStreamListener()
-            {
-
-                /**
-                 *
-                 * {@inheritDoc}
-                 */
-                @Override
-                public void contentStreamClosed() throws ContentIOException
+            final ContentStreamListener spoofListener = () -> {
+                try
                 {
-                    try
-                    {
-                        readableChannel.close();
-                    }
-                    catch (final IOException e)
-                    {
-                        throw new ContentIOException("Failed to close underlying channel", e);
-                    }
+                    readableChannel.close();
+                }
+                catch (final IOException e)
+                {
+                    throw new ContentIOException("Failed to close underlying channel", e);
                 }
             };
             spoofReader.addListener(spoofListener);
@@ -247,7 +237,8 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
             // get the encoding for the string
             final String encoding = this.getEncoding();
             // create the string from the byte[] using encoding if necessary
-            final String content = (encoding == null) ? new String(bytes) : new String(bytes, encoding);
+            final String systemEncoding = System.getProperty("file.encoding");
+            final String content = (encoding == null) ? new String(bytes, systemEncoding) : new String(bytes, encoding);
             // done
             return content;
         }
@@ -264,10 +255,11 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
     // same implementation as AbstractContentReader
     public String getContentString(final int length) throws ContentIOException
     {
-        if (length < 0 || length > Integer.MAX_VALUE)
+        if (length <= 0)
         {
             throw new IllegalArgumentException("Character count must be positive and within range");
         }
+
         Reader reader = null;
         try
         {
@@ -278,7 +270,8 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
             // create a reader from the input stream
             if (encoding == null)
             {
-                reader = new InputStreamReader(this.getContentInputStream());
+                final String systemEncoding = System.getProperty("file.encoding");
+                reader = new InputStreamReader(this.getContentInputStream(), systemEncoding);
             }
             else
             {

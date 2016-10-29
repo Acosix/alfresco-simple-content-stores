@@ -246,7 +246,21 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
         try
         {
             final FileInputStream fis = new FileInputStream(file);
-            this.putContent(fis);
+            try
+            {
+                this.putContent(fis);
+            }
+            finally
+            {
+                try
+                {
+                    fis.close();
+                }
+                catch (final IOException ignore)
+                {
+                    // NO-OP
+                }
+            }
         }
         catch (final IOException e)
         {
@@ -269,8 +283,9 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
             if (encoding == null)
             {
                 // Use the system default, and record what that was
-                bytes = content.getBytes();
-                this.setEncoding(System.getProperty("file.encoding"));
+                final String systemEncoding = System.getProperty("file.encoding");
+                bytes = content.getBytes(systemEncoding);
+                this.setEncoding(systemEncoding);
             }
             else
             {

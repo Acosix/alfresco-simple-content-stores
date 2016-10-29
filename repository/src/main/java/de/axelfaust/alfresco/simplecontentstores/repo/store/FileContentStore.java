@@ -16,12 +16,13 @@ package de.axelfaust.alfresco.simplecontentstores.repo.store;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.lang.reflect.Method;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.AbstractContentStore;
@@ -31,16 +32,12 @@ import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.ContentStoreCreatedEvent;
 import org.alfresco.repo.content.EmptyContentReader;
 import org.alfresco.repo.content.UnsupportedContentUrlException;
-import org.alfresco.repo.content.filestore.FileContentReader;
-import org.alfresco.repo.content.filestore.FileContentWriter;
 import org.alfresco.repo.content.filestore.SpoofedTextContentReader;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.Deleter;
-import org.alfresco.util.GUID;
 import org.alfresco.util.Pair;
-import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
@@ -51,6 +48,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.extensions.surf.util.ParameterCheck;
+import org.springframework.extensions.webscripts.GUID;
+
+import de.axelfaust.alfresco.simplecontentstores.repo.store.file.FileContentReaderImpl;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.file.FileContentWriterImpl;
 
 /**
  * This implementation of a file-based content store is heavily borrowed from {@link org.alfresco.repo.content.filestore.FileContentStore}
@@ -66,28 +68,6 @@ public class FileContentStore extends AbstractContentStore
     protected static final String STORE_PROTOCOL = org.alfresco.repo.content.filestore.FileContentStore.STORE_PROTOCOL;
 
     protected static final String SPOOF_PROTOCOL = org.alfresco.repo.content.filestore.FileContentStore.SPOOF_PROTOCOL;
-
-    private static final Method READER_SET_ALLOW_RANDOM_ACCESS;
-
-    private static final Method WRITER_SET_ALLOW_RANDOM_ACCESS;
-
-    // this is immensively ugly but Alfresco using friggin' package-protected forces us to do this lest we copy entire class
-    static
-    {
-        try
-        {
-            READER_SET_ALLOW_RANDOM_ACCESS = FileContentReader.class.getDeclaredMethod("setAllowRandomAccess", boolean.class);
-            READER_SET_ALLOW_RANDOM_ACCESS.setAccessible(true);
-
-            WRITER_SET_ALLOW_RANDOM_ACCESS = FileContentWriter.class.getDeclaredMethod("setAllowRandomAccess", boolean.class);
-            WRITER_SET_ALLOW_RANDOM_ACCESS.setAccessible(true);
-        }
-        catch (final NoSuchMethodException | SecurityException e)
-        {
-            throw new AlfrescoRuntimeException(
-                    "Incompatible Alfresco version - FileContentReader/FileContentWriter do not provide a setAllowRandomgAccess method", e);
-        }
-    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileContentStore.class);
 
@@ -348,9 +328,9 @@ public class FileContentStore extends AbstractContentStore
                 final File file = this.makeFile(effectiveContentUrl);
                 if (file.exists())
                 {
-                    final FileContentReader fileContentReader = new FileContentReader(file, effectiveContentUrl);
+                    final FileContentReaderImpl fileContentReader = new FileContentReaderImpl(file, effectiveContentUrl);
 
-                    READER_SET_ALLOW_RANDOM_ACCESS.invoke(fileContentReader, Boolean.valueOf(this.allowRandomAccess));
+                    fileContentReader.setAllowRandomAccess(this.allowRandomAccess);
 
                     reader = fileContentReader;
                 }
@@ -472,14 +452,14 @@ public class FileContentStore extends AbstractContentStore
             }
             file = this.createNewFile(contentUrl);
             // create the writer
-            final FileContentWriter writer = new FileContentWriter(file, contentUrl, existingContentReader);
+            final FileContentWriterImpl writer = new FileContentWriterImpl(file, contentUrl, existingContentReader);
 
             if (this.contentLimitProvider != null)
             {
                 writer.setContentLimitProvider(this.contentLimitProvider);
             }
 
-            WRITER_SET_ALLOW_RANDOM_ACCESS.invoke(writer, Boolean.valueOf(this.allowRandomAccess));
+            writer.setAllowRandomAccess(this.allowRandomAccess);
 
             // done
             LOGGER.debug("Created content writer: \n   writer: {}", writer);
@@ -675,7 +655,7 @@ public class FileContentStore extends AbstractContentStore
      */
     protected String createNewFileStoreUrl()
     {
-        final Calendar calendar = new GregorianCalendar();
+        final Calendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"), Locale.ENGLISH);
         final int year = calendar.get(Calendar.YEAR);
         final int month = calendar.get(Calendar.MONTH) + 1; // 0-based
         final int day = calendar.get(Calendar.DAY_OF_MONTH);

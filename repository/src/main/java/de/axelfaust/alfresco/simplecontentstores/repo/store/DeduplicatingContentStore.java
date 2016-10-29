@@ -14,22 +14,19 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store;
 
 import java.text.MessageFormat;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author Axel Faust
  */
 public class DeduplicatingContentStore extends CommonFacadingContentStore
 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicatingContentStore.class);
 
     protected ContentStore temporaryStore;
 
@@ -54,7 +51,8 @@ public class DeduplicatingContentStore extends CommonFacadingContentStore
 
         PropertyCheck.mandatory(this, "temporaryStore", this.temporaryStore);
 
-        this.dummyUrlPrefix = MessageFormat.format("{0}{1}dummy/", StoreConstants.WILDCARD_PROTOCOL, ContentStore.PROTOCOL_DELIMITER);
+        final MessageFormat mf = new MessageFormat("{0}{1}dummy/", Locale.ENGLISH);
+        this.dummyUrlPrefix = mf.format(new Object[] { StoreConstants.WILDCARD_PROTOCOL, ContentStore.PROTOCOL_DELIMITER });
     }
 
     /**
