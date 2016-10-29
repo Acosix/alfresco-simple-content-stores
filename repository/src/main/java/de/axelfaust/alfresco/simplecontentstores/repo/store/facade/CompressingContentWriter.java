@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.facade;
 
 import java.io.File;
 import java.io.IOException;

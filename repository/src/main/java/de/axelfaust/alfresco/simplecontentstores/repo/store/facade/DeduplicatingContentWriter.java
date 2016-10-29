@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.facade;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,6 +41,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreContextRestorator;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;

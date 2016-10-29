@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.routing;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -60,6 +60,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
+import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 

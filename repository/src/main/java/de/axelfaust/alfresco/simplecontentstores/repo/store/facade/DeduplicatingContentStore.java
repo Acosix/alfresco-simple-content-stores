@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.facade;
 
 import java.text.MessageFormat;
 import java.util.Locale;
@@ -21,6 +21,8 @@ import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
+
+import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 
 /**
  * @author Axel Faust

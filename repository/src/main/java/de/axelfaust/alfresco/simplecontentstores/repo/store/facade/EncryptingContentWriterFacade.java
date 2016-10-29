@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.facade;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,7 +32,7 @@ import org.alfresco.util.ParameterCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import de.axelfaust.alfresco.simplecontentstores.repo.store.EncryptingWritableByteChannel.EncryptionListener;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.facade.EncryptingWritableByteChannel.EncryptionListener;
 
 /**
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>

@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.facade;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -21,7 +21,7 @@ import java.nio.channels.ClosedChannelException;
 import org.alfresco.util.ParameterCheck;
 
 /**
- * This class has been based on {@link com.googlecode.mp4parser.util.ByteBufferByteChannel} to limit the dependency on external / peripheral
+ * This class has been based on {@link de.axelfaust.alfresco.simplecontentstores.repo.store.facade.ByteBufferByteChannel} to limit the dependency on external / peripheral
  * libraries in case that specific library may be removed / alterered in a different version of Alfresco.
  *
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>

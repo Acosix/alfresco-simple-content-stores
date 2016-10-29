@@ -21,33 +21,31 @@
     </bean>
 
     <bean id="simpleContentStoresTemplate-selectorPropertyRoutingStore" abstract="true"
-        class="${project.artifactId}.store.SelectorPropertyContentStore" parent="${project.artifactId}-propertyRestrictableRoutingStore">
+        class="${project.artifactId}.store.routing.SelectorPropertyContentStore" parent="${project.artifactId}-propertyRestrictableRoutingStore">
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
     <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.SiteRoutingContentStore"
+    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.routing.SiteRoutingContentStore"
         parent="${project.artifactId}-propertyRestrictableRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true" class="${project.artifactId}.store.TenantRoutingContentStore"
+    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true" class="${project.artifactId}.store.routing.TenantRoutingContentStore"
         parent="${project.artifactId}-propertyRestrictableRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-siteRoutingFileStore" abstract="true" class="${project.artifactId}.store.SiteRoutingFileContentStore"
+    <bean id="simpleContentStoresTemplate-siteRoutingFileStore" abstract="true" class="${project.artifactId}.store.file.SiteRoutingFileContentStore"
         parent="${project.artifactId}-moveCapableRoutingStore">
         <property name="namespaceService" ref="NamespaceService" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.FileContentStore" />
+    <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.file.FileContentStore" />
 
     <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" name="simpleContentStoresTemplate-siteRoutingFileStore" />
 
-    <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true" class="${project.artifactId}.store.DeduplicatingContentStore"
-        parent="${project.artifactId}-commonFacadeStore">
+    <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true"
+        class="${project.artifactId}.store.facade.DeduplicatingContentStore" parent="${project.artifactId}-commonFacadeStore">
         <property name="temporaryStore">
-            <bean class="org.alfresco.repo.content.filestore.FileContentStore">
-                <constructor-arg index="0">
-                    <value>${java.io.tmpdir}/Alfresco</value>
-                </constructor-arg>
+            <bean class="${project.artifactId}.store.file.FileContentStore">
+                <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
             </bean>
         </property>
     </bean>
@@ -60,18 +58,16 @@
 
     <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true" class="org.alfresco.repo.content.replication.AggregatingContentStore" />
 
-    <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true" class="${project.artifactId}.store.CompressingContentStore"
+    <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true" class="${project.artifactId}.store.facade.CompressingContentStore"
         parent="${project.artifactId}-commonFacadeStore">
         <property name="temporaryStore">
-            <bean class="org.alfresco.repo.content.filestore.FileContentStore">
-                <constructor-arg index="0">
-                    <value>${java.io.tmpdir}/Alfresco</value>
-                </constructor-arg>
+            <bean class="${project.artifactId}.store.file.FileContentStore">
+                <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
             </bean>
         </property>
     </bean>
-    
-    <bean id="simpleContentStoresTemplate-encryptingFacadeStore" abstract="true" class="${project.artifactId}.store.EncryptingContentStore"
+
+    <bean id="simpleContentStoresTemplate-encryptingFacadeStore" abstract="true" class="${project.artifactId}.store.facade.EncryptingContentStore"
         parent="${project.artifactId}-commonFacadeStore">
         <property name="contentDataDAO" ref="contentDataDAO" />
     </bean>

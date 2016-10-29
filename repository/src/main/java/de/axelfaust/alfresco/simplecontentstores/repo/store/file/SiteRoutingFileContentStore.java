@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.file;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.routing.MoveCapableCommonRoutingContentStore;
 
 /**
  * @author Axel Faust

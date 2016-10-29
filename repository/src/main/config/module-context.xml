@@ -3,7 +3,7 @@
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <import resource="classpath:alfresco/module/${project.artifactId}/context/factory-context.xml" />
-    <import resource="classpath:alfresco/module/${project.artifactId}/context/store-templates-context.xml" />
+    <import resource="classpath:alfresco/module/${moduleId}/context/factory-context.xml" />
+    <import resource="classpath:alfresco/module/${moduleId}/context/store-templates-context.xml" />
 
 </beans>

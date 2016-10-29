@@ -92,17 +92,6 @@ public class FileContentWriterImpl extends AbstractContentWriter
     }
 
     /**
-     * Sets the enablement flag for random access.
-     *
-     * @param allow
-     *            {@code true} if radnom access should be enabled
-     */
-    public void setAllowRandomAccess(final boolean allow)
-    {
-        this.allowRandomAccess = allow;
-    }
-
-    /**
      * @return Returns the file that this writer accesses
      */
     public File getFile()
@@ -128,6 +117,17 @@ public class FileContentWriterImpl extends AbstractContentWriter
         {
             return this.file.length();
         }
+    }
+
+    /**
+     * Sets the enablement flag for random access.
+     *
+     * @param allow
+     *            {@code true} if radnom access should be enabled
+     */
+    protected void setAllowRandomAccess(final boolean allow)
+    {
+        this.allowRandomAccess = allow;
     }
 
     /**
@@ -180,13 +180,5 @@ public class FileContentWriterImpl extends AbstractContentWriter
         {
             throw new ContentIOException("Failed to open file channel: " + this, e);
         }
-    }
-
-    /**
-     * @return Returns true always
-     */
-    public boolean canWrite()
-    {
-        return true;    // this is a writer
     }
 }

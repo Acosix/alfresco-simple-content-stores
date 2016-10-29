@@ -11,7 +11,7 @@
  * either express or implied. See the License for the specific language governing permissions
  * and limitations under the License.
  */
-package de.axelfaust.alfresco.simplecontentstores.repo.store;
+package de.axelfaust.alfresco.simplecontentstores.repo.store.file;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,8 +51,8 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.extensions.surf.util.ParameterCheck;
 import org.springframework.extensions.webscripts.GUID;
 
-import de.axelfaust.alfresco.simplecontentstores.repo.store.file.FileContentReaderImpl;
-import de.axelfaust.alfresco.simplecontentstores.repo.store.file.FileContentWriterImpl;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 
 /**
  * This implementation of a file-based content store is heavily borrowed from {@link org.alfresco.repo.content.filestore.FileContentStore}

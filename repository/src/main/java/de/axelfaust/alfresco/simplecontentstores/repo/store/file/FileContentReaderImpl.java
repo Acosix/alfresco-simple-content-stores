@@ -77,17 +77,6 @@ public class FileContentReaderImpl extends AbstractContentReader implements File
     }
 
     /**
-     * Sets the enablement flag for random access.
-     *
-     * @param allow
-     *            {@code true} if radnom access should be enabled
-     */
-    public void setAllowRandomAccess(final boolean allow)
-    {
-        this.allowRandomAccess = allow;
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override
@@ -135,6 +124,17 @@ public class FileContentReaderImpl extends AbstractContentReader implements File
         {
             return this.file.lastModified();
         }
+    }
+
+    /**
+     * Sets the enablement flag for random access.
+     *
+     * @param allow
+     *            {@code true} if radnom access should be enabled
+     */
+    protected void setAllowRandomAccess(final boolean allow)
+    {
+        this.allowRandomAccess = allow;
     }
 
     /**
