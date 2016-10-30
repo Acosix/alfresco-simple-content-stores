@@ -1,5 +1,24 @@
 # Simple Content Stores
-This addon provides a set of simple / common content store imnplementations to enhance any installation of Alfresco Community or Enterprise. It also provides a configuration mechanism that supports configuring custom content stores without any need for Spring bean definition / XML manipulation or overriding.
+
+This addon provides a set of simple / common content store implementations to enhance any installation of Alfresco Community or Enterprise. It also provides a mechanism that supports configuring custom content stores without any need for Spring bean definition / XML manipulation or overriding, just by using properties inside of the alfresco-global.properties file.
+
+## Provided Stores
+
+The [wiki](https://github.com/AFaust/simple-content-stores/wiki) contains detailed information about all the stores this addon provides, as well as their configuration properties and configuration examples. Currently, this addon provides:
+
+- a simple [file store](https://github.com/AFaust/simple-content-stores/wiki/File-Store)
+- a [site aware file store](https://github.com/AFaust/simple-content-stores/wiki/Site-File-Store)
+- a [tenant aware file store](https://github.com/AFaust/simple-content-stores/wiki/Tenant-File-Store)
+- a [site routing store](https://github.com/AFaust/simple-content-stores/wiki/Site-Routing-Store)
+- a [tenant routing store](https://github.com/AFaust/simple-content-stores/wiki/Tenant-Routing-Store)
+- a [selector property-based routing store](https://github.com/AFaust/simple-content-stores/wiki/Selector-Property-Store)
+- a [compressing store](https://github.com/AFaust/simple-content-stores/wiki/Compressing-Store)
+- a [deduplicating store](https://github.com/AFaust/simple-content-stores/wiki/Deduplicating-Store)
+- an [encrypting store](https://github.com/AFaust/simple-content-stores/wiki/Encrypting-Store)
+- a [caching store](https://github.com/AFaust/simple-content-stores/wiki/Caching-Store)
+- an [aggregating store](https://github.com/AFaust/simple-content-stores/wiki/Aggregating-Store)
+
+## To be moved into the [wiki](https://github.com/AFaust/simple-content-stores/wiki)
 
 ### Content Store types
 The addon currently provides the following content store types:
@@ -102,58 +121,12 @@ Stores of type "tenantRoutingStore" support the following properties:
 | fallbackStore | ref | default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue |  | no |
 | routeContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
 
-Stores of type "standardFileStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| protocol | value | the protocol to be used on content URLs | store | yes |
-| rootDirectory | value | the path to the directory in which to store content |  | no |
-| readOnly | value | true/false to mark the store as ready-only | false | yes |
-| allowRandomAccess | value | true/false to mark the store as capable of providing random access to content files | false | yes |
-| deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
-| fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
-| contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
-
-Stores of type "siteRoutingFileStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| protocol | value | the protocol to be used on content URLs | store | yes |
-| rootDirectory | value | the path to the directory in which to store content outside of sites or when neither rootAbsolutePathsBySite nor rootAbsolutePathsBySitePreset contain an entry for the site of the content |  | no |
-| rootAbsolutePathsBySite | map(value) | the path to the directories in which to store content inside specific sites |  | yes |
-| protocolsBySite | map(value) | the protocols to be used on content URLs for content inside specific sites |  | yes |
-| rootAbsolutePathsBySitePreset | map(value) | the path to the directories in which to store content inside sites of specific preset |  | yes |
-| protocolsBySitePreset | map(value) | the protocols to be used on content URLs for content inside sites of specific presets |  | yes |
-| readOnly | value | true/false to mark the store as ready-only | false | yes |
-| allowRandomAccess | value | true/false to mark the store as capable of providing random access to content files | false | yes |
-| deleteEmptyDirs | value | true/false to allow store to delete empty directories | false | yes |
-| fixedLimit | value | the fixed file size limit for content items stored in this store | | yes
-| contentLimitProvider | ref | the limit provider for content items stored in this store | | yes
-| fixedLimitBySite | map(value) | the fixed file size limit for content items of a specific site stored in this store | | yes
-| contentLimitProviderBySite | map(ref) | the limit provider for content items of a specific site stored in this store |  | yes |
-| fixedLimitBySitePreset | map(value) | the fixed file size limit for content items in sites of a specific site preset stored in this store | | yes
-| contentLimitProviderSitePreset | map(ref) | the limit provider for content items in sites of a specific site preset stored in this store |  | yes |
-| useSiteFolderInGenericDirectories | value | true/false of the site name should be used to separate contents from different sites in either the rootDirectory or any entry of rootAbsolutePathsBySitePreset | false | yes |
-| moveStoresOnNodeMoveOrCopy | value | true/false if contents should be moved to a (potentially) different directory when a content node is moved/copied between or in/out of sites | | yes |
-| moveStoresOnNodeMoveOrCopyName | value | prefixed or full QName of a single-valued d:boolean property on nodes that can override moveStoresOnNodeMoveOrCopy |  | yes |
-
 Stores of type "aggregatingStore" support the following properties:
 
 | name | type | description | default | optional |
 | :---| :--- | :--- | :--- | :--- |
 | primaryStore | ref | the (physical) store that content is both written to and read from |  | no |
 | secondaryStores | list(ref) | the (physical) stores that content is read from |  | no |
-
-Stores of type "deduplicatingFacadeStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| backingStore | ref | the (physical) store that stores the deduplicated content |  | no |
-| handleContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should deduplicate content; if set only content for the specified properties will be deduplicated, all other content will be passed through to to the backingStore |  | yes |
-| digestAlgorithm | value | name of hash / message digest algorithm to be used for calculating content hash | SHA-512 | yes |
-| digestAlgorithmProvider | value | name of provider for a specific message digest algorithm (if not built-in algorithm) |  | yes |
-| pathSegments | value | how many path segments (in the content URL) should be used to structure content | 3 | yes |
-| bytesPerPathSegment | value | how many bytes of the hash / message digest of a content should be used per path segment | 2 | yes |
 
 Stores of type "standardCachingStore" support the following properties:
 
@@ -179,28 +152,3 @@ Stores of type "standardCachingStore" support the following properties:
 | cleanerStartDelay | value | the amount of milliseconds to delay the start of the trigger relative to its initialization | 0 | yes |
 | cleanerRepeatInterval | value | the interval between cleaner job runs in milliseconds | 30000 | yes |
 | cleanerRepeatCount | value | the amount of times the cleaner job should run repeatedly | -1 ("indefinitely") | yes |
-
-Stores of type "compressingFacadeStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| backingStore | ref | the (physical) store that stores the compressed content |  | no |
-| compressionType | value | name of the compression method to use (any of bzip2, gz, pack200, xz, deflate) | gz | yes |
-| mimetypesToCompress | list(value) | the list of mimetypes that should be compressed, supporting wildcard mimetypes in the form of "text/*" - if empty, all content will be compressed |  | yes |
-
-Stores of type "encryptingFacadeStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| backingStore | ref | the (physical) store that stores the encrypted content |  | no |
-| keyStorePath | value | the path to the Java keystore file holding an asymmetric master key (used for encrypting the symmetric keys that de-/encrypt content files) - this can take any path expression supported by Spring, e.g. classpath:path/to/keystore.jks |  | no |
-| keyStoreType | value | the type / format of the Java keystore file | (dependent on JDK default - typically JKS) | no |
-| keyStoreProvider | value | the name of the provider capable of handling the Java keystore type / format |  | yes |
-| keyStorePassword | value | the password used to access the Java keystore file containing the asymmetric master key |  | yes |
-| masterKeyAlias | value | the alias referencing the asymmetric master key within the Java keystore file |  | no |
-| masterKeyPassword | value | the password used to access the asymmetric master key within the Java keystore file |  | yes |
-| keyAlgorithm | value | the symmetric key algorithm used to generate content encryption keys | AES | no |
-| keyAlgorithmProvider | value | the name of the algorithm provider to be used for generating the content encryption keys |  | yes |
-| keySize | value | the size (in bits) to be used when generating content encryption keys | 128 | no |
-| masterKeyStoreId | value | the static "masterKeyStore" ID to uniquely group all the content encryption keys generated by this store in the Alfresco database (especially relevant when multiple encrypting stores with different master keys / key algorithms are used) |  | no |
-| masterKeySize | value | (informational value) the size of the asymmetric master key in bits - this is primarily used to optimise encryption of the symmetric content encryption keys |  4096 | yes |
