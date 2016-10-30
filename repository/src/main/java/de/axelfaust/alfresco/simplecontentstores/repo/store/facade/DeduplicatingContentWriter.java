@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreContextRestorator;
-import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 
 /**
  * @author Axel Faust
@@ -138,19 +137,9 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             this.findExistingContent();
             if (this.deduplicatedContentUrl == null)
             {
-                this.contextRestorator.withRestoredContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        DeduplicatingContentWriter.this.writeToBackingStore();
-                        return null;
-                    }
-
+                this.contextRestorator.withRestoredContext(() -> {
+                    DeduplicatingContentWriter.this.writeToBackingStore();
+                    return null;
                 });
             }
             else if (this.backingContentStore.isWriteSupported())
@@ -323,6 +312,10 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             final ContentReader reader = this.backingContentStore.getReader(deduplicatedContentUrl);
             if (reader != null && reader.exists())
             {
+                // TODO lookup existing content data entity to copy mimetype + encoding
+                // (mimetype and encoding must be identical to guarantee identical access behaviour, e.g. when using compressing content
+                // store facade)
+
                 this.deduplicatedContentUrl = reader.getContentUrl();
                 super.setContentUrl(this.deduplicatedContentUrl);
             }
