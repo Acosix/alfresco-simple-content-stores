@@ -120,35 +120,3 @@ Stores of type "tenantRoutingStore" support the following properties:
 | storeByTenant | map(ref) | backing content stores keyed by the tenant domains that select them |  | no |
 | fallbackStore | ref | default backing store to use when either no value exists for the property selector or the value is not mapped by storeBySelectorPropertyValue |  | no |
 | routeContentPropertyNames | list(value) | list of content property QNames (prefixed or full) for which the store should route content; if set only content for the specified properties will be routed based on the selector property, all other content will be directed to the fallbackStore |  | yes |
-
-Stores of type "aggregatingStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| primaryStore | ref | the (physical) store that content is both written to and read from |  | no |
-| secondaryStores | list(ref) | the (physical) stores that content is read from |  | no |
-
-Stores of type "standardCachingStore" support the following properties:
-
-| name | type | description | default | optional |
-| :---| :--- | :--- | :--- | :--- |
-| cacheName | value | name of the in-memory (Hazelcast) cache to hold information about local cache structures |  | no |
-| cacheRoot | value | the path to the directory storing locally cached content files |  | no
-| backingStore | ref | the (remote) store which actually contains the content |  | no |
-| cacheOnInbound | value | true/false to mark if new content shoulud be written to both the backing store and the local cache | false | yes |
-| maxCacheTries | value | the limit for attempts to locally cache a content file during read | 2 | yes |
-| quotaStrategy | ref | the cache quota strategy implementation - if this is set, any other quota-related properties wil be ignored | | yes |
-| useStandardQuotaStrategy | value | true/false to mark if the standard quota strategy implementation should be used | false | yes |
-| standardQuotaPanicThresholdPercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content | 90 | yes |
-| standardQuotaCleanThresholdPercent | value | percent of allowed max cache usage to consider for triggering asynchronous cache cleaning after writing new cache content | 80 | yes |
-| standardQuotaPanicThresholdPercent | value | percent of allowed max cache usage that is considered the target result of a cache cleaning process | 70 | yes |
-| standardQuotaTargetUsagePercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content | 90 | yes |
-| standardQuotaMaxUsageBytes | value | the allowed max cache usage in bytes - if this is exceeded, an aggressive cache cleaning is triggered | 0 | yes |
-| standardQuotaMaxFileSizeMebiBytes | value | the max allowed size of an individual size in the cache in mebibytes - if this is exceeded, a content file will not be cached | 0 | yes |
-| standardQuotaNormalCleanThresholdSeconds | value | the amount of time that should pass between two normal cache cleaning processes in seconds - aggresive cache cleaning processes will ignore this | 0 | yes |
-| cleanerMinFileAgeMillis | value | the minimal file age in milliseconds before a cached content is considered for cleanup | 0 | yes |
-| cleanerMaxDeleteWatchCount | value | the max amount of times a cached file will be considered/marked for deletion before it is actually deleted | 1 | yes |
-| cleanerCronExpression | value | the CRON expression for the cleaner job for this store - if this is set it will be used to schedule the job and repeat settings will be ignored |  | yes |
-| cleanerStartDelay | value | the amount of milliseconds to delay the start of the trigger relative to its initialization | 0 | yes |
-| cleanerRepeatInterval | value | the interval between cleaner job runs in milliseconds | 30000 | yes |
-| cleanerRepeatCount | value | the amount of times the cleaner job should run repeatedly | -1 ("indefinitely") | yes |
