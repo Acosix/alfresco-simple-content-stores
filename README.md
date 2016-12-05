@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/AFaust/simple-content-stores.svg?branch=master)](https://travis-ci.org/AFaust/simple-content-stores)
+
 # Simple Content Stores
 
 This addon provides a set of simple / common content store implementations to enhance any installation of Alfresco Community or Enterprise. It also provides a mechanism that supports configuring custom content stores without any need for Spring bean definition / XML manipulation or overriding, just by using properties inside of the alfresco-global.properties file.
