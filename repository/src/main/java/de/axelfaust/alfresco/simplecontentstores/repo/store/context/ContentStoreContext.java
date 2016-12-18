@@ -71,6 +71,8 @@ public final class ContentStoreContext
         /**
          * Restores the previous content store context and executes an operation within that context.
          *
+         * @param operation
+         *            the operation to execute inside the restored context
          * @return the result of the operation
          */
         public R withRestoredContext(ContentStoreOperation<R> operation);
@@ -96,7 +98,6 @@ public final class ContentStoreContext
      *
      * @param key
      *            the key to the attribute value
-     * @return the value of the attribute or {@code null} if it has not been set
      *
      * @throws IllegalStateException
      *             if there is no currently active content store context in the current thread context
@@ -115,6 +116,8 @@ public final class ContentStoreContext
      * Executes an operation within a new content store context. Code in the provided operation can call
      * {@link #setContextAttribute(String, Object) setContextAttribute} and be sure no {@link IllegalStateException} will be thrown.
      *
+     * @param <R>
+     *            the return type of the operation to execute
      * @param operation
      *            the operation to execute
      * @return the result of the operation
@@ -140,6 +143,8 @@ public final class ContentStoreContext
      * outside of the original content store context. Any attributes {@link #setContextAttribute(String, Object) set / modified} after this
      * operation is called will not be reflected in the restored content store context state.
      *
+     * @param <R>
+     *            the return type of any operation passed to the restoration handle
      * @return the restoration handle
      *
      * @throws IllegalStateException
@@ -158,28 +163,18 @@ public final class ContentStoreContext
         }
 
         // could have used Lambda in Java 8 but don't want to force it on addon users
-        final ContentStoreContextRestorator<R> restorationHandle = new ContentStoreContextRestorator<R>()
-        {
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public R withRestoredContext(final ContentStoreOperation<R> operation)
+        final ContentStoreContextRestorator<R> restorationHandle = operation -> {
+            final Map<String, Object> oldMap = CONTEXT_ATTRIBUTES.get();
+            final Map<String, Object> newMap = new HashMap<>(savedContextAttributes);
+            CONTEXT_ATTRIBUTES.set(newMap);
+            try
             {
-                final Map<String, Object> oldMap = CONTEXT_ATTRIBUTES.get();
-                final Map<String, Object> newMap = new HashMap<>(savedContextAttributes);
-                CONTEXT_ATTRIBUTES.set(newMap);
-                try
-                {
-                    final R result = operation.execute();
-                    return result;
-                }
-                finally
-                {
-                    CONTEXT_ATTRIBUTES.set(oldMap);
-                }
+                final R result = operation.execute();
+                return result;
+            }
+            finally
+            {
+                CONTEXT_ATTRIBUTES.set(oldMap);
             }
         };
 

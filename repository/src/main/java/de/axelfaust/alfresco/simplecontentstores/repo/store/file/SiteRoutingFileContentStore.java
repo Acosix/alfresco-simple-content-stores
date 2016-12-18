@@ -131,7 +131,7 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
     }
 
     /**
-     * Simple alias to {@ink #setRootAbsolutePath(String)} for compatibility with previously used {@code FileContentStoreFactoryBean}
+     * Simple alias to {@link #setRootAbsolutePath(String)} for compatibility with previously used {@code FileContentStoreFactoryBean}
      *
      * @param rootDirectory
      *            the rootDirectory to set
