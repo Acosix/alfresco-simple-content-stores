@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.module.parent</artifactId>
-        <version>1.0.0.1-SNAPSHOT</version>
+        <version>1.0.0.1</version>
     </parent>
 
     <groupId>de.axelfaust.alfresco</groupId>
