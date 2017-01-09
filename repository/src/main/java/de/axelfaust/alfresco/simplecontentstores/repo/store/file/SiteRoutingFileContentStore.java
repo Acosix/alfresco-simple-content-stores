@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -47,7 +48,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.routing.MoveCapableCommonRoutingContentStore;
 
 /**
@@ -401,18 +401,9 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
                 if (!contentPropertiesMap.isEmpty())
                 {
-                    ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                    {
-
-                        /**
-                         * {@inheritDoc}
-                         */
-                        @Override
-                        public Void execute()
-                        {
-                            SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
-                            return null;
-                        }
+                    ContentStoreContext.executeInNewContext(() -> {
+                        SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
+                        return null;
                     });
                 }
             }
@@ -466,6 +457,17 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
         final ContentStore targetStore = this.storeByProtocol.get(protocol);
         return targetStore;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected List<ContentStore> getStores(final String contentUrl)
+    {
+        // TODO filter based on protocol
+        return this.getAllStores();
     }
 
     protected void afterPropertiesSet_setupDefaultStore()

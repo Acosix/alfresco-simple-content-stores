@@ -14,6 +14,7 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store.routing;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.alfresco.repo.content.ContentContext;
@@ -106,6 +107,17 @@ public class TenantRoutingContentStore extends PropertyRestrictableRoutingConten
         }
 
         return writeStore;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected List<ContentStore> getStores(final String contentUrl)
+    {
+        // TODO filter based on current tenant
+        return this.getAllStores();
     }
 
     /**

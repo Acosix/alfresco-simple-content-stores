@@ -15,6 +15,7 @@ package de.axelfaust.alfresco.simplecontentstores.repo.store.routing;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.alfresco.model.ContentModel;
@@ -217,6 +218,17 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
         }
 
         return writeStore;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    protected List<ContentStore> getStores(final String contentUrl)
+    {
+        // TODO filter based on protocol
+        return this.getAllStores();
     }
 
     /**
