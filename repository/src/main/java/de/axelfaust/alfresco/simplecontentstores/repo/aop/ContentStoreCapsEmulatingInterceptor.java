@@ -14,11 +14,14 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.aop;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
+import java.lang.reflect.Proxy;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.alfresco.repo.content.AbstractContentStore;
+import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.ContentStoreCaps;
 import org.alfresco.repo.tenant.TenantDeployer;
 import org.alfresco.repo.tenant.TenantRoutingContentStore;
@@ -44,9 +47,9 @@ public class ContentStoreCapsEmulatingInterceptor implements MethodInterceptor, 
     protected static class TenantRoutingContentStoreMultiDispatcher implements TenantRoutingContentStore
     {
 
-        private final List<TenantDeployer> tenantAwareContentStores;
+        private final Collection<TenantDeployer> tenantAwareContentStores;
 
-        protected TenantRoutingContentStoreMultiDispatcher(final List<TenantDeployer> tenantAwareContentStores)
+        protected TenantRoutingContentStoreMultiDispatcher(final Collection<TenantDeployer> tenantAwareContentStores)
         {
             this.tenantAwareContentStores = tenantAwareContentStores;
         }
@@ -148,18 +151,25 @@ public class ContentStoreCapsEmulatingInterceptor implements MethodInterceptor, 
         {
             final boolean tenantRoutingContentStoreRequired = "getTenantRoutingContentStore".equals(method.getName());
 
-            final List<TenantDeployer> tenantAwareContentStores = new ArrayList<>();
-            final Map<String, AbstractContentStore> beansOfType = this.applicationContext.getBeansOfType(AbstractContentStore.class);
-            for (final AbstractContentStore contentStore : beansOfType.values())
+            final Set<TenantDeployer> tenantAwareContentStores = new LinkedHashSet<>();
+            final Map<String, ContentStore> beansOfType = this.applicationContext.getBeansOfType(ContentStore.class, false, false);
+            for (final ContentStore contentStore : beansOfType.values())
             {
-                if (contentStore instanceof ContentStoreCaps)
+                if (!Proxy.isProxyClass(contentStore.getClass()))
                 {
-                    final ContentStoreCaps contentStoreCaps = (ContentStoreCaps) contentStore;
-                    final TenantDeployer tenantAwareContentStore = tenantRoutingContentStoreRequired
-                            ? contentStoreCaps.getTenantRoutingContentStore() : contentStoreCaps.getTenantDeployer();
-                    if (tenantAwareContentStore != null)
+                    if (tenantRoutingContentStoreRequired && contentStore instanceof TenantRoutingContentStore)
                     {
-                        tenantAwareContentStores.add(tenantAwareContentStore);
+                        tenantAwareContentStores.add((TenantRoutingContentStore) contentStore);
+                    }
+                    else if (contentStore instanceof ContentStoreCaps)
+                    {
+                        final ContentStoreCaps contentStoreCaps = (ContentStoreCaps) contentStore;
+                        final TenantDeployer tenantAwareContentStore = tenantRoutingContentStoreRequired
+                                ? contentStoreCaps.getTenantRoutingContentStore() : contentStoreCaps.getTenantDeployer();
+                        if (tenantAwareContentStore != null)
+                        {
+                            tenantAwareContentStores.add(tenantAwareContentStore);
+                        }
                     }
                 }
             }
@@ -170,7 +180,7 @@ public class ContentStoreCapsEmulatingInterceptor implements MethodInterceptor, 
             }
             else if (tenantAwareContentStores.size() == 1)
             {
-                result = tenantAwareContentStores.get(0);
+                result = tenantAwareContentStores.iterator().next();
             }
             else
             {

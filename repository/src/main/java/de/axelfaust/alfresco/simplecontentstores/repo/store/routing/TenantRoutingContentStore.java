@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
  * @author Axel Faust
  */
 public class TenantRoutingContentStore extends PropertyRestrictableRoutingContentStore<Void>
+        implements org.alfresco.repo.tenant.TenantRoutingContentStore
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TenantRoutingContentStore.class);
@@ -53,6 +54,52 @@ public class TenantRoutingContentStore extends PropertyRestrictableRoutingConten
     public void setStoreByTenant(final Map<String, ContentStore> storeByTenant)
     {
         this.storeByTenant = storeByTenant;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onEnableTenant()
+    {
+        // NO-OP
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void onDisableTenant()
+    {
+        // NO-OP
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void init()
+    {
+        // NO-OP
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void destroy()
+    {
+        // NO-OP
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getRootLocation()
+    {
+        // we don't know the actual location and rely on TenantRoutingContentStoreMultiDispatcher checking all other stores
+        return null;
     }
 
     /**
@@ -116,8 +163,22 @@ public class TenantRoutingContentStore extends PropertyRestrictableRoutingConten
     @Override
     protected List<ContentStore> getStores(final String contentUrl)
     {
-        // TODO filter based on current tenant
-        return this.getAllStores();
+        final List<ContentStore> stores = new ArrayList<>();
+        if (!TenantUtil.isCurrentDomainDefault())
+        {
+            final String currentDomain = TenantUtil.getCurrentDomain();
+            final ContentStore tenantStore = this.storeByTenant.get(currentDomain);
+            if (tenantStore != null)
+            {
+                stores.add(tenantStore);
+            }
+            stores.add(this.fallbackStore);
+        }
+        else
+        {
+            stores.add(this.fallbackStore);
+        }
+        return stores;
     }
 
     /**

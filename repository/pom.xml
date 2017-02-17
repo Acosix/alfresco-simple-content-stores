@@ -12,6 +12,7 @@
     <name>Simple Content Stores - Repository Module</name>
 
     <properties>
+        <quality.findBugs.excludeFilter>findbugs-exclude.xml</quality.findBugs.excludeFilter>
     </properties>
 
     <dependencies>
