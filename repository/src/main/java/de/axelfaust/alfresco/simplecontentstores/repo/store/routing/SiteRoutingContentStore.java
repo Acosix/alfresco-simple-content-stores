@@ -52,9 +52,9 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
 
     protected boolean moveStoresOnNodeMoveOrCopy;
 
-    protected String moveStoresOnNodeMoveOrCopyName;
+    protected String moveStoresOnNodeMoveOrCopyOverridePropertyName;
 
-    protected transient QName moveStoresOnNodeMoveOrCopyQName;
+    protected transient QName moveStoresOnNodeMoveOrCopyOverridePropertyQName;
 
     /**
      *
@@ -99,10 +99,22 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
     /**
      * @param moveStoresOnNodeMoveOrCopyName
      *            the moveStoresOnNodeMoveOrCopyName to set
+     * @deprecated Only exists for backwards compatibility with existing configuration. Use
+     *             {@link #setMoveStoresOnNodeMoveOrCopyOverridePropertyName(String)} instead. Will be removed before any proper release.
      */
+    @Deprecated
     public void setMoveStoresOnNodeMoveOrCopyName(final String moveStoresOnNodeMoveOrCopyName)
     {
-        this.moveStoresOnNodeMoveOrCopyName = moveStoresOnNodeMoveOrCopyName;
+        this.setMoveStoresOnNodeMoveOrCopyOverridePropertyName(moveStoresOnNodeMoveOrCopyName);
+    }
+
+    /**
+     * @param moveStoresOnNodeMoveOrCopyOverridePropertyName
+     *            the moveStoresOnNodeMoveOrCopyOverridePropertyName to set
+     */
+    public void setMoveStoresOnNodeMoveOrCopyOverridePropertyName(final String moveStoresOnNodeMoveOrCopyOverridePropertyName)
+    {
+        this.moveStoresOnNodeMoveOrCopyOverridePropertyName = moveStoresOnNodeMoveOrCopyOverridePropertyName;
     }
 
     /**
@@ -138,9 +150,9 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
         final Map<QName, Serializable> properties = this.nodeService.getProperties(targetNodeRef);
 
         boolean doMove = false;
-        if (this.moveStoresOnNodeMoveOrCopyQName != null)
+        if (this.moveStoresOnNodeMoveOrCopyOverridePropertyQName != null)
         {
-            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnNodeMoveOrCopyQName);
+            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnNodeMoveOrCopyOverridePropertyQName);
             // explicit value wins
             if (moveStoresOnChangeOptionValue != null)
             {
@@ -246,23 +258,25 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
 
     private void afterPropertiesSet_setupChangePolicies()
     {
-        if (this.moveStoresOnNodeMoveOrCopyName != null)
+        if (this.moveStoresOnNodeMoveOrCopyOverridePropertyName != null)
         {
-            this.moveStoresOnNodeMoveOrCopyQName = QName.resolveToQName(this.namespaceService, this.moveStoresOnNodeMoveOrCopyName);
-            PropertyCheck.mandatory(this, "moveStoresOnChangeOptionPropertyQName", this.moveStoresOnNodeMoveOrCopyQName);
+            this.moveStoresOnNodeMoveOrCopyOverridePropertyQName = QName.resolveToQName(this.namespaceService,
+                    this.moveStoresOnNodeMoveOrCopyOverridePropertyName);
+            PropertyCheck.mandatory(this, "moveStoresOnNodeMoveOrCopyOverridePropertyQName",
+                    this.moveStoresOnNodeMoveOrCopyOverridePropertyQName);
 
             final PropertyDefinition moveStoresOnChangeOptionPropertyDefinition = this.dictionaryService
-                    .getProperty(this.moveStoresOnNodeMoveOrCopyQName);
+                    .getProperty(this.moveStoresOnNodeMoveOrCopyOverridePropertyQName);
             if (moveStoresOnChangeOptionPropertyDefinition == null
                     || !DataTypeDefinition.BOOLEAN.equals(moveStoresOnChangeOptionPropertyDefinition.getDataType().getName())
                     || moveStoresOnChangeOptionPropertyDefinition.isMultiValued())
             {
-                throw new IllegalStateException(
-                        this.moveStoresOnNodeMoveOrCopyName + " is not a valid content model property of type single-valued d:boolean");
+                throw new IllegalStateException(this.moveStoresOnNodeMoveOrCopyOverridePropertyName
+                        + " is not a valid content model property of type single-valued d:boolean");
             }
         }
 
-        if (this.moveStoresOnNodeMoveOrCopy || this.moveStoresOnNodeMoveOrCopyQName != null)
+        if (this.moveStoresOnNodeMoveOrCopy || this.moveStoresOnNodeMoveOrCopyOverridePropertyQName != null)
         {
             PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
             PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
