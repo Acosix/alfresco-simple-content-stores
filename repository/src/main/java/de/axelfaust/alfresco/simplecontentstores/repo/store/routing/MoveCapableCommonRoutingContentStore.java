@@ -60,6 +60,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
+import de.axelfaust.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
@@ -741,6 +742,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
             final Pair<String, String> urlParts = this.getContentUrlParts(currentContentUrl);
             final String protocol = urlParts.getFirst();
             final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + currentContentUrl.substring(protocol.length());
+            final String baseContentUrl = ContentUrlUtils.getBaseContentUrl(currentContentUrl);
+            final String oldWildcardBaseContentUrl = StoreConstants.WILDCARD_PROTOCOL + baseContentUrl.substring(protocol.length());
 
             if (targetStore.isContentUrlSupported(oldWildcardContentUrl) && targetStore.exists(oldWildcardContentUrl))
             {
@@ -762,7 +765,29 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                     updatedContentData = null;
                 }
             }
-            else if (targetStore.isContentUrlSupported(currentContentUrl) && targetStore.exists(currentContentUrl))
+            else if (targetStore.isContentUrlSupported(oldWildcardBaseContentUrl) && targetStore.exists(oldWildcardBaseContentUrl))
+            {
+                final ContentReader reader = targetStore.getReader(oldWildcardBaseContentUrl);
+                if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
+                {
+                    LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
+                            reader.getContentUrl());
+
+                    reader.setMimetype(contentData.getMimetype());
+                    reader.setEncoding(contentData.getEncoding());
+                    reader.setLocale(contentData.getLocale());
+
+                    updatedContentData = reader.getContentData();
+                }
+                else
+                {
+                    LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
+                    updatedContentData = null;
+                }
+            }
+            // only if we don't have any special markers in currentContetnUrl should we check for a simple exist
+            else if (EqualsHelper.nullSafeEquals(currentContentUrl, baseContentUrl) && targetStore.isContentUrlSupported(currentContentUrl)
+                    && targetStore.exists(currentContentUrl))
             {
                 LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
                 updatedContentData = null;

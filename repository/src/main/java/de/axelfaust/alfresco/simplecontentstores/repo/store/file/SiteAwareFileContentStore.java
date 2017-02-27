@@ -14,16 +14,19 @@
 package de.axelfaust.alfresco.simplecontentstores.repo.store.file;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
+import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.Pair;
 import org.alfresco.util.ParameterCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.axelfaust.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
+import de.axelfaust.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 
 /**
@@ -55,7 +58,10 @@ public class SiteAwareFileContentStore extends FileContentStore
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final String effectiveContentUrl = this.checkAndAdjustInboundContentUrl(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
+        final String protocol = urlParts.getFirst();
+        final String effectiveContentUrl = this.checkAndAdjustInboundContentUrl(contentUrl,
+                EqualsHelper.nullSafeEquals(StoreConstants.WILDCARD_PROTOCOL, protocol));
 
         final boolean result = super.exists(effectiveContentUrl);
         return result;
@@ -69,7 +75,10 @@ public class SiteAwareFileContentStore extends FileContentStore
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final String effectiveContentUrl = this.checkAndAdjustInboundContentUrl(contentUrl);
+        final Pair<String, String> urlParts = this.getContentUrlParts(contentUrl);
+        final String protocol = urlParts.getFirst();
+        final String effectiveContentUrl = this.checkAndAdjustInboundContentUrl(contentUrl,
+                EqualsHelper.nullSafeEquals(StoreConstants.WILDCARD_PROTOCOL, protocol));
 
         final ContentReader reader = super.getReader(effectiveContentUrl);
         return reader;
@@ -84,7 +93,7 @@ public class SiteAwareFileContentStore extends FileContentStore
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
-        final String effectiveContentUrl = this.checkAndAdjustInboundContentUrl(contentUrl);
+        final String effectiveContentUrl = this.checkAndAdjustInboundContentUrl(contentUrl, false);
 
         final boolean result = super.delete(effectiveContentUrl);
         return result;
@@ -100,28 +109,48 @@ public class SiteAwareFileContentStore extends FileContentStore
         String effectiveContentUrl = null;
         if (newContentUrl != null)
         {
-            effectiveContentUrl = this.checkAndAdjustInboundContentUrl(newContentUrl);
+            effectiveContentUrl = this.checkAndAdjustInboundContentUrl(newContentUrl, true);
         }
 
         final ContentWriter writer = super.getWriterInternal(existingContentReader, effectiveContentUrl);
         return writer;
     }
 
-    protected String checkAndAdjustInboundContentUrl(final String contentUrl)
+    protected String checkAndAdjustInboundContentUrl(final String contentUrl, final boolean allowExistingPrefixChange)
     {
         String effectiveContentUrl = contentUrl;
+
+        final List<String> prefixes = ContentUrlUtils.extractPrefixes(effectiveContentUrl);
+        final int sitePrefixIndex = prefixes.indexOf(SITE_PREFIX_INDICATOR);
 
         final Object site = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
         if (this.useSiteFolderInGenericDirectories && site != null)
         {
-            final List<String> prefixes = ContentUrlUtils.extractPrefixes(effectiveContentUrl);
-            final int sitePrefixIndex = prefixes.indexOf(SITE_PREFIX_INDICATOR);
             if (sitePrefixIndex == -1)
             {
                 LOGGER.debug("Adding site {} prefix to inbound content URL {}", site, effectiveContentUrl);
                 effectiveContentUrl = ContentUrlUtils.getContentUrlWithPrefixes(effectiveContentUrl, SITE_PREFIX_INDICATOR,
                         String.valueOf(site));
             }
+            else if (allowExistingPrefixChange && !EqualsHelper.nullSafeEquals(prefixes.get(sitePrefixIndex + 1), site)
+                    && prefixes.size() > sitePrefixIndex + 1)
+            {
+                LOGGER.debug("Upadting site {} prefix to {} on inbound content URL {}", prefixes.get(sitePrefixIndex + 1), site,
+                        effectiveContentUrl);
+                final List<String> alteredPrefixes = new ArrayList<>(prefixes);
+                alteredPrefixes.set(sitePrefixIndex + 1, String.valueOf(site));
+                effectiveContentUrl = ContentUrlUtils.getContentUrlWithPrefixes(ContentUrlUtils.getBaseContentUrl(effectiveContentUrl),
+                        alteredPrefixes.toArray(new String[0]));
+            }
+        }
+        else if (allowExistingPrefixChange && sitePrefixIndex != -1 && prefixes.size() > sitePrefixIndex + 1)
+        {
+            LOGGER.debug("Removing site {} prefix from inbound content URL {}", prefixes.get(sitePrefixIndex + 1), effectiveContentUrl);
+            final List<String> alteredPrefixes = new ArrayList<>(prefixes);
+            alteredPrefixes.remove(sitePrefixIndex + 1);
+            alteredPrefixes.remove(sitePrefixIndex);
+            effectiveContentUrl = ContentUrlUtils.getContentUrlWithPrefixes(ContentUrlUtils.getBaseContentUrl(effectiveContentUrl),
+                    alteredPrefixes.toArray(new String[0]));
         }
         return effectiveContentUrl;
     }

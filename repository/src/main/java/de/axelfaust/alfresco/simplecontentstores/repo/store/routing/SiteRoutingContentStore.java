@@ -192,7 +192,7 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
         }
         else if (sitePreset != null && this.storeBySitePreset != null && this.storeBySitePreset.containsKey(sitePreset))
         {
-            targetStore = this.storeBySite.get(sitePreset);
+            targetStore = this.storeBySitePreset.get(sitePreset);
         }
         else
         {
