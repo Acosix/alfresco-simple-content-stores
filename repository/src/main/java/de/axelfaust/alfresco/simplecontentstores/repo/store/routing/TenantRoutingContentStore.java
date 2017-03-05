@@ -172,12 +172,9 @@ public class TenantRoutingContentStore extends PropertyRestrictableRoutingConten
             {
                 stores.add(tenantStore);
             }
-            stores.add(this.fallbackStore);
         }
-        else
-        {
-            stores.add(this.fallbackStore);
-        }
+        stores.add(this.fallbackStore);
+
         return stores;
     }
 
