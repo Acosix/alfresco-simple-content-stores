@@ -113,18 +113,30 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
         this.existingContentReader = existingContentReader;
     }
 
+    protected ContentWriterFacade(final ContentReader existingContentReader)
+    {
+        super();
+        this.existingContentReader = existingContentReader;
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public ContentReader getReader() throws ContentIOException
     {
+        this.ensureDelegate();
         return this.delegate.getReader();
     }
 
+    /**
+     *
+     * {@inheritDoc}
+     */
     @Override
     public boolean isClosed()
     {
+        this.ensureDelegate();
         return this.delegate.isClosed();
     }
 
@@ -134,6 +146,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
     @Override
     public WritableByteChannel getWritableChannel() throws ContentIOException
     {
+        this.ensureDelegate();
         return this.delegate.getWritableChannel();
     }
 
@@ -311,6 +324,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
     @Override
     public void guessMimetype(final String filename)
     {
+        this.ensureDelegate();
         this.delegate.guessMimetype(filename);
     }
 
@@ -320,6 +334,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
     @Override
     public void guessEncoding()
     {
+        this.ensureDelegate();
         this.delegate.guessEncoding();
     }
 
@@ -329,6 +344,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
     @Override
     public void setMimetypeService(final MimetypeService mimetypeService)
     {
+        this.ensureDelegate();
         if (this.delegate instanceof MimetypeServiceAware)
         {
             ((MimetypeServiceAware) this.delegate).setMimetypeService(mimetypeService);

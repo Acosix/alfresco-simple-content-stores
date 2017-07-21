@@ -26,12 +26,17 @@ import org.alfresco.util.ParameterCheck;
 public class ContentAccessorFacade<CA extends ContentAccessor> implements ContentAccessor
 {
 
-    protected final CA delegate;
+    protected CA delegate;
 
     public ContentAccessorFacade(final CA delegate)
     {
         ParameterCheck.mandatory("delegate", delegate);
         this.delegate = delegate;
+    }
+
+    protected ContentAccessorFacade()
+    {
+        // NO-OP
     }
 
     /**
@@ -41,6 +46,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public boolean isChannelOpen()
     {
+        this.ensureDelegate();
         return this.delegate.isChannelOpen();
     }
 
@@ -51,6 +57,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public void addListener(final ContentStreamListener listener)
     {
+        this.ensureDelegate();
         this.delegate.addListener(listener);
     }
 
@@ -61,6 +68,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public long getSize()
     {
+        this.ensureDelegate();
         return this.delegate.getSize();
     }
 
@@ -71,6 +79,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public ContentData getContentData()
     {
+        this.ensureDelegate();
         return this.delegate.getContentData();
     }
 
@@ -81,6 +90,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public String getContentUrl()
     {
+        this.ensureDelegate();
         return this.delegate.getContentUrl();
     }
 
@@ -91,6 +101,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public String getMimetype()
     {
+        this.ensureDelegate();
         return this.delegate.getMimetype();
     }
 
@@ -101,6 +112,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public void setMimetype(final String mimetype)
     {
+        this.ensureDelegate();
         this.delegate.setMimetype(mimetype);
     }
 
@@ -111,6 +123,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public String getEncoding()
     {
+        this.ensureDelegate();
         return this.delegate.getEncoding();
     }
 
@@ -121,6 +134,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public void setEncoding(final String encoding)
     {
+        this.ensureDelegate();
         this.delegate.setEncoding(encoding);
     }
 
@@ -131,6 +145,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public Locale getLocale()
     {
+        this.ensureDelegate();
         return this.delegate.getLocale();
     }
 
@@ -141,6 +156,7 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public void setLocale(final Locale locale)
     {
+        this.ensureDelegate();
         this.delegate.setLocale(locale);
     }
 
@@ -151,7 +167,21 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     @Override
     public String toString()
     {
-        final String string = this.getClass().getSimpleName() + "- " + this.delegate.toString();
+        final String string = this.getClass().getSimpleName() + "- " + String.valueOf(this.delegate);
         return string;
+    }
+
+    protected final void ensureDelegate()
+    {
+        if (this.delegate == null)
+        {
+            this.delegate = this.initDelegate();
+        }
+    }
+
+    protected CA initDelegate()
+    {
+        throw new UnsupportedOperationException(
+                "Cannot lazily initialise the delegate - sub-class must implement this for specific use case");
     }
 }

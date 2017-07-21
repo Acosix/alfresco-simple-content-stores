@@ -54,6 +54,7 @@ public class DecompressingContentReader extends ContentReaderFacade
     @Override
     public ContentReader getReader() throws ContentIOException
     {
+        this.ensureDelegate();
         return new DecompressingContentReader(this.delegate.getReader(), this.compressionType, this.mimetypesToCompress);
     }
 
@@ -63,6 +64,7 @@ public class DecompressingContentReader extends ContentReaderFacade
     @Override
     public synchronized ReadableByteChannel getReadableChannel() throws ContentIOException
     {
+        this.ensureDelegate();
         final String mimetype = this.getMimetype();
 
         final boolean shouldCompress = this.mimetypesToCompress == null || this.mimetypesToCompress.isEmpty()

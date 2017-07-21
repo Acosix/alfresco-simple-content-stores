@@ -52,12 +52,18 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
         super(delegate);
     }
 
+    protected ContentReaderFacade()
+    {
+        super();
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public ContentReader getReader() throws ContentIOException
     {
+        this.ensureDelegate();
         return this.delegate.getReader();
     }
 
@@ -67,6 +73,7 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
     @Override
     public boolean exists()
     {
+        this.ensureDelegate();
         return this.delegate.exists();
     }
 
@@ -76,6 +83,7 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
     @Override
     public long getLastModified()
     {
+        this.ensureDelegate();
         return this.delegate.getLastModified();
     }
 
@@ -85,6 +93,7 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
     @Override
     public boolean isClosed()
     {
+        this.ensureDelegate();
         return this.delegate.isClosed();
     }
 
@@ -94,6 +103,7 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
     @Override
     public ReadableByteChannel getReadableChannel() throws ContentIOException
     {
+        this.ensureDelegate();
         return this.delegate.getReadableChannel();
     }
 
@@ -178,7 +188,7 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
         }
         catch (final Throwable e)
         {
-            LOGGER.error("Failed to open stream onto channel for reader {]", this, e);
+            LOGGER.error("Failed to open stream onto channel for reader {}", this, e);
             throw new ContentIOException("Failed to open stream onto channel: \n   accessor: " + this, e);
         }
     }

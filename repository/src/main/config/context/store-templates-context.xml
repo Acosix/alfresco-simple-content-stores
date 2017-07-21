@@ -38,6 +38,29 @@
     </bean>
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.file.FileContentStore" />
+    
+    <bean id="simpleContentStoresTemplate-dummyFallbackStore" abstract="true" class="${project.artifactId}.store.file.DummyFallbackContentStore">
+        <property name="mimetypeService" ref="MimetypeService" />
+        <property name="dummyFilePaths">
+            <list>
+                <value>classpath*:alfresco/module/*/dummyFallbackContentStore</value>
+                <value>classpath*:alfresco/extension/dummyFallbackContentStore</value>
+            </list>
+        </property>
+        <property name="transformationCandidateSourceMimetypes">
+            <list>
+                <value>text/plain</value>
+                <value>image/png</value>
+                <value>application/pdf</value>
+                <value>application/vnd.openxmlformats-officedocument.wordprocessingml.document</value>
+                <value>application/vnd.openxmlformats-officedocument.presentationml.presentation</value>
+                <value>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</value>
+                <value>application/vnd.oasis.opendocument.text</value>
+                <value>application/vnd.oasis.opendocument.presentation</value>
+                <value>application/vnd.oasis.opendocument.spreadsheet</value>
+            </list>
+        </property>
+    </bean>
 
     <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" name="simpleContentStoresTemplate-siteRoutingFileStore" />
 
