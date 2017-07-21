@@ -380,11 +380,24 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
          * {@inheritDoc}
          */
         @Override
+        public String toString()
+        {
+            final String string = this.getClass().getSimpleName() + " - " + this.getContentUrl() + " - "
+                    + String.valueOf(this.getMimetype());
+            return string;
+        }
+
+        /**
+         *
+         * {@inheritDoc}
+         */
+        @Override
         protected ContentReader initDelegate()
         {
             final String mimetype = this.getMimetype();
             if (mimetype == null)
             {
+                LOGGER.error("Failed to initialise delegate reader for {} since no mimetype has been set", this.getContentUrl());
                 throw new ContentIOException("Cannot initialise backing content reader without mimetype");
             }
 
@@ -395,20 +408,24 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
                 final String extension = DummyFallbackContentStore.this.mimetypeService.getExtension(mimetype);
                 if (DummyFallbackContentStore.this.isDummyFileAvailable(mimetype))
                 {
+                    LOGGER.debug("Initialising shared temporary file for {} from provided dummy file", mimetype);
                     temporaryFile = this.initTemporaryFileFromDummy(mimetype, extension);
                 }
                 else if (DummyFallbackContentStore.this.isTransformerDebugFileAvailable(mimetype))
                 {
+                    LOGGER.debug("Initialising shared temporary file for {} from TransformerDebug test file", mimetype);
                     temporaryFile = this.initTemporaryFileFromTransformerDebugDummy(mimetype, extension);
                 }
                 else if (DummyFallbackContentStore.this.isLazilyTransformedDummyFileAvailable(mimetype))
                 {
+                    LOGGER.debug("Initialising shared temporary file for {} via transformation from provided dummy file", mimetype);
                     temporaryFile = this.initTemporaryFileFromLazilyTransformedDummy(mimetype, extension);
                 }
             }
 
             if (temporaryFile == null)
             {
+                LOGGER.error("Failed to initialise shared temporary file for mimetype {}", mimetype);
                 throw new ContentIOException("Failed to initialise backing content reader since no dummy content is available");
             }
 
@@ -430,7 +447,9 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
             }
             catch (final IOException ioex)
             {
-                throw new ContentIOException("Failed to copy dummy file to temporary file", ioex);
+                LOGGER.error("Failed to copy dummy file for mimetype {} from {} to shared temporary file", mimetype, dummyFileResource,
+                        ioex);
+                throw new ContentIOException("Failed to copy dummy file to shared temporary file", ioex);
             }
             DummyFallbackContentStore.this.tempFileCache.put(mimetype, temporaryFile);
             return temporaryFile;
@@ -451,7 +470,9 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
             }
             catch (final IOException ioex)
             {
-                throw new ContentIOException("Failed to copy dummy file to temporary file", ioex);
+                LOGGER.error("Failed to copy dummy file for mimetype {} from {} to shared temporary file", mimetype,
+                        transformerDebugFileURL, ioex);
+                throw new ContentIOException("Failed to copy dummy file to shared temporary file", ioex);
             }
             DummyFallbackContentStore.this.tempFileCache.put(mimetype, temporaryFile);
             return temporaryFile;
@@ -480,7 +501,8 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
                         }
                         catch (final IOException ioex)
                         {
-                            throw new ContentIOException("Failed to copy source dummy file to temporary file", ioex);
+                            LOGGER.error("Failed to copy source dummy file for mimetype {} to shared temporary file", sourceMimetype, ioex);
+                            throw new ContentIOException("Failed to copy source dummy file to shared temporary file", ioex);
                         }
 
                         final ContentReader reader = new FileContentReaderImpl(sourceDummyTempFile);
@@ -490,12 +512,25 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
                         {
                             DummyFallbackContentStore.this.contentService.transform(reader, writer, options);
                         }
+                        else
+                        {
+                            LOGGER.debug("Source mimetype {} cannot be transformed to {}", sourceMimetype, mimetype);
+                        }
 
                         if (writer.getSize() > 0)
                         {
-                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested dummy mimetype {}", sourceMimetype,
+                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype,
                                     mimetype);
                             break;
+                        }
+                        else
+                        {
+                            LOGGER.debug("Transformation from mimetype {} to {} resulted in empty content ile", sourceMimetype, mimetype);
+                            if (temporaryFile.exists() && !temporaryFile.delete())
+                            {
+                                temporaryFile.deleteOnExit();
+                                temporaryFile = new File(longLifeTempDir, UUID.randomUUID().toString() + "." + extension);
+                            }
                         }
                     }
                     finally
@@ -506,6 +541,10 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
                         }
                     }
                 }
+                else
+                {
+                    LOGGER.debug("No dummy file provided for source mimetype {}", mimetype);
+                }
             }
 
             if (temporaryFile.exists())
@@ -514,7 +553,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
             }
             else
             {
-                LOGGER.warn("Failed to initialise temporary file for dummy of mimetype {}", mimetype);
+                LOGGER.warn("Failed to initialise shared temporary file for dummy of mimetype {}", mimetype);
                 temporaryFile = null;
             }
 
