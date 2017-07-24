@@ -47,6 +47,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 
 import de.axelfaust.alfresco.simplecontentstores.repo.store.facade.ContentReaderFacade;
@@ -156,7 +157,9 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
     protected boolean isDummyFileAvailable(final String mimetype)
     {
         final Resource resource = this.getDummyFileResource(mimetype);
-        return resource != null;
+        final boolean available = resource != null;
+        LOGGER.debug("Dummy file is available for mimetype {}: {}", mimetype, available);
+        return available;
     }
 
     protected Resource getDummyFileResource(final String mimetype)
@@ -165,9 +168,12 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
         Resource resource = null;
         final List<String> pathsToSearch = new ArrayList<>(this.dummyFilePaths);
         Collections.reverse(pathsToSearch);
+
+        final DefaultResourceLoader resourceLoader = new DefaultResourceLoader();
+
         for (final String path : pathsToSearch)
         {
-            resource = this.applicationContext.getResource(path + "/dummy." + extension);
+            resource = resourceLoader.getResource(path + "/dummy." + extension);
             if (resource != null)
             {
                 if (resource.exists())
@@ -178,14 +184,16 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
                 resource = null;
             }
         }
-        LOGGER.debug("Found dummy file resource {} for extension {}", resource, extension);
+        LOGGER.trace("Found dummy file resource {} for extension {}", resource, extension);
         return resource;
     }
 
     protected boolean isTransformerDebugFileAvailable(final String mimetype)
     {
         final URL url = this.getTransformerDebugFileURL(mimetype);
-        return url != null;
+        final boolean available = url != null;
+        LOGGER.debug("TransformerDebug file is available for mimetype {}: {}", mimetype, available);
+        return available;
     }
 
     protected URL getTransformerDebugFileURL(final String mimetype)
@@ -193,7 +201,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
         final String extension = this.mimetypeService.getExtension(mimetype);
         final URL url = TransformerDebug.class.getClassLoader().getResource("quick/quick." + extension);
 
-        LOGGER.debug("Found transformer debug file URL {} for extension {}", url, extension);
+        LOGGER.trace("Found TransformerDebug file URL {} for extension {}", url, extension);
         return url;
     }
 
@@ -217,14 +225,18 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
                     if (lazyTransformationAvailable)
                     {
-                        LOGGER.debug("Found transformation from {} to {}", sourceMimetype, mimetype);
+                        LOGGER.trace("Found transformation from {} to {}", sourceMimetype, mimetype);
                         break;
                     }
+                }
+                else
+                {
+                    LOGGER.trace("No dummy file provided for source mimetype {}", mimetype);
                 }
             }
         }
 
-        LOGGER.debug("{} lazily transformable to dummy file: {}", mimetype, lazyTransformationAvailable);
+        LOGGER.debug("Lazily transformable dummy file is likely available for mimetype {}: {}", mimetype, lazyTransformationAvailable);
         return lazyTransformationAvailable;
     }
 
