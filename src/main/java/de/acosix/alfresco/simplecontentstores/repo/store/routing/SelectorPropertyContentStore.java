@@ -1,15 +1,17 @@
 /*
- * Copyright 2016 Axel Faust
+ * Copyright 2017 Acosix GmbH
  *
- * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
- * this file except in compliance with the License. You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * https://www.eclipse.org/legal/epl-v10.html
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific language governing permissions
- * and limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package de.acosix.alfresco.simplecontentstores.repo.store.routing;
 
@@ -40,7 +42,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 
 /**
  * @author Axel Faust
@@ -185,18 +186,9 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
             // no need to move if no specific after value
             if (selectorValue != null)
             {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, selectorValue);
-                        return null;
-                    }
+                ContentStoreContext.executeInNewContext(() -> {
+                    SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, selectorValue);
+                    return null;
                 });
             }
         }
@@ -237,18 +229,9 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
             // no need to move if no specific before value
             if (selectorValue != null)
             {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, null);
-                        return null;
-                    }
+                ContentStoreContext.executeInNewContext(() -> {
+                    SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, null);
+                    return null;
                 });
             }
         }
@@ -289,18 +272,9 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
                 // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
                 final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
 
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        SelectorPropertyContentStore.this.checkAndProcessContentPropertiesMove(nodeRef, properties, selectorValueAfter);
-                        return null;
-                    }
+                ContentStoreContext.executeInNewContext(() -> {
+                    SelectorPropertyContentStore.this.checkAndProcessContentPropertiesMove(nodeRef, properties, selectorValueAfter);
+                    return null;
                 });
             }
         }

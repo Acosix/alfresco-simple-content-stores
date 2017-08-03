@@ -1,15 +1,17 @@
 /*
- * Copyright 2016 Axel Faust
+ * Copyright 2017 Acosix GmbH
  *
- * Licensed under the Eclipse Public License (EPL), Version 1.0 (the "License"); you may not use
- * this file except in compliance with the License. You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * https://www.eclipse.org/legal/epl-v10.html
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
- * either express or implied. See the License for the specific language governing permissions
- * and limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package de.acosix.alfresco.simplecontentstores.repo.store.facade;
 
@@ -25,14 +27,11 @@ import org.alfresco.repo.content.encoding.ContentCharsetFinder;
 import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
-import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
 import org.alfresco.util.ParameterCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import de.acosix.alfresco.simplecontentstores.repo.store.facade.EncryptingWritableByteChannel.EncryptionListener;
 
 /**
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
@@ -68,29 +67,18 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
         ParameterCheck.mandatory("context", context);
         ParameterCheck.mandatory("key", key);
 
-        this.addListener(new ContentStreamListener()
-        {
+        this.addListener(() -> {
+            EncryptingContentWriterFacade.this.completedWrite = true;
 
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void contentStreamClosed() throws ContentIOException
+            if (EncryptingContentWriterFacade.this.guessMimetype)
             {
-                EncryptingContentWriterFacade.this.completedWrite = true;
-
-                if (EncryptingContentWriterFacade.this.guessMimetype)
-                {
-                    EncryptingContentWriterFacade.this.guessMimetype(EncryptingContentWriterFacade.this.guessFileName);
-                }
-
-                if (EncryptingContentWriterFacade.this.guessEncoding)
-                {
-                    EncryptingContentWriterFacade.this.guessEncoding();
-                }
+                EncryptingContentWriterFacade.this.guessMimetype(EncryptingContentWriterFacade.this.guessFileName);
             }
 
+            if (EncryptingContentWriterFacade.this.guessEncoding)
+            {
+                EncryptingContentWriterFacade.this.guessEncoding();
+            }
         });
 
         this.context = context;
@@ -177,20 +165,9 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
         final WritableByteChannel channel = super.getWritableChannel();
         final EncryptingWritableByteChannel eChannel = new EncryptingWritableByteChannel(channel, this.key);
 
-        eChannel.addListener(new EncryptionListener()
-        {
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void bytesProcessed(final int bytesRead, final int bytesWritten)
-            {
-                EncryptingContentWriterFacade.this.unencryptedSize += bytesRead;
-                EncryptingContentWriterFacade.this.encryptedSize += bytesWritten;
-            }
-
+        eChannel.addListener((bytesRead, bytesWritten) -> {
+            EncryptingContentWriterFacade.this.unencryptedSize += bytesRead;
+            EncryptingContentWriterFacade.this.encryptedSize += bytesWritten;
         });
 
         return eChannel;
