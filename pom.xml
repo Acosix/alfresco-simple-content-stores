@@ -5,27 +5,29 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.module.parent</artifactId>
-        <version>1.0.0.1</version>
+        <version>1.0.0.2</version>
     </parent>
 
-    <groupId>de.axelfaust.alfresco</groupId>
-    <artifactId>de.axelfaust.alfresco.simplecontentstores</artifactId>
+    <groupId>de.acosix.alfresco.simplecontentstores</groupId>
+    <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
     <version>0.0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
-    <packaging>pom</packaging>
-    <name>Simple Content Stores</name>
+    <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
+    <description>Addon to support simple configuration of flexible content stores</description>
+    <url>https://github.com/Acosix/alfresco-simple-content-stores</url>
 
     <licenses>
         <license>
-            <name>Eclipse Public License - v 1.0</name>
-            <url>https://www.eclipse.org/legal/epl-v10.html</url>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:AFaust/simple-content-stores.git</connection>
-        <developerConnection>scm:git:git@github.com:AFaust/simple-content-stores.git</developerConnection>
-        <url>git@github.com:AFaust/simple-content-stores.git</url>
+        <connection>scm:git:git@github.com:Acosix/alfresco-simple-content-stores.git</connection>
+        <developerConnection>scm:git:git@github.com:Acosix/alfresco-simple-content-stores.git</developerConnection>
+        <url>git@github.com:Acosix/alfresco-simple-content-stores.git</url>
     </scm>
 
     <developers>
@@ -46,9 +48,9 @@
     </developers>
 
     <properties>
-        <messages.path>simple-content-stores</messages.path>
-        <messages.packageId>simple-content-stores</messages.packageId>
-        <moduleId>simple-content-stores</moduleId>
+        <messages.path>acosix/simple-content-stores</messages.path>
+        <messages.packageId>acosix.simple-content-stores</messages.packageId>
+        <moduleId>acosix-simple-content-stores</moduleId>
     </properties>
 
     <repositories>
@@ -62,14 +64,136 @@
     </repositories>
 
     <dependencyManagement>
-
+        <dependencies>
+            <dependency>
+                <groupId>org.tukaani</groupId>
+                <artifactId>xz</artifactId>
+                <version>1.5</version>
+                <scope>compile</scope>
+            </dependency>
+        </dependencies>
     </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.alfresco</groupId>
+            <artifactId>alfresco-repository</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.tukaani</groupId>
+            <artifactId>xz</artifactId>
+        </dependency>
+    </dependencies>
 
     <build>
 
-    </build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <excludes>
+                    <exclude>.gitkeep</exclude>
+                </excludes>
+            </resource>
+            <!-- the following are only for mapping source folders in Eclipse -->
+            <resource>
+                <directory>src/main/config</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/globalConfig</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/messages</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/webscripts</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/webapp</directory>
+                <excludes>
+                    <exclude>**/*</exclude>
+                </excludes>
+            </resource>
+        </resources>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+                <filtering>true</filtering>
+                <excludes>
+                    <exclude>.gitkeep</exclude>
+                </excludes>
+            </testResource>
+        </testResources>
 
-    <modules>
-        <module>repository</module>
-    </modules>
+        <plugins>
+
+            <plugin>
+                <artifactId>maven-enforcer-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>de.thetaphi</groupId>
+                <artifactId>forbiddenapis</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>de.acosix.alfresco.maven</groupId>
+                <artifactId>de.acosix.alfresco.maven.plugins</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.alfresco.maven.plugin</groupId>
+                <artifactId>alfresco-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>de.acosix.maven</groupId>
+                <artifactId>jshint-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>findbugs-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+            </plugin>
+
+        </plugins>
+
+    </build>
 </project>
