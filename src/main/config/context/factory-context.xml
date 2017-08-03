@@ -6,10 +6,10 @@
 
     <bean class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">
         <property name="globalProperties" ref="global-properties" />
-        <property name="rootStoreProxyName" value="${project.artifactId}-proxy-rootStore" />
+        <property name="rootStoreProxyName" value="${moduleId}-proxy-rootStore" />
     </bean>
 
-    <bean id="${project.artifactId}-proxy-rootStore" class="org.springframework.aop.framework.ProxyFactoryBean">
+    <bean id="${moduleId}-proxy-rootStore" class="org.springframework.aop.framework.ProxyFactoryBean">
         <property name="proxyInterfaces">
             <list>
                 <value>org.alfresco.repo.content.ContentStore</value>
@@ -21,15 +21,15 @@
         <!-- target will be set by SimpleContentStoresBeanDefinitionEmitter -->
         <property name="interceptorNames">
             <list>
-                <value>${project.artifactId}-contentStoreCapsInterceptor</value>
-                <value>${project.artifactId}-initContextInterceptor</value>
+                <idref bean="${moduleId}-contentStoreCapsInterceptor" />
+                <idref bean="${moduleId}-initContextInterceptor" />
             </list>
         </property>
     </bean>
 
-    <bean id="${project.artifactId}-contentStoreCapsInterceptor" class="${project.artifactId}.aop.ContentStoreCapsEmulatingInterceptor" />
+    <bean id="${moduleId}-contentStoreCapsInterceptor" class="${project.artifactId}.aop.ContentStoreCapsEmulatingInterceptor" />
 
-    <bean id="${project.artifactId}-initContextInterceptor" class="${project.artifactId}.aop.InitContentStoreContextInterceptor" />
+    <bean id="${moduleId}-initContextInterceptor" class="${project.artifactId}.aop.InitContentStoreContextInterceptor" />
 
     <bean class="${project.artifactId}.store.context.SiteAttributesInitializer">
         <property name="siteService" ref="SiteService" />
