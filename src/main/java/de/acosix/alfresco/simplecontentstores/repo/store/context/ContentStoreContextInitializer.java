@@ -24,13 +24,13 @@ public interface ContentStoreContextInitializer
 {
 
     /**
-     * Initialize attributes in the currently active {@link ContentStoreContext content store context} from a content context. This
+     * Initialise attributes in the currently active {@link ContentStoreContext content store context} from a content context. This
      * operation requires that a content store context has been
-     * {@link ContentStoreContext#executeInNewContext(de.axelfaust.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation)
-     * initialized} for the current thread.
+     * {@link ContentStoreContext#executeInNewContext(de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation)
+     * initialised} for the current thread.
      *
      * @param context
-     *            the context from which to initialize the currently active content store context
+     *            the context from which to initialise the currently active content store context
      */
     public void initialize(ContentContext context);
 
