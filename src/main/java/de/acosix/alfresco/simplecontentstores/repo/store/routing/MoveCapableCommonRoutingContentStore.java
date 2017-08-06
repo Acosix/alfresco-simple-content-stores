@@ -40,6 +40,7 @@ import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.EmptyContentReader;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.content.UnsupportedContentUrlException;
+import org.alfresco.repo.content.filestore.FileContentStore;
 import org.alfresco.repo.policy.PolicyComponent;
 import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
@@ -743,87 +744,89 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
             final Pair<String, String> urlParts = this.getContentUrlParts(currentContentUrl);
             final String protocol = urlParts.getFirst();
-            final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + currentContentUrl.substring(protocol.length());
             final String baseContentUrl = ContentUrlUtils.getBaseContentUrl(currentContentUrl);
+
+            // use both wildcard, current and legacy store protocol to check for existing content
+            final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + currentContentUrl.substring(protocol.length());
             final String oldWildcardBaseContentUrl = StoreConstants.WILDCARD_PROTOCOL + baseContentUrl.substring(protocol.length());
+            final String legacyContentUrl = FileContentStore.STORE_PROTOCOL + baseContentUrl.substring(protocol.length());
+            final String[] urlsToTest = new String[] { oldWildcardContentUrl, oldWildcardBaseContentUrl, currentContentUrl,
+                    legacyContentUrl };
 
-            if (targetStore.isContentUrlSupported(oldWildcardContentUrl) && targetStore.exists(oldWildcardContentUrl))
+            for (final String urlToTest : urlsToTest)
             {
-                final ContentReader reader = targetStore.getReader(oldWildcardContentUrl);
-                if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
+                if (targetStore.isContentUrlSupported(urlToTest) && targetStore.exists(urlToTest))
                 {
-                    LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
-                            reader.getContentUrl());
+                    final ContentReader reader = targetStore.getReader(urlToTest);
+                    if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
+                    {
+                        LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
+                                reader.getContentUrl());
 
-                    reader.setMimetype(contentData.getMimetype());
-                    reader.setEncoding(contentData.getEncoding());
-                    reader.setLocale(contentData.getLocale());
+                        reader.setMimetype(contentData.getMimetype());
+                        reader.setEncoding(contentData.getEncoding());
+                        reader.setLocale(contentData.getLocale());
 
-                    updatedContentData = reader.getContentData();
-                }
-                else
-                {
+                        updatedContentData = reader.getContentData();
+                        break;
+                    }
+
                     LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
                     updatedContentData = null;
                 }
             }
-            else if (targetStore.isContentUrlSupported(oldWildcardBaseContentUrl) && targetStore.exists(oldWildcardBaseContentUrl))
+
+            if (updatedContentData == null)
             {
-                final ContentReader reader = targetStore.getReader(oldWildcardBaseContentUrl);
-                if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
-                {
-                    LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
-                            reader.getContentUrl());
-
-                    reader.setMimetype(contentData.getMimetype());
-                    reader.setEncoding(contentData.getEncoding());
-                    reader.setLocale(contentData.getLocale());
-
-                    updatedContentData = reader.getContentData();
-                }
-                else
+                // only if we don't have any special markers in currentContentUrl should we check for a simple exist
+                if (EqualsHelper.nullSafeEquals(currentContentUrl, baseContentUrl) && targetStore.isContentUrlSupported(currentContentUrl)
+                        && targetStore.exists(currentContentUrl))
                 {
                     LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
                     updatedContentData = null;
                 }
-            }
-            // only if we don't have any special markers in currentContetnUrl should we check for a simple exist
-            else if (EqualsHelper.nullSafeEquals(currentContentUrl, baseContentUrl) && targetStore.isContentUrlSupported(currentContentUrl)
-                    && targetStore.exists(currentContentUrl))
-            {
-                LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
-                updatedContentData = null;
-            }
-            else
-            {
-                final ContentReader reader = this.getReader(currentContentUrl);
-                if (reader == null || !reader.exists())
+                else
                 {
-                    throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
+                    final ContentReader reader = this.getReader(currentContentUrl);
+                    if (reader == null || !reader.exists())
+                    {
+                        throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
+                    }
+
+                    // we can only (semi-)dictate the content URL to use if the target store supports the protocol
+                    // check URLs variants using the wildcard, current or the legacy content store protocol
+                    // default to no contextContentUrl to avoid UnsupportedContentUrlException
+                    String contextContentUrl = null;
+                    for (final String urlToTest : urlsToTest)
+                    {
+                        if (targetStore.isContentUrlSupported(urlToTest))
+                        {
+                            contextContentUrl = urlToTest;
+                            break;
+                        }
+                    }
+
+                    final NodeContentContext contentContext = new NodeContentContext(reader, contextContentUrl, nodeRef, propertyQName);
+                    final ContentWriter writer = targetStore.getWriter(contentContext);
+
+                    final String newContentUrl = writer.getContentUrl();
+
+                    LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentContentUrl, newContentUrl);
+
+                    // ensure content cleanup on rollback (only if a new, unique URL was created
+                    if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
+                    {
+                        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+                        urlsToDelete.add(newContentUrl);
+                    }
+
+                    writer.putContent(reader);
+
+                    // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
+                    // transformations, i.e. compression)
+                    updatedContentData = new ContentData(writer.getContentUrl(), contentData.getMimetype(), contentData.getSize(),
+                            contentData.getEncoding(), contentData.getLocale());
                 }
-
-                final NodeContentContext contentContext = new NodeContentContext(reader,
-                        targetStore.isContentUrlSupported(oldWildcardContentUrl) ? oldWildcardContentUrl : currentContentUrl, nodeRef,
-                        propertyQName);
-                final ContentWriter writer = targetStore.getWriter(contentContext);
-
-                final String newContentUrl = writer.getContentUrl();
-
-                LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentContentUrl, newContentUrl);
-
-                // ensure content cleanup on rollback (only if a new, unique URL was created
-                if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
-                {
-                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-                    urlsToDelete.add(newContentUrl);
-                }
-
-                writer.putContent(reader);
-
-                // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
-                // transformations, i.e. compression)
-                updatedContentData = new ContentData(writer.getContentUrl(), contentData.getMimetype(), contentData.getSize(),
-                        contentData.getEncoding(), contentData.getLocale());
             }
         }
 
