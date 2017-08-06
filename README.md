@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/AFaust/simple-content-stores.svg?branch=master)](https://travis-ci.org/AFaust/simple-content-stores)
+[![Build Status](https://travis-ci.org/Acosix/alfresco-simple-content-stores.svg?branch=master)](https://travis-ci.org/Acosix/alfresco-simple-content-stores)
 
 # Simple Content Stores
 
@@ -6,21 +6,21 @@ This addon provides a set of simple / common content store implementations to en
 
 ## Provided Stores
 
-The [wiki](https://github.com/AFaust/simple-content-stores/wiki) contains detailed information about all the stores this addon provides, as well as their configuration properties and configuration examples. Currently, this addon provides:
+The [wiki](https://github.com/Acosix/alfresco-simple-content-stores/wiki) contains detailed information about all the stores this addon provides, as well as their configuration properties and configuration examples. Currently, this addon provides:
 
-- a simple [file store](https://github.com/AFaust/simple-content-stores/wiki/File-Store)
-- a [site aware file store](https://github.com/AFaust/simple-content-stores/wiki/Site-File-Store)
-- a [tenant aware file store](https://github.com/AFaust/simple-content-stores/wiki/Tenant-File-Store)
-- a [site routing store](https://github.com/AFaust/simple-content-stores/wiki/Site-Routing-Store)
-- a [tenant routing store](https://github.com/AFaust/simple-content-stores/wiki/Tenant-Routing-Store)
-- a [selector property-based routing store](https://github.com/AFaust/simple-content-stores/wiki/Selector-Property-Store)
-- a [compressing store](https://github.com/AFaust/simple-content-stores/wiki/Compressing-Store)
-- a [deduplicating store](https://github.com/AFaust/simple-content-stores/wiki/Deduplicating-Store)
-- an [encrypting store](https://github.com/AFaust/simple-content-stores/wiki/Encrypting-Store)
-- a [caching store](https://github.com/AFaust/simple-content-stores/wiki/Caching-Store)
-- an [aggregating store](https://github.com/AFaust/simple-content-stores/wiki/Aggregating-Store)
+- a simple [file store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/File-Store)
+- a [site aware file store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Site-File-Store)
+- a [tenant aware file store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Tenant-File-Store)
+- a [site routing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Site-Routing-Store)
+- a [tenant routing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Tenant-Routing-Store)
+- a [selector property-based routing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Selector-Property-Store)
+- a [compressing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Compressing-Store)
+- a [deduplicating store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Deduplicating-Store)
+- an [encrypting store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Encrypting-Store)
+- a [caching store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Caching-Store)
+- an [aggregating store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Aggregating-Store)
 
-## To be moved into the [wiki](https://github.com/AFaust/simple-content-stores/wiki)
+## To be moved into the [wiki](https://github.com/Acosix/alfresco-simple-content-stores/wiki)
 
 ### Content Store types
 The addon currently provides the following content store types:
