@@ -657,7 +657,9 @@ public class FileContentStore extends AbstractContentStore
      */
     protected String createNewFileStoreUrl()
     {
-        final Calendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"), Locale.ENGLISH);
+        // expectation is that date/time components are same as in legacy FileContentStore
+        // this means we must use the system default timezone
+        final Calendar calendar = new GregorianCalendar(TimeZone.getDefault(), Locale.ENGLISH);
         final int year = calendar.get(Calendar.YEAR);
         final int month = calendar.get(Calendar.MONTH) + 1; // 0-based
         final int day = calendar.get(Calendar.DAY_OF_MONTH);
