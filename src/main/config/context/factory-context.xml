@@ -4,8 +4,9 @@
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <bean class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">
-        <property name="globalProperties" ref="global-properties" />
+    <bean id="${moduleId}-bootstrap" class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">
+        <property name="enabledPropertyKey" value="simpleContentStores.enabled" />
+        <property name="propertiesSource" ref="global-properties" />
         <property name="rootStoreProxyName" value="${moduleId}-proxy-rootStore" />
     </bean>
 

@@ -16,9 +16,11 @@
 package de.acosix.alfresco.simplecontentstores.repo.beans;
 
 import java.text.MessageFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.slf4j.Logger;
@@ -26,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.PropertyValue;
+import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.config.RuntimeBeanReference;
@@ -38,12 +41,10 @@ import org.springframework.beans.factory.support.ManagedMap;
 /**
  * @author Axel Faust
  */
-public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionRegistryPostProcessor
+public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionRegistryPostProcessor, BeanNameAware
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SimpleContentStoresBeanDefinitionEmitter.class);
-
-    private static final String PROP_ENABLED = "simpleContentStores.enabled";
 
     private static final String PROP_ROOT_STORE = "simpleContentStores.rootStore";
 
@@ -53,17 +54,74 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     private static final String STORE_TEMPLATE_PREFIX = "simpleContentStoresTemplate-";
 
-    protected Properties globalProperties;
+    protected String beanName;
+
+    protected List<BeanDefinitionRegistryPostProcessor> dependsOn;
+
+    protected boolean executed;
+
+    protected Boolean enabled;
+
+    protected String enabledPropertyKey;
+
+    protected List<String> enabledPropertyKeys;
+
+    protected Properties propertiesSource;
 
     protected String rootStoreProxyName;
 
     /**
-     * @param globalProperties
-     *            the globalProperties to set
+     * {@inheritDoc}
      */
-    public void setGlobalProperties(final Properties globalProperties)
+    @Override
+    public void setBeanName(final String name)
     {
-        this.globalProperties = globalProperties;
+        this.beanName = name;
+    }
+
+    /**
+     * @param dependsOn
+     *            the dependsOn to set
+     */
+    public void setDependsOn(final List<BeanDefinitionRegistryPostProcessor> dependsOn)
+    {
+        this.dependsOn = dependsOn;
+    }
+
+    /**
+     * @param enabled
+     *            the enabled to set
+     */
+    public void setEnabled(final boolean enabled)
+    {
+        this.enabled = enabled;
+    }
+
+    /**
+     * @param enabledPropertyKey
+     *            the enabledPropertyKey to set
+     */
+    public void setEnabledPropertyKey(final String enabledPropertyKey)
+    {
+        this.enabledPropertyKey = enabledPropertyKey;
+    }
+
+    /**
+     * @param enabledPropertyKeys
+     *            the enabledPropertyKeys to set
+     */
+    public void setEnabledPropertyKeys(final List<String> enabledPropertyKeys)
+    {
+        this.enabledPropertyKeys = enabledPropertyKeys;
+    }
+
+    /**
+     * @param propertiesSource
+     *            the propertiesSource to set
+     */
+    public void setPropertiesSource(final Properties propertiesSource)
+    {
+        this.propertiesSource = propertiesSource;
     }
 
     /**
@@ -90,22 +148,56 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     @Override
     public void postProcessBeanDefinitionRegistry(final BeanDefinitionRegistry registry) throws BeansException
     {
-        final String enabled = this.globalProperties.getProperty(PROP_ENABLED, "false");
-        if (Boolean.parseBoolean(enabled))
+        if (!this.executed)
         {
-            LOGGER.info("SimpleContentStores addon is ENABLED");
-            this.emitCustomStoreBeanDefinitions(registry);
-            this.processRootStore(registry);
+            final boolean enabled = this.isEnabled();
+
+            if (enabled)
+            {
+                if (this.dependsOn != null)
+                {
+                    this.dependsOn.forEach(x -> {
+                        x.postProcessBeanDefinitionRegistry(registry);
+                    });
+                }
+
+                LOGGER.info("[{}] patch is being applied", this.beanName);
+                this.emitCustomStoreBeanDefinitions(registry);
+                this.processRootStore(registry);
+            }
+            else
+            {
+                LOGGER.info("[{}] patch will not be applied as it has been marked as inactive", this.beanName);
+            }
+            this.executed = true;
         }
-        else
+    }
+
+    protected boolean isEnabled()
+    {
+        Boolean enabled = this.enabled;
+        if (!Boolean.FALSE.equals(enabled) && this.enabledPropertyKey != null && !this.enabledPropertyKey.isEmpty())
         {
-            LOGGER.info("SimpleContentStores addon is DISABLED");
+            final String property = this.propertiesSource.getProperty(this.enabledPropertyKey);
+            enabled = (property != null ? Boolean.valueOf(property) : Boolean.FALSE);
         }
+
+        if (!Boolean.FALSE.equals(enabled) && this.enabledPropertyKeys != null && !this.enabledPropertyKeys.isEmpty())
+        {
+            final AtomicBoolean enabled2 = new AtomicBoolean(true);
+            this.enabledPropertyKeys.forEach(key -> {
+                final String property = this.propertiesSource.getProperty(key);
+                enabled2.compareAndSet(true, property != null ? Boolean.parseBoolean(property) : false);
+            });
+            enabled = Boolean.valueOf(enabled2.get());
+        }
+
+        return Boolean.TRUE.equals(enabled);
     }
 
     protected void processRootStore(final BeanDefinitionRegistry registry)
     {
-        final String realRootStore = this.globalProperties.getProperty(PROP_ROOT_STORE, "fileContentStore");
+        final String realRootStore = this.propertiesSource.getProperty(PROP_ROOT_STORE, "fileContentStore");
         LOGGER.info("Setting {} as root content store", realRootStore);
 
         // complete the proxy definition
@@ -129,7 +221,7 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     protected void emitCustomStoreBeanDefinitions(final BeanDefinitionRegistry registry)
     {
-        final String customStoreNames = this.globalProperties.getProperty(PROP_CUSTOM_STORES, "");
+        final String customStoreNames = this.propertiesSource.getProperty(PROP_CUSTOM_STORES, "");
         if (!customStoreNames.trim().isEmpty())
         {
             LOGGER.info("Defined custom store names: {}", customStoreNames);
@@ -164,7 +256,7 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
         final MessageFormat mf = new MessageFormat("{0}.{1}.", Locale.ENGLISH);
         final String prefix = mf.format(new Object[] { PROP_CUSTOM_STORE_PREFIX, storeName });
         final String typeProperty = prefix + "type";
-        final String typeValue = this.globalProperties.getProperty(typeProperty);
+        final String typeValue = this.propertiesSource.getProperty(typeProperty);
 
         if (typeValue != null && !typeValue.isEmpty())
         {
@@ -172,12 +264,12 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
             final BeanDefinition storeBeanDefinition = new ChildBeanDefinition(STORE_TEMPLATE_PREFIX + typeValue);
             storeBeanDefinition.setScope(BeanDefinition.SCOPE_SINGLETON);
 
-            final Set<String> propertyNames = this.globalProperties.stringPropertyNames();
+            final Set<String> propertyNames = this.propertiesSource.stringPropertyNames();
             for (final String propertyName : propertyNames)
             {
                 if (propertyName.startsWith(prefix) && !typeProperty.equals(propertyName))
                 {
-                    this.handleBeanProperty(storeBeanDefinition, propertyName, this.globalProperties.getProperty(propertyName));
+                    this.handleBeanProperty(storeBeanDefinition, propertyName, this.propertiesSource.getProperty(propertyName));
                 }
             }
 
