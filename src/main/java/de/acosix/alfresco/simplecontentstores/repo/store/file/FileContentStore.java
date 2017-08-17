@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.Map;
@@ -408,19 +407,6 @@ public class FileContentStore extends AbstractContentStore
     }
 
     /**
-     * {@inheritDoc}
-     */
-    @Deprecated
-    @Override
-    public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler)
-    {
-        // recursively get all files within the root
-        this.getUrls(this.rootDirectory, handler, createdAfter, createdBefore);
-        // done
-        LOGGER.debug("Listed all content URLS: \n   store: {}", this);
-    }
-
-    /**
      *
      * {@inheritDoc}
      */
@@ -672,55 +658,5 @@ public class FileContentStore extends AbstractContentStore
         final String newContentUrl = sb.toString();
         // done
         return newContentUrl;
-    }
-
-    /**
-     * Returns a list of all files within the given directory and all subdirectories.
-     *
-     * @param directory
-     *            the current directory to get the files from
-     * @param handler
-     *            the callback to use for each URL
-     * @param createdAfter
-     *            only get URLs for content create after this date
-     * @param createdBefore
-     *            only get URLs for content created before this date
-     */
-    @Deprecated
-    protected void getUrls(final File directory, final ContentUrlHandler handler, final Date createdAfter, final Date createdBefore)
-    {
-        final File[] files = directory.listFiles();
-        if (files == null)
-        {
-            // the directory has disappeared
-            throw new ContentIOException("Failed list files in folder: " + directory);
-        }
-        for (final File file : files)
-        {
-            if (file.isDirectory())
-            {
-                // we have a subdirectory - recurse
-                this.getUrls(file, handler, createdAfter, createdBefore);
-            }
-            else
-            {
-                // check the created date of the file
-                final long lastModified = file.lastModified();
-                if (createdAfter != null && lastModified < createdAfter.getTime())
-                {
-                    // file is too old
-                    continue;
-                }
-                else if (createdBefore != null && lastModified > createdBefore.getTime())
-                {
-                    // file is too young
-                    continue;
-                }
-                // found a file - create the URL
-                final String contentUrl = this.makeContentUrl(file);
-                // Callback
-                handler.handle(contentUrl);
-            }
-        }
     }
 }

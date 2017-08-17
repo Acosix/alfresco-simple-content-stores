@@ -19,7 +19,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -361,39 +360,6 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
         LOGGER.debug("Got writer and cache URL from store: \n\tContext: {}\n\tWriter:  {}\n\tStore:   {}", context, writer, store);
         return writer;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    @SuppressWarnings("deprecation")
-    public void getUrls(final ContentUrlHandler handler) throws ContentIOException
-    {
-        this.getUrls(null, null, handler);
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    @SuppressWarnings("deprecation")
-    public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler) throws ContentIOException
-    {
-        final List<ContentStore> stores = this.getAllStores();
-        for (final ContentStore store : stores)
-        {
-            try
-            {
-                store.getUrls(createdAfter, createdBefore, handler);
-            }
-            catch (final UnsupportedOperationException e)
-            {
-                // Support of this is not mandatory
-            }
-        }
     }
 
     /**

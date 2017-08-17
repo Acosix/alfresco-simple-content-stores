@@ -51,6 +51,8 @@
         <messages.path>acosix/simple-content-stores</messages.path>
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
+        
+        <alfresco.distribution.version>5.2.f</alfresco.distribution.version>
     </properties>
 
     <repositories>
