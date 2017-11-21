@@ -51,6 +51,8 @@
         <messages.path>acosix/simple-content-stores</messages.path>
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
+        <alfresco.distribution.version>5.2.g</alfresco.distribution.version>
+        <surf.version>6.11</surf.version>
     </properties>
 
     <repositories>
@@ -195,5 +197,80 @@
 
         </plugins>
 
+        <pluginManagement>
+        	<plugins>
+        		<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+        		<plugin>
+        			<groupId>org.eclipse.m2e</groupId>
+        			<artifactId>lifecycle-mapping</artifactId>
+        			<version>1.0.0</version>
+        			<configuration>
+        				<lifecycleMappingMetadata>
+        					<pluginExecutions>
+        						<pluginExecution>
+        							<pluginExecutionFilter>
+        								<groupId>
+        									org.alfresco.maven.plugin
+        								</groupId>
+        								<artifactId>
+        									alfresco-maven-plugin
+        								</artifactId>
+        								<versionRange>
+        									[1.1.1,)
+        								</versionRange>
+        								<goals>
+        									<goal>set-version</goal>
+        								</goals>
+        							</pluginExecutionFilter>
+        							<action>
+        								<ignore></ignore>
+        							</action>
+        						</pluginExecution>
+        						<pluginExecution>
+        							<pluginExecutionFilter>
+        								<groupId>
+        									de.acosix.maven
+        								</groupId>
+        								<artifactId>
+        									jshint-maven-plugin
+        								</artifactId>
+        								<versionRange>
+        									[1.0.0,)
+        								</versionRange>
+        								<goals>
+        									<goal>jshint</goal>
+        								</goals>
+        							</pluginExecutionFilter>
+        							<action>
+        								<ignore></ignore>
+        							</action>
+        						</pluginExecution>
+        						<pluginExecution>
+        							<pluginExecutionFilter>
+        								<groupId>
+        									de.acosix.alfresco.maven
+        								</groupId>
+        								<artifactId>
+        									de.acosix.alfresco.maven.plugins
+        								</artifactId>
+        								<versionRange>
+        									[1.0.0.2,)
+        								</versionRange>
+        								<goals>
+        									<goal>
+        										duplicateI18nResources
+        									</goal>
+        								</goals>
+        							</pluginExecutionFilter>
+        							<action>
+        								<ignore></ignore>
+        							</action>
+        						</pluginExecution>
+        					</pluginExecutions>
+        				</lifecycleMappingMetadata>
+        			</configuration>
+        		</plugin>
+        	</plugins>
+        </pluginManagement>
     </build>
 </project>
