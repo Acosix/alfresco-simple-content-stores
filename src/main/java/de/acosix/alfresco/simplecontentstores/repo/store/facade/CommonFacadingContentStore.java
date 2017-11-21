@@ -15,7 +15,6 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.store.facade;
 
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +27,6 @@ import org.alfresco.repo.content.UnsupportedContentUrlException;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
-import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.namespace.NamespaceService;
@@ -206,25 +204,6 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
         }
 
         return this.backingStore.getWriter(context);
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override @SuppressWarnings("deprecation")
-    public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler) throws ContentIOException
-    {
-        this.backingStore.getUrls(createdAfter, createdBefore, handler);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override @SuppressWarnings("deprecation")
-    public void getUrls(final ContentUrlHandler handler) throws ContentIOException
-    {
-        this.backingStore.getUrls(handler);
     }
 
     /**
