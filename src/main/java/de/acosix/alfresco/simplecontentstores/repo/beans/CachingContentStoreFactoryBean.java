@@ -85,8 +85,6 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
 
     protected int standardQuotaCleanThresholdPercent = 80;
 
-    protected int standardQuotaTargetUsagePercent = 70;
-
     protected int standardQuotaMaxUsageBytes = 0;
 
     protected int standardQuotaMaxFileSizeMebiBytes = 0;
@@ -249,15 +247,6 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
     }
 
     /**
-     * @param standardQuotaTargetUsagePercent
-     *            the standardQuotaTargetUsagePercent to set
-     */
-    public void setStandardQuotaTargetUsagePercent(final int standardQuotaTargetUsagePercent)
-    {
-        this.standardQuotaTargetUsagePercent = standardQuotaTargetUsagePercent;
-    }
-
-    /**
      * @param standardQuotaMaxUsageBytes
      *            the standardQuotaMaxUsageBytes to set
      */
@@ -378,9 +367,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
             standardQuotaStrategy.setCache(cache);
             standardQuotaStrategy.setPanicThresholdPct(this.standardQuotaPanicThresholdPercent);
             standardQuotaStrategy.setCleanThresholdPct(this.standardQuotaCleanThresholdPercent);
-            standardQuotaStrategy.setTargetUsagePct(this.standardQuotaTargetUsagePercent);
             standardQuotaStrategy.setMaxUsageBytes(this.standardQuotaMaxUsageBytes);
-            standardQuotaStrategy.setNormalCleanThresholdSec(this.standardQuotaNormalCleanThresholdSeconds);
             standardQuotaStrategy.setMaxFileSizeMB(this.standardQuotaMaxFileSizeMebiBytes);
 
             final CachedContentCleaner cachedContentCleaner = new CachedContentCleaner();
@@ -430,7 +417,6 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
                 cronTriggerBean.setBeanName(this.beanName + "-JobTrigger");
                 cronTriggerBean.setJobDetail(cleanerDetail);
                 cronTriggerBean.setCronExpression(this.cleanerCronExpression);
-                cronTriggerBean.setStartDelay(this.cleanerStartDelay);
                 cronTriggerBean.setScheduler(this.scheduler);
                 cronTriggerBean.afterPropertiesSet();
                 trigger = cronTriggerBean;

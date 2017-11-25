@@ -27,10 +27,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
- * This interceptor initializes the {@link ContentStoreContext} on any call to the root {@link ContentStore content store} and thus
+ * This interceptor initialises the {@link ContentStoreContext} on any call to the root {@link ContentStore content store} and thus
  * guarantees an active context is present for use within the configured chain of content stores.
  *
  * @author Axel Faust
@@ -55,29 +56,39 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor, Ap
     @Override
     public Object invoke(final MethodInvocation invocation) throws Throwable
     {
-        return ContentStoreContext.executeInNewContext(() -> {
-            final Object[] arguments = invocation.getArguments();
-            final Collection<ContentStoreContextInitializer> initializers = InitContentStoreContextInterceptor.this.applicationContext
-                    .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
+        return ContentStoreContext.executeInNewContext(new ContentStoreOperation<Object>()
+        {
 
-            for (final Object argument : arguments)
+            /**
+             *
+             * {@inheritDoc}
+             */
+            @Override
+            public Object execute()
             {
-                if (argument instanceof ContentContext)
+                final Object[] arguments = invocation.getArguments();
+                final Collection<ContentStoreContextInitializer> initializers = InitContentStoreContextInterceptor.this.applicationContext
+                        .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
+
+                for (final Object argument : arguments)
                 {
-                    for (final ContentStoreContextInitializer initializer : initializers)
+                    if (argument instanceof ContentContext)
                     {
-                        initializer.initialize((ContentContext) argument);
+                        for (final ContentStoreContextInitializer initializer : initializers)
+                        {
+                            initializer.initialize((ContentContext) argument);
+                        }
                     }
                 }
-            }
 
-            try
-            {
-                return invocation.proceed();
-            }
-            catch (final Throwable ex)
-            {
-                throw new ContentIOException("Error during executing call on ContentStore API", ex);
+                try
+                {
+                    return invocation.proceed();
+                }
+                catch (final Throwable ex)
+                {
+                    throw new ContentIOException("Error during call on ContentStore API", ex);
+                }
             }
         });
     }

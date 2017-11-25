@@ -66,6 +66,7 @@ import org.springframework.context.ApplicationContextAware;
 import de.acosix.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
@@ -251,6 +252,26 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * {@inheritDoc}
      */
     @Override
+    public long getTotalSize()
+    {
+        return this.getSpaceUsed();
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public long getSpaceUsed()
+    {
+        return -1L;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public long getSpaceFree()
     {
         return -1L;
@@ -282,16 +303,24 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     @Override
     public ContentReader getReader(final String contentUrl) throws ContentIOException
     {
-        final ContentStore store = this.selectReadStore(contentUrl);
         final ContentReader reader;
-        if (store != null)
+        if (this.isContentUrlSupported(contentUrl))
         {
-            LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
-            reader = store.getReader(contentUrl);
+            final ContentStore store = this.selectReadStore(contentUrl);
+            if (store != null)
+            {
+                LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
+                reader = store.getReader(contentUrl);
+            }
+            else
+            {
+                LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
+                reader = new EmptyContentReader(contentUrl);
+            }
         }
         else
         {
-            LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
+            LOGGER.debug("Getting empty reader for unsupported content URL: {}", contentUrl);
             reader = new EmptyContentReader(contentUrl);
         }
 
@@ -359,7 +388,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
             this.storesCacheWriteLock.unlock();
         }
 
-        LOGGER.debug("Got writer and cache URL from store: \n\tContext: {}\n\tWriter:  {}\n\tStore:   {}", context, writer, store);
+        LOGGER.debug("Got writer and cache URL from store: \n\tContext: {}\n\tWriter:  {}\n\tStore:   {}",
+                new Object[] { context, writer, store });
         return writer;
     }
 
@@ -368,7 +398,17 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * {@inheritDoc}
      */
     @Override
-    @SuppressWarnings("deprecation")
+    public final ContentWriter getWriter(final ContentReader existingContentReader, final String newContentUrl)
+    {
+        final ContentContext ctx = new ContentContext(existingContentReader, newContentUrl);
+        return this.getWriter(ctx);
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public void getUrls(final ContentUrlHandler handler) throws ContentIOException
     {
         this.getUrls(null, null, handler);
@@ -379,7 +419,6 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * {@inheritDoc}
      */
     @Override
-    @SuppressWarnings("deprecation")
     public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler) throws ContentIOException
     {
         final List<ContentStore> stores = this.getAllStores();
@@ -424,7 +463,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     }
 
     /**
-     * Checks the cache for the store and ensures that the URL is in the store.
+     * Retrieves the content store for the specific content URL without requiring the existence of the URL.
      *
      * @param contentUrl
      *            the content URL to search for
@@ -432,7 +471,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      */
     protected ContentStore selectReadStore(final String contentUrl)
     {
-        final ContentStore readStore = this.getStore(contentUrl, true);
+        final ContentStore readStore = this.getStore(contentUrl, false);
         return readStore;
     }
 
@@ -661,9 +700,20 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
             if (!contentPropertiesMap.isEmpty())
             {
-                ContentStoreContext.executeInNewContext(() -> {
-                    MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, customData);
-                    return null;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap,
+                                customData);
+                        return null;
+                    }
                 });
             }
         }
@@ -760,8 +810,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                     final ContentReader reader = targetStore.getReader(urlToTest);
                     if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
                     {
-                        LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
-                                reader.getContentUrl());
+                        LOGGER.debug("Updating content data for {} on {} with new content URL {}",
+                                new Object[] { propertyQName, nodeRef, reader.getContentUrl() });
 
                         reader.setMimetype(contentData.getMimetype());
                         reader.setEncoding(contentData.getEncoding());
@@ -811,7 +861,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
                     final String newContentUrl = writer.getContentUrl();
 
-                    LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentContentUrl, newContentUrl);
+                    LOGGER.debug("Copying content of {} on {} from {} to {}",
+                            new Object[] { propertyQName, nodeRef, currentContentUrl, newContentUrl });
 
                     // ensure content cleanup on rollback (only if a new, unique URL was created
                     if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))

@@ -8,13 +8,13 @@
         <version>1.0.0.2</version>
     </parent>
 
-    <groupId>de.acosix.alfresco.simplecontentstores</groupId>
+    <groupId>de.acosix.alfresco.simplecontentstores-42</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
     <version>1.0.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
-    <description>Addon to support simple configuration of flexible content stores</description>
+    <name>Acosix Alfresco 4.2 Simple Content Stores - Repository Module</name>
+    <description>Addon to support simple configuration of flexible content stores - compatible with Alfresco 4.2</description>
     <url>https://github.com/Acosix/alfresco-simple-content-stores</url>
 
     <licenses>
@@ -51,6 +51,10 @@
         <messages.path>acosix/simple-content-stores</messages.path>
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
+
+        <alfresco.distribution.version>4.2.f</alfresco.distribution.version>
+        <maven.compiler.source>1.7</maven.compiler.source>
+        <maven.compiler.target>1.7</maven.compiler.target>
     </properties>
 
     <repositories>

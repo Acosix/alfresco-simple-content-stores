@@ -137,8 +137,8 @@ public class SiteAwareFileContentStore extends FileContentStore
             else if (allowExistingPrefixChange && !EqualsHelper.nullSafeEquals(prefixes.get(sitePrefixIndex + 1), site)
                     && prefixes.size() > sitePrefixIndex + 1)
             {
-                LOGGER.debug("Upadting site {} prefix to {} on inbound content URL {}", prefixes.get(sitePrefixIndex + 1), site,
-                        effectiveContentUrl);
+                LOGGER.debug("Upadting site {} prefix to {} on inbound content URL {}",
+                        new Object[] { prefixes.get(sitePrefixIndex + 1), site, effectiveContentUrl });
                 final List<String> alteredPrefixes = new ArrayList<>(prefixes);
                 alteredPrefixes.set(sitePrefixIndex + 1, String.valueOf(site));
                 effectiveContentUrl = ContentUrlUtils.getContentUrlWithPrefixes(ContentUrlUtils.getBaseContentUrl(effectiveContentUrl),

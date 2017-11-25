@@ -36,16 +36,17 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
-import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.ParameterCheck;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.acosix.alfresco.simplecontentstores.repo.store.MimetypeServiceAware;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreContextRestorator;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 
 /**
  * @author Axel Faust
@@ -139,9 +140,19 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             this.findExistingContent();
             if (this.deduplicatedContentUrl == null)
             {
-                this.contextRestorator.withRestoredContext(() -> {
-                    DeduplicatingContentWriter.this.writeToBackingStore();
-                    return null;
+                this.contextRestorator.withRestoredContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        DeduplicatingContentWriter.this.writeToBackingStore();
+                        return null;
+                    }
                 });
             }
             else if (this.backingContentStore.isWriteSupported())

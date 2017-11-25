@@ -459,8 +459,8 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
             }
             catch (final IOException ioex)
             {
-                LOGGER.error("Failed to copy dummy file for mimetype {} from {} to shared temporary file", mimetype, dummyFileResource,
-                        ioex);
+                LOGGER.error("Failed to copy dummy file for mimetype {} from {} to shared temporary file",
+                        new Object[] { mimetype, dummyFileResource, ioex });
                 throw new ContentIOException("Failed to copy dummy file to shared temporary file", ioex);
             }
             DummyFallbackContentStore.this.tempFileCache.put(mimetype, temporaryFile);
@@ -482,8 +482,8 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
             }
             catch (final IOException ioex)
             {
-                LOGGER.error("Failed to copy dummy file for mimetype {} from {} to shared temporary file", mimetype,
-                        transformerDebugFileURL, ioex);
+                LOGGER.error("Failed to copy dummy file for mimetype {} from {} to shared temporary file",
+                        new Object[] { mimetype, transformerDebugFileURL, ioex });
                 throw new ContentIOException("Failed to copy dummy file to shared temporary file", ioex);
             }
             DummyFallbackContentStore.this.tempFileCache.put(mimetype, temporaryFile);
@@ -531,8 +531,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
                         if (writer.getSize() > 0)
                         {
-                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype,
-                                    mimetype);
+                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype, mimetype);
                             break;
                         }
                         else

@@ -132,6 +132,28 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
      * {@inheritDoc}
      */
     @Override
+    @SuppressWarnings("deprecation")
+    public long getTotalSize()
+    {
+        return this.backingStore.getTotalSize();
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    @SuppressWarnings("deprecation")
+    public long getSpaceUsed()
+    {
+        return this.backingStore.getSpaceUsed();
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public long getSpaceFree()
     {
         return this.backingStore.getSpaceFree();
@@ -212,7 +234,18 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
      *
      * {@inheritDoc}
      */
-    @Override @SuppressWarnings("deprecation")
+    @Override
+    public ContentWriter getWriter(final ContentReader existingContentReader, final String newContentUrl)
+    {
+        final ContentContext ctx = new ContentContext(existingContentReader, newContentUrl);
+        return this.getWriter(ctx);
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
     public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler) throws ContentIOException
     {
         this.backingStore.getUrls(createdAfter, createdBefore, handler);
@@ -221,7 +254,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     /**
      * {@inheritDoc}
      */
-    @Override @SuppressWarnings("deprecation")
+    @Override
     public void getUrls(final ContentUrlHandler handler) throws ContentIOException
     {
         this.backingStore.getUrls(handler);

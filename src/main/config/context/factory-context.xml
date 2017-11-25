@@ -14,7 +14,6 @@
         <property name="proxyInterfaces">
             <list>
                 <value>org.alfresco.repo.content.ContentStore</value>
-                <value>org.alfresco.repo.content.ContentStoreCaps</value>
             </list>
         </property>
         <!-- marked singleton so it won't be initialised unless SimpleContentStoresBeanDefinitionEmitter has completed the definition -->
@@ -22,13 +21,10 @@
         <!-- target will be set by SimpleContentStoresBeanDefinitionEmitter -->
         <property name="interceptorNames">
             <list>
-                <idref bean="${moduleId}-contentStoreCapsInterceptor" />
                 <idref bean="${moduleId}-initContextInterceptor" />
             </list>
         </property>
     </bean>
-
-    <bean id="${moduleId}-contentStoreCapsInterceptor" class="${project.artifactId}.aop.ContentStoreCapsEmulatingInterceptor" />
 
     <bean id="${moduleId}-initContextInterceptor" class="${project.artifactId}.aop.InitContentStoreContextInterceptor" />
 

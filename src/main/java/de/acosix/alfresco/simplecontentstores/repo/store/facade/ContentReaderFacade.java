@@ -157,14 +157,24 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
                 }
             }
             final ContentReader spoofReader = spoofWriter.getReader();
-            final ContentStreamListener spoofListener = () -> {
-                try
+            final ContentStreamListener spoofListener = new ContentStreamListener()
+            {
+
+                /**
+                 *
+                 * {@inheritDoc}
+                 */
+                @Override
+                public void contentStreamClosed() throws ContentIOException
                 {
-                    readableChannel.close();
-                }
-                catch (final IOException e)
-                {
-                    throw new ContentIOException("Failed to close underlying channel", e);
+                    try
+                    {
+                        readableChannel.close();
+                    }
+                    catch (final IOException e)
+                    {
+                        throw new ContentIOException("Failed to close underlying channel", e);
+                    }
                 }
             };
             spoofReader.addListener(spoofListener);

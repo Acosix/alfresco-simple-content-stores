@@ -33,11 +33,12 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
-import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.TempFileProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.FileCopyUtils;
+
+import de.acosix.alfresco.simplecontentstores.repo.store.MimetypeServiceAware;
 
 /**
  * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
@@ -79,8 +80,8 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
             }
             catch (final IOException e)
             {
-                LOGGER.error("Content writer {} failed to copy from spoofed temporary channel for file {}", this.actualWriter, spoofReader,
-                        e);
+                LOGGER.error("Content writer {} failed to copy from spoofed temporary channel for file {}",
+                        new Object[] { this.actualWriter, spoofReader, e });
                 throw new ContentIOException("Failed to copy from spoofed temporary channel to permanent channel: \n\twriter: "
                         + this.actualWriter + "\n\ttemp: " + spoofReader, e);
             }
@@ -180,8 +181,8 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
                 }
                 catch (final IOException e)
                 {
-                    LOGGER.error("Content writer {} failed to copy content from {} to enable random access", this,
-                            this.existingContentReader, e);
+                    LOGGER.error("Content writer {} failed to copy content from {} to enable random access",
+                            new Object[] { this, this.existingContentReader, e });
                     throw new ContentIOException("Failed to copy from existing content to enable random access: \n\twriter: " + this
                             + "\n\texisting: " + this.existingContentReader, e);
                 }
@@ -279,7 +280,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
         }
         catch (final IOException e)
         {
-            LOGGER.error("Content writer {} failed to copy content from file {}", this, file, e);
+            LOGGER.error("Content writer {} failed to copy content from file {}", new Object[] { this, file, e });
             throw new ContentIOException("Failed to copy content from file: \n\twriter: " + this + "\n\tfile: " + file, e);
         }
     }
@@ -314,7 +315,7 @@ public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> im
         }
         catch (final IOException e)
         {
-            LOGGER.error("Content writer {} failed to copy content from string of length {}", this, content.length(), e);
+            LOGGER.error("Content writer {} failed to copy content from string of length {}", new Object[] { this, content.length(), e });
             throw new ContentIOException(
                     "Failed to copy content from string: \n\twriter: " + this + "\n\tcontent length: " + content.length(), e);
         }

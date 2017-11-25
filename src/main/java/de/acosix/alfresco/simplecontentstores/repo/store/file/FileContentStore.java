@@ -34,7 +34,6 @@ import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.ContentStoreCreatedEvent;
 import org.alfresco.repo.content.EmptyContentReader;
 import org.alfresco.repo.content.UnsupportedContentUrlException;
-import org.alfresco.repo.content.filestore.SpoofedTextContentReader;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
@@ -68,8 +67,6 @@ public class FileContentStore extends AbstractContentStore
 {
 
     protected static final String STORE_PROTOCOL = org.alfresco.repo.content.filestore.FileContentStore.STORE_PROTOCOL;
-
-    protected static final String SPOOF_PROTOCOL = org.alfresco.repo.content.filestore.FileContentStore.SPOOF_PROTOCOL;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileContentStore.class);
 
@@ -288,19 +285,8 @@ public class FileContentStore extends AbstractContentStore
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
         final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
-        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
-        final String protocol = urlParts.getFirst();
-
-        boolean result;
-        if (protocol.equals(SPOOF_PROTOCOL))
-        {
-            result = true;
-        }
-        else
-        {
-            final File file = this.makeFile(effectiveContentUrl);
-            result = file.exists();
-        }
+        final File file = this.makeFile(effectiveContentUrl);
+        final boolean result = file.exists();
         return result;
     }
 
@@ -313,46 +299,37 @@ public class FileContentStore extends AbstractContentStore
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
 
         final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
-        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
-        final String protocol = urlParts.getFirst();
 
         ContentReader reader;
-        // Handle the spoofed URL
-        if (protocol.equals(SPOOF_PROTOCOL))
+        // else, it's a real file we are after
+        try
         {
-            reader = new SpoofedTextContentReader(effectiveContentUrl);
+            final File file = this.makeFile(effectiveContentUrl);
+            if (file.exists())
+            {
+                final FileContentReaderImpl fileContentReader = new FileContentReaderImpl(file, effectiveContentUrl);
+
+                fileContentReader.setAllowRandomAccess(this.allowRandomAccess);
+
+                reader = fileContentReader;
+            }
+            else
+            {
+                reader = new EmptyContentReader(effectiveContentUrl);
+            }
+
+            // done
+            LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {]",
+                    new Object[] { effectiveContentUrl, file, reader });
         }
-        else
+        catch (final UnsupportedContentUrlException e)
         {
-            // else, it's a real file we are after
-            try
-            {
-                final File file = this.makeFile(effectiveContentUrl);
-                if (file.exists())
-                {
-                    final FileContentReaderImpl fileContentReader = new FileContentReaderImpl(file, effectiveContentUrl);
-
-                    fileContentReader.setAllowRandomAccess(this.allowRandomAccess);
-
-                    reader = fileContentReader;
-                }
-                else
-                {
-                    reader = new EmptyContentReader(effectiveContentUrl);
-                }
-
-                // done
-                LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {]", effectiveContentUrl, file, reader);
-            }
-            catch (final UnsupportedContentUrlException e)
-            {
-                // This can go out directly
-                throw e;
-            }
-            catch (final Throwable e)
-            {
-                throw new ContentIOException("Failed to get reader for URL: " + effectiveContentUrl, e);
-            }
+            // This can go out directly
+            throw e;
+        }
+        catch (final Throwable e)
+        {
+            throw new ContentIOException("Failed to get reader for URL: " + effectiveContentUrl, e);
         }
         return reader;
     }
@@ -372,37 +349,27 @@ public class FileContentStore extends AbstractContentStore
 
         boolean deleted;
         final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
-        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
-        final String protocol = urlParts.getFirst();
 
-        if (protocol.equals(SPOOF_PROTOCOL))
+        // Handle regular files based on the real files
+        final File file = this.makeFile(effectiveContentUrl);
+        if (!file.exists())
         {
-            // This is not a failure but the content can never actually be deleted
-            deleted = false;
+            // File does not exist
+            deleted = true;
         }
         else
         {
-            // Handle regular files based on the real files
-            final File file = this.makeFile(effectiveContentUrl);
-            if (!file.exists())
-            {
-                // File does not exist
-                deleted = true;
-            }
-            else
-            {
-                deleted = file.delete();
-            }
-
-            // Delete empty parents regardless of whether the file was ignore above.
-            if (this.deleteEmptyDirs && deleted)
-            {
-                Deleter.deleteEmptyParents(file, this.getRootLocation());
-            }
-
-            // done
-            LOGGER.debug("Delete content directly: \n   store: {}\n   url: {}", this, effectiveContentUrl);
+            deleted = file.delete();
         }
+
+        // Delete empty parents regardless of whether the file was ignore above.
+        if (this.deleteEmptyDirs && deleted)
+        {
+            Deleter.deleteEmptyParents(file, this.getRootLocation());
+        }
+
+        // done
+        LOGGER.debug("Delete content directly: \n   store: {}\n   url: {}", this, effectiveContentUrl);
 
         return deleted;
     }

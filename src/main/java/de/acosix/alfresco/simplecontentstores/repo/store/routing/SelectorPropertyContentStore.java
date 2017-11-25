@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 
 /**
  * @author Axel Faust
@@ -186,9 +187,19 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
             // no need to move if no specific after value
             if (selectorValue != null)
             {
-                ContentStoreContext.executeInNewContext(() -> {
-                    SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, selectorValue);
-                    return null;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * @return
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, selectorValue);
+                        return null;
+                    }
                 });
             }
         }
@@ -229,9 +240,19 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
             // no need to move if no specific before value
             if (selectorValue != null)
             {
-                ContentStoreContext.executeInNewContext(() -> {
-                    SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, null);
-                    return null;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, null);
+                        return null;
+                    }
                 });
             }
         }
@@ -272,9 +293,19 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
                 // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
                 final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
 
-                ContentStoreContext.executeInNewContext(() -> {
-                    SelectorPropertyContentStore.this.checkAndProcessContentPropertiesMove(nodeRef, properties, selectorValueAfter);
-                    return null;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        SelectorPropertyContentStore.this.checkAndProcessContentPropertiesMove(nodeRef, properties, selectorValueAfter);
+                        return null;
+                    }
                 });
             }
         }
@@ -294,7 +325,8 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
             final String value = DefaultTypeConverter.INSTANCE.convert(String.class,
                     this.nodeService.getProperty(nodeRef, this.selectorPropertyQName));
 
-            LOGGER.debug("Looking up store for node {} and value {} of property {}", nodeRef, value, this.selectorPropertyQName);
+            LOGGER.debug("Looking up store for node {} and value {} of property {}",
+                    new Object[] { nodeRef, value, this.selectorPropertyQName });
             final ContentStore valueStore = this.storeBySelectorPropertyValue.get(value);
             if (valueStore != null)
             {

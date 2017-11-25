@@ -33,13 +33,14 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
-import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.ParameterCheck;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.FileCopyUtils;
+
+import de.acosix.alfresco.simplecontentstores.repo.store.MimetypeServiceAware;
 
 /**
  * @author Axel Faust
@@ -120,12 +121,20 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
         this.mimetypeService = mimetypeService;
         super.setMimetypeService(mimetypeService);
 
-        if (this.backingWriter instanceof MimetypeServiceAware)
+        if (this.backingWriter instanceof AbstractContentWriter)
+        {
+            ((AbstractContentWriter) this.backingWriter).setMimetypeService(mimetypeService);
+        }
+        else if (this.backingWriter instanceof MimetypeServiceAware)
         {
             ((MimetypeServiceAware) this.backingWriter).setMimetypeService(mimetypeService);
         }
 
-        if (this.temporaryWriter instanceof MimetypeServiceAware)
+        if (this.temporaryWriter instanceof AbstractContentWriter)
+        {
+            ((AbstractContentWriter) this.temporaryWriter).setMimetypeService(mimetypeService);
+        }
+        else if (this.temporaryWriter instanceof MimetypeServiceAware)
         {
             ((MimetypeServiceAware) this.temporaryWriter).setMimetypeService(mimetypeService);
         }
@@ -208,7 +217,8 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
             {
                 LOGGER.debug("Content will be compressed to backing store (url={})", this.getContentUrl());
                 final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty()
-                        ? this.compressionType : CompressorStreamFactory.GZIP;
+                        ? this.compressionType
+                        : CompressorStreamFactory.GZIP;
                 try (final OutputStream contentOutputStream = this.backingWriter.getContentOutputStream())
                 {
                     try (OutputStream compressedOutputStream = COMPRESSOR_STREAM_FACTORY.createCompressorOutputStream(compressiongType,
