@@ -169,6 +169,10 @@
             </plugin>
 
             <plugin>
+                <artifactId>maven-toolchains-plugin</artifactId>
+            </plugin>
+
+            <plugin>
                 <groupId>de.thetaphi</groupId>
                 <artifactId>forbiddenapis</artifactId>
             </plugin>
