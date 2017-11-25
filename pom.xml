@@ -52,7 +52,7 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
         
-        <alfresco.distribution.version>5.2.f</alfresco.distribution.version>
+        <alfresco.distribution.version>5.2.g</alfresco.distribution.version>
     </properties>
 
     <repositories>
