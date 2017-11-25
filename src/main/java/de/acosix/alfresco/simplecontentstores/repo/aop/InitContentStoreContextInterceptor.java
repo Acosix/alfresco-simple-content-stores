@@ -30,7 +30,7 @@ import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreCon
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
- * This interceptor initializes the {@link ContentStoreContext} on any call to the root {@link ContentStore content store} and thus
+ * This interceptor initialises the {@link ContentStoreContext} on any call to the root {@link ContentStore content store} and thus
  * guarantees an active context is present for use within the configured chain of content stores.
  *
  * @author Axel Faust
@@ -77,7 +77,7 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor, Ap
             }
             catch (final Throwable ex)
             {
-                throw new ContentIOException("Error during executing call on ContentStore API", ex);
+                throw new ContentIOException("Error during call on ContentStore API", ex);
             }
         });
     }

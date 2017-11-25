@@ -281,16 +281,24 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     @Override
     public ContentReader getReader(final String contentUrl) throws ContentIOException
     {
-        final ContentStore store = this.selectReadStore(contentUrl);
         final ContentReader reader;
-        if (store != null)
+        if (this.isContentUrlSupported(contentUrl))
         {
-            LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
-            reader = store.getReader(contentUrl);
+            final ContentStore store = this.selectReadStore(contentUrl);
+            if (store != null)
+            {
+                LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
+                reader = store.getReader(contentUrl);
+            }
+            else
+            {
+                LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
+                reader = new EmptyContentReader(contentUrl);
+            }
         }
         else
         {
-            LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
+            LOGGER.debug("Getting empty reader for unsupported content URL: {}", contentUrl);
             reader = new EmptyContentReader(contentUrl);
         }
 
