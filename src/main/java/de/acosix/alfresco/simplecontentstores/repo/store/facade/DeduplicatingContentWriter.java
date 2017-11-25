@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreContextRestorator;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 
 /**
  * @author Axel Faust
@@ -139,9 +140,19 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             this.findExistingContent();
             if (this.deduplicatedContentUrl == null)
             {
-                this.contextRestorator.withRestoredContext(() -> {
-                    DeduplicatingContentWriter.this.writeToBackingStore();
-                    return null;
+                this.contextRestorator.withRestoredContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        DeduplicatingContentWriter.this.writeToBackingStore();
+                        return null;
+                    }
                 });
             }
             else if (this.backingContentStore.isWriteSupported())

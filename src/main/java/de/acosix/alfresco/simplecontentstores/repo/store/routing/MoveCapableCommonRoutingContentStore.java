@@ -66,6 +66,7 @@ import org.springframework.context.ApplicationContextAware;
 import de.acosix.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
@@ -282,16 +283,24 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     @Override
     public ContentReader getReader(final String contentUrl) throws ContentIOException
     {
-        final ContentStore store = this.selectReadStore(contentUrl);
         final ContentReader reader;
-        if (store != null)
+        if (this.isContentUrlSupported(contentUrl))
         {
-            LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
-            reader = store.getReader(contentUrl);
+            final ContentStore store = this.selectReadStore(contentUrl);
+            if (store != null)
+            {
+                LOGGER.debug("Getting reader from store: \n\tContent URL: {}\n\tStore: {}", contentUrl, store);
+                reader = store.getReader(contentUrl);
+            }
+            else
+            {
+                LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
+                reader = new EmptyContentReader(contentUrl);
+            }
         }
         else
         {
-            LOGGER.debug("Getting empty reader for content URL: {}", contentUrl);
+            LOGGER.debug("Getting empty reader for unsupported content URL: {}", contentUrl);
             reader = new EmptyContentReader(contentUrl);
         }
 
@@ -661,9 +670,20 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
             if (!contentPropertiesMap.isEmpty())
             {
-                ContentStoreContext.executeInNewContext(() -> {
-                    MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, customData);
-                    return null;
+                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                {
+
+                    /**
+                     *
+                     * {@inheritDoc}
+                     */
+                    @Override
+                    public Void execute()
+                    {
+                        MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap,
+                                customData);
+                        return null;
+                    }
                 });
             }
         }

@@ -50,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
+import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.routing.MoveCapableCommonRoutingContentStore;
 
 /**
@@ -415,9 +416,19 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
                 if (!contentPropertiesMap.isEmpty())
                 {
-                    ContentStoreContext.executeInNewContext(() -> {
-                        SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
-                        return null;
+                    ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
+                    {
+
+                        /**
+                         *
+                         * {@inheritDoc}
+                         */
+                        @Override
+                        public Void execute()
+                        {
+                            SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
+                            return null;
+                        }
                     });
                 }
             }

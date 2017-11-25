@@ -156,9 +156,10 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
             {
                 if (this.dependsOn != null)
                 {
-                    this.dependsOn.forEach(x -> {
+                    for (final BeanDefinitionRegistryPostProcessor x : this.dependsOn)
+                    {
                         x.postProcessBeanDefinitionRegistry(registry);
-                    });
+                }
                 }
 
                 LOGGER.info("[{}] patch is being applied", this.beanName);
@@ -185,10 +186,11 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
         if (!Boolean.FALSE.equals(enabled) && this.enabledPropertyKeys != null && !this.enabledPropertyKeys.isEmpty())
         {
             final AtomicBoolean enabled2 = new AtomicBoolean(true);
-            this.enabledPropertyKeys.forEach(key -> {
+            for (final String key : this.enabledPropertyKeys)
+            {
                 final String property = this.propertiesSource.getProperty(key);
                 enabled2.compareAndSet(true, property != null ? Boolean.parseBoolean(property) : false);
-            });
+            }
             enabled = Boolean.valueOf(enabled2.get());
         }
 

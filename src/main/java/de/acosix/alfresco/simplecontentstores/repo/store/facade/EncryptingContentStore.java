@@ -41,6 +41,7 @@ import org.alfresco.repo.domain.contentdata.ContentUrlKeyEntity;
 import org.alfresco.repo.domain.contentdata.EncryptedKey;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
+import org.alfresco.service.cmr.repository.ContentStreamListener;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.PropertyCheck;
@@ -340,61 +341,71 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         final EncryptingContentWriterFacade facadeWriter = new EncryptingContentWriterFacade(backingWriter, context, key,
                 existingContentReader);
 
-        facadeWriter.addListener(() -> {
-            final byte[] keyBytes = key.getEncoded();
-            final ByteBuffer dkBuffer = ByteBuffer.wrap(keyBytes);
+        facadeWriter.addListener(new ContentStreamListener()
+        {
 
-            EncryptedKey eKey;
-            try
+            /**
+             *
+             * {@inheritDoc}
+             */
+            @Override
+            public void contentStreamClosed()
             {
-                // allocate twice as many bytes for buffer then we actually expect
-                // min expectation: master key size in bits / 8
-                // key-dependant expectation: key byte count + buffer => rounded up to next power of 2
-                final int masterKeyMinBlockSize = EncryptingContentStore.this.masterKeySize / 8;
+                final byte[] keyBytes = key.getEncoded();
+                final ByteBuffer dkBuffer = ByteBuffer.wrap(keyBytes);
 
-                final int keyBlockOverhead = 42; // (RSA with default SHA-1)
-                int expectedKeyBlockSize = dkBuffer.capacity() + keyBlockOverhead;
-                if (Integer.highestOneBit(expectedKeyBlockSize) != Integer.lowestOneBit(expectedKeyBlockSize))
+                EncryptedKey eKey;
+                try
                 {
-                    // round up to next power of two
-                    expectedKeyBlockSize = Integer.highestOneBit(expectedKeyBlockSize) << 1;
-                }
+                    // allocate twice as many bytes for buffer then we actually expect
+                    // min expectation: master key size in bits / 8
+                    // key-dependant expectation: key byte count + buffer => rounded up to next power of 2
+                    final int masterKeyMinBlockSize = EncryptingContentStore.this.masterKeySize / 8;
 
-                final ByteBuffer ekBuffer = ByteBuffer.allocateDirect(Math.max(masterKeyMinBlockSize, expectedKeyBlockSize) * 2);
-                try (final ByteBufferByteChannel ekChannel = new ByteBufferByteChannel(ekBuffer))
-                {
-                    try (final EncryptingWritableByteChannel dkChannel = new EncryptingWritableByteChannel(ekChannel,
-                            EncryptingContentStore.this.masterPublicKey))
+                    final int keyBlockOverhead = 42; // (RSA with default SHA-1)
+                    int expectedKeyBlockSize = dkBuffer.capacity() + keyBlockOverhead;
+                    if (Integer.highestOneBit(expectedKeyBlockSize) != Integer.lowestOneBit(expectedKeyBlockSize))
                     {
-                        dkChannel.write(dkBuffer);
+                        // round up to next power of two
+                        expectedKeyBlockSize = Integer.highestOneBit(expectedKeyBlockSize) << 1;
                     }
+
+                    final ByteBuffer ekBuffer = ByteBuffer.allocateDirect(Math.max(masterKeyMinBlockSize, expectedKeyBlockSize) * 2);
+                    try (final ByteBufferByteChannel ekChannel = new ByteBufferByteChannel(ekBuffer))
+                    {
+                        try (final EncryptingWritableByteChannel dkChannel = new EncryptingWritableByteChannel(ekChannel,
+                                EncryptingContentStore.this.masterPublicKey))
+                        {
+                            dkChannel.write(dkBuffer);
+                        }
+                    }
+
+                    ekBuffer.flip();
+
+                    eKey = new EncryptedKey(EncryptingContentStore.this.masterKeyStoreId, EncryptingContentStore.this.masterKeyAlias,
+                            key.getAlgorithm(), ekBuffer);
+                }
+                catch (final IOException e)
+                {
+                    LOGGER.error("Error storing symmetric content encryption key", e);
+                    throw new ContentIOException("Error storing symmetric content encryption key", e);
                 }
 
-                ekBuffer.flip();
+                final String finalContentUrl = facadeWriter.getContentUrl();
+                final ContentUrlEntity contentUrlEntity = EncryptingContentStore.this.contentDataDAO.getContentUrl(finalContentUrl);
 
-                eKey = new EncryptedKey(EncryptingContentStore.this.masterKeyStoreId, EncryptingContentStore.this.masterKeyAlias,
-                        key.getAlgorithm(), ekBuffer);
+                if (contentUrlEntity == null)
+                {
+                    // can't create content URL entity directly so create via ContentData
+                    EncryptingContentStore.this.contentDataDAO.createContentData(facadeWriter.getContentData());
+                }
+
+                final ContentUrlKeyEntity contentUrlKeyEntity = new ContentUrlKeyEntity();
+                contentUrlKeyEntity.setUnencryptedFileSize(Long.valueOf(facadeWriter.getSize()));
+                contentUrlKeyEntity.setEncryptedKey(eKey);
+
+                EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(finalContentUrl, contentUrlKeyEntity);
             }
-            catch (final IOException e)
-            {
-                LOGGER.error("Error storing symmetric content encryption key", e);
-                throw new ContentIOException("Error storing symmetric content encryption key", e);
-            }
-
-            final String finalContentUrl = facadeWriter.getContentUrl();
-            final ContentUrlEntity contentUrlEntity = EncryptingContentStore.this.contentDataDAO.getContentUrl(finalContentUrl);
-
-            if (contentUrlEntity == null)
-            {
-                // can't create content URL entity directly so create via ContentData
-                EncryptingContentStore.this.contentDataDAO.createContentData(facadeWriter.getContentData());
-            }
-
-            final ContentUrlKeyEntity contentUrlKeyEntity = new ContentUrlKeyEntity();
-            contentUrlKeyEntity.setUnencryptedFileSize(Long.valueOf(facadeWriter.getSize()));
-            contentUrlKeyEntity.setEncryptedKey(eKey);
-
-            EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(finalContentUrl, contentUrlKeyEntity);
         });
 
         return facadeWriter;
@@ -463,7 +474,8 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         try
         {
             final KeyGenerator keygen = this.keyAlgorithmProvider != null
-                    ? KeyGenerator.getInstance(this.keyAlgorithm, this.keyAlgorithmProvider) : KeyGenerator.getInstance(this.keyAlgorithm);
+                    ? KeyGenerator.getInstance(this.keyAlgorithm, this.keyAlgorithmProvider)
+                    : KeyGenerator.getInstance(this.keyAlgorithm);
             keygen.init(this.keySize);
             final SecretKey key = keygen.generateKey();
             return key;

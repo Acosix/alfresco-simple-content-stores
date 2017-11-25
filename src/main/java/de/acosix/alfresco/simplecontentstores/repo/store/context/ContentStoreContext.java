@@ -165,7 +165,16 @@ public final class ContentStoreContext
         }
 
         // could have used Lambda in Java 8 but don't want to force it on addon users
-        final ContentStoreContextRestorator<R> restorationHandle = operation -> {
+        final ContentStoreContextRestorator<R> restorationHandle = new ContentStoreContextRestorator<R>()
+        {
+
+            /**
+             *
+             * {@inheritDoc}
+             */
+            @Override
+            public R withRestoredContext(final ContentStoreOperation<R> operation)
+            {
             final Map<String, Object> oldMap = CONTEXT_ATTRIBUTES.get();
             final Map<String, Object> newMap = new HashMap<>(savedContextAttributes);
             CONTEXT_ATTRIBUTES.set(newMap);
@@ -177,6 +186,7 @@ public final class ContentStoreContext
             finally
             {
                 CONTEXT_ATTRIBUTES.set(oldMap);
+            }
             }
         };
 
