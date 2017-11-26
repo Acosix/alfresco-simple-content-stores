@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.module.parent</artifactId>
-        <version>1.0.0.3-SNAPSHOT</version>
+        <version>1.0.0.3</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
@@ -164,10 +164,6 @@
 
             <plugin>
                 <artifactId>maven-javadoc-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-toolchains-plugin</artifactId>
             </plugin>
 
             <plugin>

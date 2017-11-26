@@ -5,3 +5,5 @@ jdk:
 cache:
   directories:
   - $HOME/.m2
+before_install:
+  - cp .travis-toolchains.xml ~/.m2/toolchains.xml
