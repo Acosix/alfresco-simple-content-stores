@@ -27,6 +27,9 @@ import org.alfresco.repo.copy.CopyServicePolicies.OnCopyCompletePolicy;
 import org.alfresco.repo.node.NodeServicePolicies.OnMoveNodePolicy;
 import org.alfresco.repo.policy.Behaviour.NotificationFrequency;
 import org.alfresco.repo.policy.JavaBehaviour;
+import org.alfresco.repo.security.authentication.AuthenticationUtil;
+import org.alfresco.repo.security.authentication.AuthenticationUtil.RunAsWork;
+import org.alfresco.repo.site.SiteModel;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
@@ -34,6 +37,7 @@ import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
 import org.alfresco.service.namespace.QName;
+import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,10 +130,51 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
     public void onMoveNode(final ChildAssociationRef oldChildAssocRef, final ChildAssociationRef newChildAssocRef)
     {
         // only act on active nodes which can actually be in a site
+        // only act on active nodes which can actually be in a site
         final NodeRef movedNode = oldChildAssocRef.getChildRef();
-        if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(movedNode.getStoreRef()))
+        final NodeRef oldParent = oldChildAssocRef.getParentRef();
+        final NodeRef newParent = newChildAssocRef.getParentRef();
+        if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(movedNode.getStoreRef()) && !EqualsHelper.nullSafeEquals(oldParent, newParent))
         {
-            this.checkAndProcessContentPropertiesMove(movedNode);
+            // check for actual site move
+            // can't use siteService without creating circular dependency graph
+            // resolve all ancestors via old parent (up until site) and cross-check with ancestors of new parent
+            // run as system to avoid performance overhead + issues with intermediary node access restrictions
+            final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(new RunAsWork<Boolean>()
+            {
+
+                @Override
+                public Boolean doWork()
+                {
+                    final List<NodeRef> oldAncestors = new ArrayList<>();
+                    NodeRef curParent = oldParent;
+                    while (curParent != null)
+                    {
+                        oldAncestors.add(curParent);
+                        final QName curParentType = SiteRoutingContentStore.this.nodeService.getType(curParent);
+                        if (SiteRoutingContentStore.this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
+                        {
+                            break;
+                        }
+                        curParent = SiteRoutingContentStore.this.nodeService.getPrimaryParent(curParent).getParentRef();
+                    }
+
+                    boolean sameScope = false;
+                    curParent = newParent;
+                    while (!sameScope && curParent != null)
+                    {
+                        sameScope = oldAncestors.contains(curParent);
+                        curParent = SiteRoutingContentStore.this.nodeService.getPrimaryParent(curParent).getParentRef();
+                    }
+
+                    return Boolean.valueOf(sameScope);
+                }
+            });
+
+            if (!Boolean.TRUE.equals(sameSiteOrBothGlobal))
+            {
+                this.checkAndProcessContentPropertiesMove(movedNode);
+            }
         }
     }
 
