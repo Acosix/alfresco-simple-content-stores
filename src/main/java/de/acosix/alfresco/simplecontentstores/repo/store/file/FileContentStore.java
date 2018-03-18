@@ -95,8 +95,6 @@ public class FileContentStore extends AbstractContentStore
     @Override
     public void afterPropertiesSet()
     {
-        PropertyCheck.mandatory(this, "applicationContext", this.applicationContext);
-
         PropertyCheck.mandatory(this, "rootAbsolutePath", this.rootAbsolutePath);
         PropertyCheck.mandatory(this, "protocol", this.protocol);
 
@@ -114,7 +112,10 @@ public class FileContentStore extends AbstractContentStore
         this.rootDirectory = this.rootDirectory.getAbsoluteFile();
         this.rootAbsolutePath = this.rootDirectory.getAbsolutePath();
 
-        this.applicationContext.publishEvent(new ContentStoreCreatedEvent(this, this.extendedEventParameters));
+        if (this.applicationContext != null)
+        {
+            this.applicationContext.publishEvent(new ContentStoreCreatedEvent(this, this.extendedEventParameters));
+        }
     }
 
     /**

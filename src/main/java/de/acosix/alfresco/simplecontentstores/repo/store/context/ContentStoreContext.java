@@ -20,6 +20,9 @@ import java.util.Map;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
+import org.alfresco.service.cmr.repository.ContentIOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for thread-local data for an ongoing call / use of content store related components. This utility is necessary since not
@@ -36,6 +39,8 @@ public final class ContentStoreContext
     public static final String DEFAULT_ATTRIBUTE_SITE = "site";
 
     public static final String DEFAULT_ATTRIBUTE_SITE_PRESET = "sitePreset";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ContentStoreContext.class);
 
     private static final ThreadLocal<Map<String, Object>> CONTEXT_ATTRIBUTES = new ThreadLocal<>();
 
@@ -111,6 +116,7 @@ public final class ContentStoreContext
         {
             throw new IllegalStateException("No content store context is currently active");
         }
+        LOGGER.debug("Setting context attribute {} to {}", key, value);
         currentMap.put(key, value);
     }
 
@@ -131,11 +137,22 @@ public final class ContentStoreContext
         CONTEXT_ATTRIBUTES.set(newMap);
         try
         {
+            LOGGER.trace("Running operation {} in new context", operation);
             final R result = operation.execute();
             return result;
         }
+        catch (final Exception ex)
+        {
+            if (ex instanceof RuntimeException)
+            {
+                throw (RuntimeException) ex;
+            }
+            LOGGER.debug("Unhandled exception in content store context operation", ex);
+            throw new ContentIOException("Unhandled error in content store operation", ex);
+        }
         finally
         {
+            LOGGER.trace("Leaving context");
             CONTEXT_ATTRIBUTES.set(oldMap);
         }
     }
@@ -171,11 +188,22 @@ public final class ContentStoreContext
             CONTEXT_ATTRIBUTES.set(newMap);
             try
             {
+                LOGGER.trace("Running operation {} in restored context {}", operation, savedContextAttributes);
                 final R result = operation.execute();
                 return result;
             }
+            catch (final Exception ex)
+            {
+                if (ex instanceof RuntimeException)
+                {
+                    throw (RuntimeException) ex;
+                }
+                LOGGER.debug("Unhandled exception in content store context operation", ex);
+                throw new ContentIOException("Unhandled error in content store operation", ex);
+            }
             finally
             {
+                LOGGER.trace("Leaving restored context");
                 CONTEXT_ATTRIBUTES.set(oldMap);
             }
         };

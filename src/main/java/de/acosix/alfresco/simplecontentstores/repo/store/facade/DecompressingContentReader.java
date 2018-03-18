@@ -28,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * @author Axel Faust, <a href="http://www.prodyna.com">PRODYNA AG</a>
+ * @author Axel Faust
  */
 public class DecompressingContentReader extends ContentReaderFacade
 {
@@ -68,6 +68,9 @@ public class DecompressingContentReader extends ContentReaderFacade
     {
         this.ensureDelegate();
         final String mimetype = this.getMimetype();
+
+        LOGGER.debug("Determined mimetype {} as provided via setter / content data - mimetypes to compress are {}", mimetype,
+                this.mimetypesToCompress);
 
         final boolean shouldCompress = this.mimetypesToCompress == null || this.mimetypesToCompress.isEmpty()
                 || (mimetype != null && (this.mimetypesToCompress.contains(mimetype) || this.isMimetypeToCompressWildcardMatch(mimetype)));

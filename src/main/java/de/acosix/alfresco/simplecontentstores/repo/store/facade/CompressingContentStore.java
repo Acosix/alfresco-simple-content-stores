@@ -24,8 +24,7 @@ import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.alfresco.util.transaction.TransactionSupportUtil;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 
@@ -34,8 +33,6 @@ import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
  */
 public class CompressingContentStore extends CommonFacadingContentStore
 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentStore.class);
 
     protected ContentStore temporaryStore;
 
@@ -101,9 +98,12 @@ public class CompressingContentStore extends CommonFacadingContentStore
     {
         final ContentWriter backingWriter = super.getWriter(context);
 
-        // this is a new URL so register for rollback handling
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-        urlsToDelete.add(backingWriter.getContentUrl());
+        if (TransactionSupportUtil.isActualTransactionActive())
+        {
+            // this is a new URL so register for rollback handling
+            final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+            urlsToDelete.add(backingWriter.getContentUrl());
+        }
 
         final ContentWriter writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore,
                 backingWriter, this.compressionType, this.mimetypesToCompress);

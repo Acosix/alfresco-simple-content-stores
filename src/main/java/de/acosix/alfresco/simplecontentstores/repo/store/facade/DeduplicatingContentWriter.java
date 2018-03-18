@@ -39,6 +39,7 @@ import org.alfresco.service.cmr.repository.MimetypeService;
 import org.alfresco.service.cmr.repository.MimetypeServiceAware;
 import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.ParameterCheck;
+import org.alfresco.util.transaction.TransactionSupportUtil;
 import org.apache.commons.codec.binary.Hex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -362,9 +363,12 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         this.deduplicatedContentUrl = deduplicatedContentUrl;
         super.setContentUrl(this.deduplicatedContentUrl);
 
-        // this is a new URL so register for rollback handling
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-        urlsToDelete.add(this.deduplicatedContentUrl);
+        if (TransactionSupportUtil.isActualTransactionActive())
+        {
+            // this is a new URL so register for rollback handling
+            final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+            urlsToDelete.add(this.deduplicatedContentUrl);
+        }
     }
 
     protected byte[] createDigest()
