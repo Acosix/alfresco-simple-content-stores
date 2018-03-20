@@ -28,6 +28,7 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.namespace.DynamicNamespacePrefixResolver;
 import org.alfresco.service.namespace.NamespaceService;
+import org.alfresco.util.GUID;
 import org.easymock.EasyMock;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -63,6 +64,8 @@ public class DeduplicatingContentStoreTest
 
     private static DynamicNamespacePrefixResolver PREFIX_RESOLVER;
 
+    private static File baseFolder;
+
     private static File backingStoreFolder;
 
     private static File temporaryStoreFolder;
@@ -77,24 +80,32 @@ public class DeduplicatingContentStoreTest
             PREFIX_RESOLVER.registerNamespace(NamespaceService.CONTENT_MODEL_PREFIX, NamespaceService.CONTENT_MODEL_1_0_URI);
         }
 
-        if (backingStoreFolder == null)
-        {
-            backingStoreFolder = new File(System.getProperty("java.io.tmpdir") + "/backingStore");
-            backingStoreFolder.mkdirs();
-        }
+        // use GUID to avoid accidental reuse of folder from previous run
+        baseFolder = new File(System.getProperty("java.io.tmpdir") + "/" + GUID.generate());
+        baseFolder.mkdirs();
 
-        if (temporaryStoreFolder == null)
-        {
-            temporaryStoreFolder = new File(System.getProperty("java.io.tmpdir") + "/temporaryStore");
-            temporaryStoreFolder.mkdirs();
-        }
+        backingStoreFolder = new File(baseFolder, "backingStore");
+        backingStoreFolder.mkdirs();
+
+        temporaryStoreFolder = new File(baseFolder, "temporaryStore");
+        temporaryStoreFolder.mkdirs();
     }
 
     @AfterClass
     public static void staticTearDown()
     {
-        backingStoreFolder.delete();
-        temporaryStoreFolder.delete();
+        if (!backingStoreFolder.delete())
+        {
+            backingStoreFolder.deleteOnExit();
+        }
+        if (!temporaryStoreFolder.delete())
+        {
+            temporaryStoreFolder.deleteOnExit();
+        }
+        if (!baseFolder.delete())
+        {
+            baseFolder.deleteOnExit();
+        }
     }
 
     @Test

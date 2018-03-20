@@ -334,18 +334,18 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             this.digestHex = new String(digestHex);
         }
 
-        final String deduplicatedContentUrl = this.makeContentUrl(this.digestHex);
+        final String suggestedContentUrl = this.makeContentUrl(this.digestHex);
 
         final ContentReader reader = this.getReader();
         final ContentContext backingContext;
         if (this.context instanceof NodeContentContext)
         {
-            backingContext = new NodeContentContext(null, deduplicatedContentUrl, ((NodeContentContext) this.context).getNodeRef(),
+            backingContext = new NodeContentContext(null, suggestedContentUrl, ((NodeContentContext) this.context).getNodeRef(),
                     ((NodeContentContext) this.context).getPropertyQName());
         }
         else
         {
-            backingContext = new ContentContext(null, deduplicatedContentUrl);
+            backingContext = new ContentContext(null, suggestedContentUrl);
         }
 
         final ContentWriter backingWriter = this.backingContentStore.getWriter(backingContext);
@@ -355,12 +355,18 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         }
         backingWriter.putContent(reader);
 
-        if (!EqualsHelper.nullSafeEquals(backingWriter.getContentUrl(), deduplicatedContentUrl))
+        // since we use a wildcard protocol in our expectation and don't know backing store protocol, do a relative match
+        final String expectedRelativeUrl = suggestedContentUrl
+                .substring(suggestedContentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER) + ContentStore.PROTOCOL_DELIMITER.length());
+        final String actualContentUrl = backingWriter.getContentUrl();
+        final String actualRelativeUrl = actualContentUrl
+                .substring(actualContentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER) + ContentStore.PROTOCOL_DELIMITER.length());
+        if (!EqualsHelper.nullSafeEquals(expectedRelativeUrl, actualRelativeUrl))
         {
             throw new IllegalStateException("Backing content store did not use the required target content URL");
         }
 
-        this.deduplicatedContentUrl = deduplicatedContentUrl;
+        this.deduplicatedContentUrl = actualContentUrl;
         super.setContentUrl(this.deduplicatedContentUrl);
 
         if (TransactionSupportUtil.isActualTransactionActive())
