@@ -228,7 +228,9 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
     }
 
     /**
-     * An object that prevents abuse of the underlying store(s)
+     * @param contentLimitProvider
+     *            the contentLimitProvider to set
+     *
      */
     public void setContentLimitProvider(final ContentLimitProvider contentLimitProvider)
     {

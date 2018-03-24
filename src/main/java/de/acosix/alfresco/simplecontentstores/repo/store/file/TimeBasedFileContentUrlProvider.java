@@ -26,7 +26,7 @@ import org.alfresco.repo.content.filestore.FileContentUrlProvider;
 import org.alfresco.util.GUID;
 
 /**
- * This class duplicates {@link org.alfresco.repo.content.filestore.TimeBasedFileContentUrlProvider} simply due to issues with package
+ * This class duplicates {@code org.alfresco.repo.content.filestore.TimeBasedFileContentUrlProvider} simply due to issues with package
  * method visibility that prevent re-use. The major difference is that this class does not expose static utility methods and allows for a
  * configurable store protocol.
  *

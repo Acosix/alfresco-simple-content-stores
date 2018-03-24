@@ -105,6 +105,8 @@ public final class ContentStoreContext
      *
      * @param key
      *            the key to the attribute value
+     * @param value
+     *            the value to set
      *
      * @throws IllegalStateException
      *             if there is no currently active content store context in the current thread context

@@ -148,7 +148,7 @@ public class FileContentStore extends AbstractContentStore
     public void setExtendedEventParameters(final Map<String, Serializable> extendedEventParameters)
     {
         // decouple map
-        this.extendedEventParameters = extendedEventParameters != null ? new HashMap<>(extendedEventParameters) : extendedEventParameters;
+        this.extendedEventParameters = extendedEventParameters != null ? new HashMap<>(extendedEventParameters) : null;
     }
 
     /**
@@ -506,7 +506,12 @@ public class FileContentStore extends AbstractContentStore
         }
 
         LOGGER.trace("Creating content file {}", filePath);
-        Files.createDirectories(filePath.getParent());
+        final Path parentPath = filePath.getParent();
+        // unlikely but possible due to API definition
+        if (parentPath != null)
+        {
+            Files.createDirectories(parentPath);
+        }
         Files.createFile(filePath);
         LOGGER.debug("Created content file {}", filePath);
 
