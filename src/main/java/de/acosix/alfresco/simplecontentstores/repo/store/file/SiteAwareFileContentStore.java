@@ -15,7 +15,7 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.store.file;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -182,7 +182,7 @@ public class SiteAwareFileContentStore extends FileContentStore
      * {@inheritDoc}
      */
     @Override
-    protected File makeFile(final String contentUrl)
+    protected Path makeFilePath(final String contentUrl)
     {
         final String baseContentUrl = ContentUrlUtils.getBaseContentUrl(contentUrl);
 
@@ -202,6 +202,6 @@ public class SiteAwareFileContentStore extends FileContentStore
             }
         }
 
-        return this.makeFile(protocol, relativePath);
+        return this.makeFilePath(protocol, relativePath);
     }
 }

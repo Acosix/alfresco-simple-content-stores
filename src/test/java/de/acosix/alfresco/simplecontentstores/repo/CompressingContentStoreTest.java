@@ -17,6 +17,7 @@ package de.acosix.alfresco.simplecontentstores.repo;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -29,7 +30,6 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.namespace.DynamicNamespacePrefixResolver;
 import org.alfresco.service.namespace.NamespaceService;
-import org.alfresco.util.GUID;
 import org.apache.commons.compress.compressors.CompressorInputStream;
 import org.apache.commons.compress.compressors.CompressorStreamFactory;
 import org.easymock.EasyMock;
@@ -56,14 +56,12 @@ public class CompressingContentStoreTest
 
     private static DynamicNamespacePrefixResolver PREFIX_RESOLVER;
 
-    private static File baseFolder;
-
     private static File backingStoreFolder;
 
     private static File temporaryStoreFolder;
 
     @BeforeClass
-    public static void staticSetup()
+    public static void staticSetup() throws IOException
     {
         if (PREFIX_RESOLVER == null)
         {
@@ -72,32 +70,15 @@ public class CompressingContentStoreTest
             PREFIX_RESOLVER.registerNamespace(NamespaceService.CONTENT_MODEL_PREFIX, NamespaceService.CONTENT_MODEL_1_0_URI);
         }
 
-        // use GUID to avoid accidental reuse of folder from previous run
-        baseFolder = new File(System.getProperty("java.io.tmpdir") + "/" + GUID.generate());
-        baseFolder.mkdirs();
-
-        backingStoreFolder = new File(baseFolder, "backingStore");
-        backingStoreFolder.mkdirs();
-
-        temporaryStoreFolder = new File(baseFolder, "temporaryStore");
-        temporaryStoreFolder.mkdirs();
+        backingStoreFolder = TestUtilities.createFolder();
+        temporaryStoreFolder = TestUtilities.createFolder();
     }
 
     @AfterClass
     public static void staticTearDown()
     {
-        if (!backingStoreFolder.delete())
-        {
-            backingStoreFolder.deleteOnExit();
-        }
-        if (!temporaryStoreFolder.delete())
-        {
-            temporaryStoreFolder.deleteOnExit();
-        }
-        if (!baseFolder.delete())
-        {
-            baseFolder.deleteOnExit();
-        }
+        TestUtilities.delete(backingStoreFolder);
+        TestUtilities.delete(temporaryStoreFolder);
     }
 
     @Test

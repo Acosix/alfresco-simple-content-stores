@@ -16,13 +16,16 @@
 package de.acosix.alfresco.simplecontentstores.repo;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Locale;
 
 import org.alfresco.repo.content.ContentContext;
+import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.MimetypeMap;
+import org.alfresco.repo.content.UnsupportedContentUrlException;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
@@ -33,7 +36,9 @@ import org.easymock.EasyMock;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import com.thedeanda.lorem.Lorem;
 import com.thedeanda.lorem.LoremIpsum;
@@ -49,12 +54,16 @@ import de.acosix.alfresco.simplecontentstores.repo.store.file.FileContentStore;
 public class DeduplicatingContentStoreTest
 {
 
-    private static final SecureRandom SEED_PNG;
+    private static final String TEMPORARY_STORE_PROTOCOL = "temporary" + DeduplicatingContentStoreTest.class.getSimpleName();
+
+    private static final String STORE_PROTOCOL = DeduplicatingContentStoreTest.class.getSimpleName();
+
+    private static final SecureRandom SEED_PRNG;
     static
     {
         try
         {
-            SEED_PNG = new SecureRandom(DeduplicatingContentStoreTest.class.getName().getBytes(StandardCharsets.UTF_8.name()));
+            SEED_PRNG = new SecureRandom(DeduplicatingContentStoreTest.class.getName().getBytes(StandardCharsets.UTF_8.name()));
         }
         catch (final UnsupportedEncodingException ex)
         {
@@ -64,14 +73,12 @@ public class DeduplicatingContentStoreTest
 
     private static DynamicNamespacePrefixResolver PREFIX_RESOLVER;
 
-    private static File baseFolder;
-
     private static File backingStoreFolder;
 
     private static File temporaryStoreFolder;
 
     @BeforeClass
-    public static void staticSetup()
+    public static void staticSetup() throws IOException
     {
         if (PREFIX_RESOLVER == null)
         {
@@ -80,33 +87,19 @@ public class DeduplicatingContentStoreTest
             PREFIX_RESOLVER.registerNamespace(NamespaceService.CONTENT_MODEL_PREFIX, NamespaceService.CONTENT_MODEL_1_0_URI);
         }
 
-        // use GUID to avoid accidental reuse of folder from previous run
-        baseFolder = new File(System.getProperty("java.io.tmpdir") + "/" + GUID.generate());
-        baseFolder.mkdirs();
-
-        backingStoreFolder = new File(baseFolder, "backingStore");
-        backingStoreFolder.mkdirs();
-
-        temporaryStoreFolder = new File(baseFolder, "temporaryStore");
-        temporaryStoreFolder.mkdirs();
+        backingStoreFolder = TestUtilities.createFolder();
+        temporaryStoreFolder = TestUtilities.createFolder();
     }
 
     @AfterClass
     public static void staticTearDown()
     {
-        if (!backingStoreFolder.delete())
-        {
-            backingStoreFolder.deleteOnExit();
-        }
-        if (!temporaryStoreFolder.delete())
-        {
-            temporaryStoreFolder.deleteOnExit();
-        }
-        if (!baseFolder.delete())
-        {
-            baseFolder.deleteOnExit();
-        }
+        TestUtilities.delete(backingStoreFolder);
+        TestUtilities.delete(temporaryStoreFolder);
     }
+
+    @Rule
+    public ExpectedException thrown = ExpectedException.none();
 
     @Test
     public void unconfiguredDeduplication() throws Exception
@@ -119,20 +112,20 @@ public class DeduplicatingContentStoreTest
 
         final FileContentStore fileContentStore = new FileContentStore();
         fileContentStore.setRootDirectory(backingStoreFolder.getAbsolutePath());
-        fileContentStore.setProtocol("store");
+        fileContentStore.setProtocol(STORE_PROTOCOL);
         deduplicatingContentStore.setBackingStore(fileContentStore);
 
         final FileContentStore temporaryContentStore = new FileContentStore();
         temporaryContentStore.setRootDirectory(temporaryStoreFolder.getAbsolutePath());
-        temporaryContentStore.setProtocol("store");
+        temporaryContentStore.setProtocol(TEMPORARY_STORE_PROTOCOL);
         deduplicatingContentStore.setTemporaryStore(temporaryContentStore);
 
         fileContentStore.afterPropertiesSet();
         temporaryContentStore.afterPropertiesSet();
         deduplicatingContentStore.afterPropertiesSet();
 
-        final String commonText = generateText(SEED_PNG.nextLong());
-        final String differentText = generateText(SEED_PNG.nextLong());
+        final String commonText = generateText(SEED_PRNG.nextLong());
+        final String differentText = generateText(SEED_PRNG.nextLong());
         final ContentWriter firstWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
         final ContentWriter secondWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
         final ContentWriter thirdWriter = testIndividualWriteAndRead(deduplicatingContentStore, differentText);
@@ -143,9 +136,11 @@ public class DeduplicatingContentStoreTest
                 thirdWriter.getContentUrl());
 
         Assert.assertTrue("Content URL of first writer does not contain expected path segments of 3x 2 bytes and SHA-512 hash",
-                firstWriter.getContentUrl().matches("^[^:]++://([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
+                firstWriter.getContentUrl()
+                        .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
         Assert.assertTrue("Content URL of third writer does not contain expected path segments of 3x 2 bytes and SHA-512 hash",
-                thirdWriter.getContentUrl().matches("^[^:]++://([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
+                thirdWriter.getContentUrl()
+                        .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
     }
 
     @Test
@@ -160,23 +155,23 @@ public class DeduplicatingContentStoreTest
 
         final FileContentStore fileContentStore = new FileContentStore();
         fileContentStore.setRootDirectory(backingStoreFolder.getAbsolutePath());
-        fileContentStore.setProtocol("store");
+        fileContentStore.setProtocol(STORE_PROTOCOL);
         deduplicatingContentStore.setBackingStore(fileContentStore);
 
         final FileContentStore temporaryContentStore = new FileContentStore();
         temporaryContentStore.setRootDirectory(temporaryStoreFolder.getAbsolutePath());
-        temporaryContentStore.setProtocol("store");
+        temporaryContentStore.setProtocol(TEMPORARY_STORE_PROTOCOL);
         deduplicatingContentStore.setTemporaryStore(temporaryContentStore);
 
         fileContentStore.afterPropertiesSet();
         temporaryContentStore.afterPropertiesSet();
         deduplicatingContentStore.afterPropertiesSet();
 
-        final String commonText = generateText(SEED_PNG.nextLong());
+        final String commonText = generateText(SEED_PRNG.nextLong());
         final ContentWriter writer = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
 
         Assert.assertTrue("Content URL of writer does includes unwanted path elements",
-                writer.getContentUrl().matches("^[^:]++://[a-fA-F0-9]{128}\\.bin$"));
+                writer.getContentUrl().matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "[a-fA-F0-9]{128}\\.bin$"));
     }
 
     @Test
@@ -192,23 +187,24 @@ public class DeduplicatingContentStoreTest
 
         final FileContentStore fileContentStore = new FileContentStore();
         fileContentStore.setRootDirectory(backingStoreFolder.getAbsolutePath());
-        fileContentStore.setProtocol("store");
+        fileContentStore.setProtocol(STORE_PROTOCOL);
         deduplicatingContentStore.setBackingStore(fileContentStore);
 
         final FileContentStore temporaryContentStore = new FileContentStore();
         temporaryContentStore.setRootDirectory(temporaryStoreFolder.getAbsolutePath());
-        temporaryContentStore.setProtocol("store");
+        temporaryContentStore.setProtocol(TEMPORARY_STORE_PROTOCOL);
         deduplicatingContentStore.setTemporaryStore(temporaryContentStore);
 
         fileContentStore.afterPropertiesSet();
         temporaryContentStore.afterPropertiesSet();
         deduplicatingContentStore.afterPropertiesSet();
 
-        final String commonText = generateText(SEED_PNG.nextLong());
+        final String commonText = generateText(SEED_PRNG.nextLong());
         final ContentWriter writer = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
 
         Assert.assertTrue("Content URL of writer does not contain expected path segments of 5x 5 bytes and SHA-512 hash",
-                writer.getContentUrl().matches("^[^:]++://([a-fA-F0-9]{10}/){5}[a-fA-F0-9]{128}\\.bin$"));
+                writer.getContentUrl()
+                        .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{10}/){5}[a-fA-F0-9]{128}\\.bin$"));
     }
 
     @Test
@@ -223,23 +219,63 @@ public class DeduplicatingContentStoreTest
 
         final FileContentStore fileContentStore = new FileContentStore();
         fileContentStore.setRootDirectory(backingStoreFolder.getAbsolutePath());
-        fileContentStore.setProtocol("store");
+        fileContentStore.setProtocol(STORE_PROTOCOL);
         deduplicatingContentStore.setBackingStore(fileContentStore);
 
         final FileContentStore temporaryContentStore = new FileContentStore();
         temporaryContentStore.setRootDirectory(temporaryStoreFolder.getAbsolutePath());
-        temporaryContentStore.setProtocol("store");
+        temporaryContentStore.setProtocol(TEMPORARY_STORE_PROTOCOL);
         deduplicatingContentStore.setTemporaryStore(temporaryContentStore);
 
         fileContentStore.afterPropertiesSet();
         temporaryContentStore.afterPropertiesSet();
         deduplicatingContentStore.afterPropertiesSet();
 
-        final String commonText = generateText(SEED_PNG.nextLong());
+        final String commonText = generateText(SEED_PRNG.nextLong());
         final ContentWriter writer = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
 
         Assert.assertTrue("Content URL of writer does not contain expected path segments of 3x 2 bytes and SHA-256 hash",
-                writer.getContentUrl().matches("^[^:]++://([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{64}\\.bin$"));
+                writer.getContentUrl()
+                        .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{64}\\.bin$"));
+    }
+
+    @Test
+    public void backingStoreContentURLSupportOnly()
+    {
+        final DictionaryService dictionaryService = EasyMock.mock(DictionaryService.class);
+
+        final DeduplicatingContentStore deduplicatingContentStore = new DeduplicatingContentStore();
+        deduplicatingContentStore.setNamespaceService(PREFIX_RESOLVER);
+        deduplicatingContentStore.setDictionaryService(dictionaryService);
+
+        final FileContentStore fileContentStore = new FileContentStore();
+        fileContentStore.setRootDirectory(backingStoreFolder.getAbsolutePath());
+        fileContentStore.setProtocol(STORE_PROTOCOL);
+        deduplicatingContentStore.setBackingStore(fileContentStore);
+
+        final FileContentStore temporaryContentStore = new FileContentStore();
+        temporaryContentStore.setRootDirectory(temporaryStoreFolder.getAbsolutePath());
+        temporaryContentStore.setProtocol(TEMPORARY_STORE_PROTOCOL);
+        deduplicatingContentStore.setTemporaryStore(temporaryContentStore);
+
+        fileContentStore.afterPropertiesSet();
+        temporaryContentStore.afterPropertiesSet();
+        deduplicatingContentStore.afterPropertiesSet();
+
+        final String dummyNonExistingValidContentUrl = STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "any/path/will/do/"
+                + GUID.generate();
+        Assert.assertTrue("Store did not support protocol of backing content store",
+                deduplicatingContentStore.isContentUrlSupported(dummyNonExistingValidContentUrl));
+        Assert.assertFalse("Store reported valid dummy content URL to exist",
+                deduplicatingContentStore.exists(dummyNonExistingValidContentUrl));
+
+        final String dummyNonExistingInvalidContentUrl = TEMPORARY_STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "any/path/will/do/"
+                + GUID.generate();
+        Assert.assertFalse("Store reported protocol of temporary content store to be supported",
+                deduplicatingContentStore.isContentUrlSupported(dummyNonExistingInvalidContentUrl));
+        this.thrown.expect(UnsupportedContentUrlException.class);
+        Assert.assertFalse("Store reported invalid dummy content URL to exist",
+                deduplicatingContentStore.exists(dummyNonExistingInvalidContentUrl));
     }
 
     private static ContentWriter testIndividualWriteAndRead(final DeduplicatingContentStore deduplicatingContentStore,
@@ -254,6 +290,11 @@ public class DeduplicatingContentStoreTest
 
             final String contentUrl = writer.getContentUrl();
             Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
+            Assert.assertTrue("Content URL does not start with the configured protocol",
+                    contentUrl.startsWith(STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER));
+
+            Assert.assertTrue("Store does not report content URL to exist after writing content",
+                    deduplicatingContentStore.exists(contentUrl));
 
             final ContentReader properReader = deduplicatingContentStore.getReader(contentUrl);
             Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
