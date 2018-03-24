@@ -17,6 +17,8 @@ package de.acosix.alfresco.simplecontentstores.repo.store.file;
 
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.Locale;
+import java.util.TimeZone;
 
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.filestore.FileContentStore;
@@ -86,7 +88,7 @@ public class TimeBasedFileContentUrlProvider implements FileContentUrlProvider
 
     protected static String createTimeBasedPath(final int bucketsPerMinute)
     {
-        final Calendar calendar = new GregorianCalendar();
+        final Calendar calendar = new GregorianCalendar(TimeZone.getDefault(), Locale.ENGLISH);
         final int year = calendar.get(Calendar.YEAR);
         final int month = calendar.get(Calendar.MONTH) + 1;  // 0-based
         final int day = calendar.get(Calendar.DAY_OF_MONTH);
