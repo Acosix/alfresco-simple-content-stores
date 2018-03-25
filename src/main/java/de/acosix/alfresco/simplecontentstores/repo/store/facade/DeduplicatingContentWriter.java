@@ -145,7 +145,7 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
                     return null;
                 });
             }
-            else if (this.backingContentStore.isWriteSupported())
+            else if (this.backingContentStore.isWriteSupported() && this.backingContentStore.exists(this.originalContentUrl))
             {
                 // we did not use the writer so delete any backend remnant that may have been pre-emptively created
                 try

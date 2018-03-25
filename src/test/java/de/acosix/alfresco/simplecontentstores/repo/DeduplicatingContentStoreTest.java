@@ -19,6 +19,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitOption;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Locale;
 
@@ -127,20 +129,48 @@ public class DeduplicatingContentStoreTest
         final String commonText = generateText(SEED_PRNG.nextLong());
         final String differentText = generateText(SEED_PRNG.nextLong());
         final ContentWriter firstWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
-        final ContentWriter secondWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
-        final ContentWriter thirdWriter = testIndividualWriteAndRead(deduplicatingContentStore, differentText);
-
-        Assert.assertEquals("Content URL of second writer does not match previous writer of identical content", firstWriter.getContentUrl(),
-                secondWriter.getContentUrl());
-        Assert.assertNotEquals("Content URL of third writer matches previous writer of non-identical content", firstWriter.getContentUrl(),
-                thirdWriter.getContentUrl());
 
         Assert.assertTrue("Content URL of first writer does not contain expected path segments of 3x 2 bytes and SHA-512 hash",
                 firstWriter.getContentUrl()
                         .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
+
+        final Path rootPath = backingStoreFolder.toPath();
+        final long pathCountBeforeSecondWrite = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
+        }, FileVisitOption.FOLLOW_LINKS);
+
+        final ContentWriter secondWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
+
+        Assert.assertEquals("Content URL of second writer does not match previous writer of identical content", firstWriter.getContentUrl(),
+                secondWriter.getContentUrl());
+
+        final long pathCountAfterSecondWrite = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
+        }, FileVisitOption.FOLLOW_LINKS);
+
+        Assert.assertEquals("Number of path elements in backing store should not change by writing same content twice",
+                pathCountBeforeSecondWrite, pathCountAfterSecondWrite);
+
+        final ContentWriter thirdWriter = testIndividualWriteAndRead(deduplicatingContentStore, differentText);
+
+        Assert.assertNotEquals("Content URL of third writer matches previous writer of non-identical content", firstWriter.getContentUrl(),
+                thirdWriter.getContentUrl());
         Assert.assertTrue("Content URL of third writer does not contain expected path segments of 3x 2 bytes and SHA-512 hash",
                 thirdWriter.getContentUrl()
                         .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
+
+        final long pathCountAfterThirdWrite = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
+        }, FileVisitOption.FOLLOW_LINKS);
+
+        Assert.assertNotEquals("Number of path elements in backing store should change by writing different content",
+                pathCountBeforeSecondWrite, pathCountAfterThirdWrite);
     }
 
     @Test
