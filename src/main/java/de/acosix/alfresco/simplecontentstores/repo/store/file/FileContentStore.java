@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.AbstractContentStore;
@@ -471,6 +472,7 @@ public class FileContentStore extends AbstractContentStore
         }
         catch (final Throwable e)
         {
+            LOGGER.error("Error creating writer for {}", contentUrl, e);
             throw new ContentIOException("Failed to get writer for URL: " + contentUrl, e);
         }
     }
@@ -622,23 +624,20 @@ public class FileContentStore extends AbstractContentStore
                     break;
                 }
 
-                // TODO Find out why this is so unreliably (Win 10) and causes side effects for createNewFile
-                // final long children = Files.list(curPath).count();
-                // if (children != 0)
-                // {
-                // LOGGER.debug("Aborting deletion of empty parents as {} is not empty", curPath);
-                // break;
-                // }
-                //
-                // Files.delete(curPath);
-
-                // workaround via old File API for above issues
-                LOGGER.trace("Deleting empty parent {}", curPath);
-                if (!curPath.toFile().delete())
+                final long children;
+                try (Stream<Path> stream = Files.list(curPath))
                 {
-                    LOGGER.debug("Aborting deletion of empty parents as {} could not be deleted", curPath);
+                    children = stream.count();
+                }
+
+                if (children != 0)
+                {
+                    LOGGER.debug("Aborting deletion of empty parents as {} is not empty", curPath);
                     break;
                 }
+
+                LOGGER.trace("Deleting empty parent {}", curPath);
+                Files.delete(curPath);
                 LOGGER.debug("Deleted empty parent {}", curPath);
                 curPath = curPath.getParent();
             }
