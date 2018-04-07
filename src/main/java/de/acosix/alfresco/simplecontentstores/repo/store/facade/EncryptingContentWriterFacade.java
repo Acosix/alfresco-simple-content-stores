@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Acosix GmbH
+ * Copyright 2017, 2018 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,6 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
     }
 
     /**
-     *
      * {@inheritDoc}
      */
     @Override

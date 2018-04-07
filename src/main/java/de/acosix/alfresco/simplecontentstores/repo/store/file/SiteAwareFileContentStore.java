@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Acosix GmbH
+ * Copyright 2017, 2018 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.store.file;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -182,7 +182,7 @@ public class SiteAwareFileContentStore extends FileContentStore
      * {@inheritDoc}
      */
     @Override
-    protected File makeFile(final String contentUrl)
+    protected Path makeFilePath(final String contentUrl)
     {
         final String baseContentUrl = ContentUrlUtils.getBaseContentUrl(contentUrl);
 
@@ -202,6 +202,6 @@ public class SiteAwareFileContentStore extends FileContentStore
             }
         }
 
-        return this.makeFile(protocol, relativePath);
+        return this.makeFilePath(protocol, relativePath);
     }
 }
