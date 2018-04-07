@@ -47,7 +47,7 @@ import org.alfresco.util.GUID;
  * </ul>
  * <p>
  *
- * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
+ * @author Axel Faust
  * @author Andreea Dragoi (original class)
  */
 public class TimeBasedFileContentUrlProvider implements FileContentUrlProvider

@@ -47,7 +47,7 @@ import de.acosix.alfresco.simplecontentstores.repo.store.file.FileContentStore;
 
 /**
  *
- * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
+ * @author Axel Faust
  */
 public class CompressingContentStoreTest
 {
