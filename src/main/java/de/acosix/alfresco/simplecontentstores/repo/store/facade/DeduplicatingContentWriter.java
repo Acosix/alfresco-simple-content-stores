@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Acosix GmbH
+ * Copyright 2017, 2018 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.content.filestore.FileContentWriter;
+import org.alfresco.repo.transaction.AlfrescoTransactionSupport;
 import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
@@ -155,7 +156,7 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
                     }
                 });
             }
-            else if (this.backingContentStore.isWriteSupported())
+            else if (this.backingContentStore.isWriteSupported() && this.backingContentStore.exists(this.originalContentUrl))
             {
                 // we did not use the writer so delete any backend remnant that may have been pre-emptively created
                 try
@@ -344,18 +345,18 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
             this.digestHex = new String(digestHex);
         }
 
-        final String deduplicatedContentUrl = this.makeContentUrl(this.digestHex);
+        final String suggestedContentUrl = this.makeContentUrl(this.digestHex);
 
         final ContentReader reader = this.getReader();
         final ContentContext backingContext;
         if (this.context instanceof NodeContentContext)
         {
-            backingContext = new NodeContentContext(null, deduplicatedContentUrl, ((NodeContentContext) this.context).getNodeRef(),
+            backingContext = new NodeContentContext(null, suggestedContentUrl, ((NodeContentContext) this.context).getNodeRef(),
                     ((NodeContentContext) this.context).getPropertyQName());
         }
         else
         {
-            backingContext = new ContentContext(null, deduplicatedContentUrl);
+            backingContext = new ContentContext(null, suggestedContentUrl);
         }
 
         final ContentWriter backingWriter = this.backingContentStore.getWriter(backingContext);
@@ -365,17 +366,26 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
         }
         backingWriter.putContent(reader);
 
-        if (!EqualsHelper.nullSafeEquals(backingWriter.getContentUrl(), deduplicatedContentUrl))
+        // since we use a wildcard protocol in our expectation and don't know backing store protocol, do a relative match
+        final String expectedRelativeUrl = suggestedContentUrl
+                .substring(suggestedContentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER) + ContentStore.PROTOCOL_DELIMITER.length());
+        final String actualContentUrl = backingWriter.getContentUrl();
+        final String actualRelativeUrl = actualContentUrl
+                .substring(actualContentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER) + ContentStore.PROTOCOL_DELIMITER.length());
+        if (!EqualsHelper.nullSafeEquals(expectedRelativeUrl, actualRelativeUrl))
         {
             throw new IllegalStateException("Backing content store did not use the required target content URL");
         }
 
-        this.deduplicatedContentUrl = deduplicatedContentUrl;
+        this.deduplicatedContentUrl = actualContentUrl;
         super.setContentUrl(this.deduplicatedContentUrl);
 
-        // this is a new URL so register for rollback handling
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-        urlsToDelete.add(this.deduplicatedContentUrl);
+        if (AlfrescoTransactionSupport.isActualTransactionActive())
+        {
+            // this is a new URL so register for rollback handling
+            final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+            urlsToDelete.add(this.deduplicatedContentUrl);
+        }
     }
 
     protected byte[] createDigest()

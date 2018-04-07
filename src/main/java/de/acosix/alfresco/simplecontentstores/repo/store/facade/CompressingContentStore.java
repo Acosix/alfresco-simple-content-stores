@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Acosix GmbH
+ * Copyright 2017, 2018 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,11 @@ import java.util.Set;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
+import org.alfresco.repo.transaction.AlfrescoTransactionSupport;
 import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 
@@ -34,8 +33,6 @@ import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
  */
 public class CompressingContentStore extends CommonFacadingContentStore
 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentStore.class);
 
     protected ContentStore temporaryStore;
 
@@ -101,9 +98,12 @@ public class CompressingContentStore extends CommonFacadingContentStore
     {
         final ContentWriter backingWriter = super.getWriter(context);
 
-        // this is a new URL so register for rollback handling
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-        urlsToDelete.add(backingWriter.getContentUrl());
+        if (AlfrescoTransactionSupport.isActualTransactionActive())
+        {
+            // this is a new URL so register for rollback handling
+            final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+            urlsToDelete.add(backingWriter.getContentUrl());
+        }
 
         final ContentWriter writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore,
                 backingWriter, this.compressionType, this.mimetypesToCompress);

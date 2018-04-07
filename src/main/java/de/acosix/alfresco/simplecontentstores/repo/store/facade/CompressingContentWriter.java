@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Acosix GmbH
+ * Copyright 2017, 2018 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,7 +195,8 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
     protected void writeToBackingStore()
     {
         String mimetype = this.getMimetype();
-        LOGGER.debug("Determined mimetype {} from write into temporary store", mimetype);
+        LOGGER.debug("Determined mimetype {} from write into temporary store - mimetypes to compress are {}", mimetype,
+                this.mimetypesToCompress);
 
         if ((this.mimetypesToCompress != null && !this.mimetypesToCompress.isEmpty()) && this.mimetypeService != null
                 && (mimetype == null || MimetypeMap.MIMETYPE_BINARY.equals(mimetype)))
