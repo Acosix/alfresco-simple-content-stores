@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Acosix GmbH
+ * Copyright 2017, 2018 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.FileCopyUtils;
 
 /**
- * @author Axel Faust, <a href="http://acosix.de">Acosix GmbH</a>
+ * @author Axel Faust
  */
 public class ContentWriterFacade extends ContentAccessorFacade<ContentWriter> implements ContentWriter, MimetypeServiceAware
 {
