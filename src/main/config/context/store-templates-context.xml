@@ -79,11 +79,7 @@
         <property name="scheduler" ref="schedulerFactory" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true" class="org.alfresco.repo.content.replication.ReplicatingContentStore">
-        <!-- Alfresco 4.2 does not contain AggregatingContentStore - ReplicatingContentStore with inbound/outbound disabled is next best fit -->
-        <property name="inbound" value="false" />
-        <property name="outbound" value="false" />
-    </bean>
+    <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true" class="${project.artifactId}.store.combination.AggregatingContentStore" />
 
     <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true" class="${project.artifactId}.store.facade.CompressingContentStore"
         parent="${moduleId}-commonFacadeStore">
