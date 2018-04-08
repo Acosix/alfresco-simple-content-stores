@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <bean id="${moduleId}-subsystem-properties"
+        class="de.acosix.alfresco.utility.repo.subsystems.SubsystemEffectivePropertiesFactoryBean">
+        <property name="subsystemChildApplicationContextFactory" ref="simpleContentStore" />
+    </bean>
+
+    <bean id="${moduleId}-effective-properties" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="propertiesArray">
+            <list>
+                <!-- this is included because we want all global-properties accessible -->
+                <!-- Alfresco by default only exposes subset of global-properties in subsystems as per subsystem base *.properties -->
+                <!-- (this is insufficient since we need to support user-defined (composite) properties -->
+                <ref bean="global-properties" />
+                <ref bean="${moduleId}-subsystem-properties" />
+            </list>
+        </property>
+    </bean>
+
+    <bean class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">
+        <property name="propertiesSource" ref="${moduleId}-effective-properties" />
+        <property name="rootStoreProxyName" value="fileContentStore" />
+    </bean>
+
+    <!-- Alfresco content-services-context.xml prescribes fileContentStore as entry point bean in subsystem -->
+    <bean id="fileContentStore" class="org.springframework.aop.framework.ProxyFactoryBean">
+        <property name="proxyInterfaces">
+            <list>
+                <value>org.alfresco.repo.content.ContentStore</value>
+                <value>org.alfresco.repo.content.ContentStoreCaps</value>
+            </list>
+        </property>
+        <property name="singleton" value="true" />
+        <!-- target will be set by SimpleContentStoresBeanDefinitionEmitter -->
+        <property name="interceptorNames">
+            <list>
+                <idref bean="${moduleId}-contentStoreCapsInterceptor" />
+                <idref bean="${moduleId}-initContextInterceptor" />
+            </list>
+        </property>
+    </bean>
+
+    <bean id="${moduleId}-contentStoreCapsInterceptor" class="${project.artifactId}.aop.ContentStoreCapsEmulatingInterceptor" />
+
+    <bean id="${moduleId}-initContextInterceptor" class="${project.artifactId}.aop.InitContentStoreContextInterceptor" />
+
+    <bean class="${project.artifactId}.store.context.SiteAttributesInitializer">
+        <property name="siteService" ref="SiteService" />
+    </bean>
+</beans>

@@ -119,7 +119,8 @@ public class FileContentStore extends AbstractContentStore
             final String createNewFileStoreUrl = this.fileContentUrlProvider.createNewFileStoreUrl();
             if (!createNewFileStoreUrl.startsWith(this.protocol + ContentStore.PROTOCOL_DELIMITER))
             {
-                throw new IllegalStateException("Provider of file content URLs does not provide URLs with configured store protocol");
+                this.fileContentUrlProvider = new AlternativeProtocolFileContentUrlProviderFacade(this.fileContentUrlProvider,
+                        this.protocol);
             }
         }
 
