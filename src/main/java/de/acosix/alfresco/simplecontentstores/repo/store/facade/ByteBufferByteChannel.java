@@ -23,7 +23,8 @@ import java.nio.channels.ClosedChannelException;
 import org.alfresco.util.ParameterCheck;
 
 /**
- * This class has been based on {@link de.acosix.alfresco.simplecontentstores.repo.store.facade.ByteBufferByteChannel} to limit the dependency on external / peripheral
+ * This class has been based on {@link de.acosix.alfresco.simplecontentstores.repo.store.facade.ByteBufferByteChannel} to limit the
+ * dependency on external / peripheral
  * libraries in case that specific library may be removed / alterered in a different version of Alfresco.
  *
  * @author Axel Faust

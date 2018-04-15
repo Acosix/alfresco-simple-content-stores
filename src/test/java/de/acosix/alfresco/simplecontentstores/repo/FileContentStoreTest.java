@@ -1,18 +1,3 @@
-/*
- * Copyright 2017, 2018 Acosix GmbH
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package de.acosix.alfresco.simplecontentstores.repo;
 
 import java.io.File;
@@ -28,7 +13,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
@@ -45,16 +29,10 @@ import org.junit.rules.ExpectedException;
 import com.thedeanda.lorem.Lorem;
 import com.thedeanda.lorem.LoremIpsum;
 
-import de.acosix.alfresco.simplecontentstores.repo.TestUtilities.AggregatingVisitor;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.file.FileContentStore;
 
-/**
- *
- * @author Axel Faust
- */
 public class FileContentStoreTest
 {
 
@@ -118,33 +96,10 @@ public class FileContentStoreTest
 
         Assert.assertTrue("Content should have been deleted", store.delete(contentUrl));
         final Path rootPath = this.storeFolder.toPath();
-        final long subPathCount = TestUtilities.walk(rootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (!path.equals(rootPath))
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long subPathCount = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
         Assert.assertEquals("Store path should not contain any elements after delete", 0, subPathCount);
     }
@@ -165,64 +120,18 @@ public class FileContentStoreTest
         final String contentUrl = writer.getContentUrl();
         Assert.assertTrue("Content should have been deleted", store.delete(contentUrl));
         final Path rootPath = this.storeFolder.toPath();
-        final long subPathCount = TestUtilities.walk(rootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (!path.equals(rootPath))
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long subPathCount = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
         Assert.assertNotEquals("Store path should contain additional elements after delete without allowing empty directory deletion", 0,
                 subPathCount);
 
-        final long filesCount = TestUtilities.walk(rootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (path.toFile().isFile())
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long filesCount = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return path.toFile().isFile();
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
         Assert.assertEquals("Store path should not contain any content files after deletion", 0, filesCount);
     }
@@ -254,33 +163,10 @@ public class FileContentStoreTest
         Assert.assertTrue("Content should have been deleted", store.delete(contentUrl));
 
         final Path linkedRootPath = this.linkedFolder.toPath();
-        final long linkedFolderSubPaths = TestUtilities.walk(linkedRootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (!path.equals(linkedRootPath))
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long linkedFolderSubPaths = TestUtilities.walk(linkedRootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(linkedRootPath);
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
         Assert.assertEquals("Linked folder should not contain additional elements after delete", 0, linkedFolderSubPaths);
 
@@ -385,47 +271,37 @@ public class FileContentStoreTest
     private ContentWriter testIndividualWriteAndRead(final FileContentStore fileContentStore, final ContentContext context,
             final String testText)
     {
-        return ContentStoreContext.executeInNewContext(new ContentStoreOperation<ContentWriter>()
-        {
+        return ContentStoreContext.executeInNewContext(() -> {
+            final ContentWriter writer = fileContentStore.getWriter(context);
+            writer.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
+            writer.setEncoding(StandardCharsets.UTF_8.name());
+            writer.setLocale(Locale.ENGLISH);
+            writer.putContent(testText);
 
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public ContentWriter execute()
-            {
-                final ContentWriter writer = fileContentStore.getWriter(context);
-                writer.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
-                writer.setEncoding(StandardCharsets.UTF_8.name());
-                writer.setLocale(Locale.ENGLISH);
-                writer.putContent(testText);
+            final String contentUrl = writer.getContentUrl();
+            Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
+            Assert.assertTrue("Content URL does not start with the configured protocol",
+                    contentUrl.startsWith(STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER));
 
-                final String contentUrl = writer.getContentUrl();
-                Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
-                Assert.assertTrue("Content URL does not start with the configured protocol",
-                        contentUrl.startsWith(STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER));
+            Assert.assertTrue("Store does not report content URL to exist after writing content", fileContentStore.exists(contentUrl));
 
-                Assert.assertTrue("Store does not report content URL to exist after writing content", fileContentStore.exists(contentUrl));
+            final String relativePath = contentUrl
+                    .substring(contentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER) + ContentStore.PROTOCOL_DELIMITER.length());
+            final Path rootPath = this.storeFolder.toPath();
+            final File file = rootPath.resolve(relativePath).toFile();
+            Assert.assertTrue("File should be stored in literal path from content URL", file.exists());
 
-                final String relativePath = contentUrl
-                        .substring(contentUrl.indexOf(ContentStore.PROTOCOL_DELIMITER) + ContentStore.PROTOCOL_DELIMITER.length());
-                final Path rootPath = FileContentStoreTest.this.storeFolder.toPath();
-                final File file = rootPath.resolve(relativePath).toFile();
-                Assert.assertTrue("File should be stored in literal path from content URL", file.exists());
+            final ContentReader properReader = fileContentStore.getReader(contentUrl);
+            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
 
-                final ContentReader properReader = fileContentStore.getReader(contentUrl);
-                Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
-                Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
+            // reader does not know about mimetype (provided via persisted ContentData at server runtime)
+            properReader.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
 
-                // reader does not know about mimetype (provided via persisted ContentData at server runtime)
-                properReader.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
+            final String readText = properReader.getContentString();
+            Assert.assertEquals("Read content does not match written test content", testText, readText);
 
-                final String readText = properReader.getContentString();
-                Assert.assertEquals("Read content does not match written test content", testText, readText);
-
-                return writer;
-            }
+            return writer;
         });
     }
 

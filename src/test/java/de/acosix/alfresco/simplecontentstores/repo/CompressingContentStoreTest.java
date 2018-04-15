@@ -42,7 +42,6 @@ import com.thedeanda.lorem.Lorem;
 import com.thedeanda.lorem.LoremIpsum;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.CompressingContentStore;
 import de.acosix.alfresco.simplecontentstores.repo.store.file.FileContentStore;
 
@@ -167,119 +166,99 @@ public class CompressingContentStoreTest
     private static void testCompressableMimetype(final CompressingContentStore compressingContentStore,
             final FileContentStore fileContentStore, final String mimetype, final String compression) throws Exception
     {
-        ContentStoreContext.executeInNewContext(new ContentStoreOperation<Object>()
-        {
+        ContentStoreContext.executeInNewContext(() -> {
+            final ContentWriter writer = compressingContentStore.getWriter(new ContentContext(null, null));
+            final String testText = CompressingContentStoreTest.generateCopmressableText();
+            writer.setMimetype(mimetype);
+            writer.setEncoding(StandardCharsets.UTF_8.name());
+            writer.setLocale(Locale.ENGLISH);
+            writer.putContent(testText);
 
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Object execute()
+            final String contentUrl = writer.getContentUrl();
+            Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
+
+            final ContentReader properReader = compressingContentStore.getReader(contentUrl);
+            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
+
+            // reader does not know about mimetype (provided via persisted ContentData at server runtime)
+            properReader.setMimetype(mimetype);
+
+            final String readText = properReader.getContentString();
+            Assert.assertEquals("Read content does not match written test content", testText, readText);
+
+            ContentReader backingReader = fileContentStore.getReader(contentUrl);
+            Assert.assertTrue("Backing reader was not returned for freshly written content", backingReader != null);
+            Assert.assertTrue("Backing reader does not refer to existing file for freshly written content", backingReader.exists());
+
+            backingReader.setMimetype(mimetype);
+
+            // can't test for size as this would (at server runtime) be handled via persisted ContentData, not actual file size on disk
+            final String backingText = backingReader.getContentString();
+            Assert.assertNotEquals("Backing reader did not return unreadable (compressed) content", testText, backingText);
+
+            backingReader = fileContentStore.getReader(contentUrl);
+            backingReader.setMimetype(mimetype);
+            try
             {
-                final ContentWriter writer = compressingContentStore.getWriter(new ContentContext(null, null));
-                final String testText = CompressingContentStoreTest.generateCopmressableText();
-                writer.setMimetype(mimetype);
-                writer.setEncoding(StandardCharsets.UTF_8.name());
-                writer.setLocale(Locale.ENGLISH);
-                writer.putContent(testText);
-
-                final String contentUrl = writer.getContentUrl();
-                Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
-
-                final ContentReader properReader = compressingContentStore.getReader(contentUrl);
-                Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
-                Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
-
-                // reader does not know about mimetype (provided via persisted ContentData at server runtime)
-                properReader.setMimetype(mimetype);
-
-                final String readText = properReader.getContentString();
-                Assert.assertEquals("Read content does not match written test content", testText, readText);
-
-                ContentReader backingReader = fileContentStore.getReader(contentUrl);
-                Assert.assertTrue("Backing reader was not returned for freshly written content", backingReader != null);
-                Assert.assertTrue("Backing reader does not refer to existing file for freshly written content", backingReader.exists());
-
-                backingReader.setMimetype(mimetype);
-
-                // can't test for size as this would (at server runtime) be handled via persisted ContentData, not actual file size on disk
-                final String backingText = backingReader.getContentString();
-                Assert.assertNotEquals("Backing reader did not return unreadable (compressed) content", testText, backingText);
-
-                backingReader = fileContentStore.getReader(contentUrl);
-                backingReader.setMimetype(mimetype);
-                try
+                final CompressorInputStream inputStream = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(compression,
+                        backingReader.getContentInputStream());
+                final BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8.name()));
+                final StringBuilder sb = new StringBuilder();
+                final char[] buf = new char[1024];
+                int read = 0;
+                while (read != -1)
                 {
-                    final CompressorInputStream inputStream = COMPRESSOR_STREAM_FACTORY.createCompressorInputStream(compression,
-                            backingReader.getContentInputStream());
-                    final BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8.name()));
-                    final StringBuilder sb = new StringBuilder();
-                    final char[] buf = new char[1024];
-                    int read = 0;
-                    while (read != -1)
-                    {
-                        sb.append(buf, 0, read);
-                        read = reader.read(buf);
-                    }
-
-                    Assert.assertEquals("Decompressed content does not match test content", testText, sb.toString());
-                }
-                catch (final Exception ex)
-                {
-                    Assert.fail(ex.getMessage());
+                    sb.append(buf, 0, read);
+                    read = reader.read(buf);
                 }
 
-                return null;
+                Assert.assertEquals("Decompressed content does not match test content", testText, sb.toString());
             }
+            catch (final Exception ex)
+            {
+                Assert.fail(ex.getMessage());
+            }
+
+            return null;
         });
     }
 
     private static void testUncompressableMimetype(final CompressingContentStore compressingContentStore,
             final FileContentStore fileContentStore, final String mimetype) throws Exception
     {
-        ContentStoreContext.executeInNewContext(new ContentStoreOperation<Object>()
-        {
+        ContentStoreContext.executeInNewContext(() -> {
+            final ContentWriter writer = compressingContentStore.getWriter(new ContentContext(null, null));
+            final String testText = CompressingContentStoreTest.generateCopmressableText();
+            writer.setMimetype(mimetype);
+            writer.setEncoding(StandardCharsets.UTF_8.name());
+            writer.setLocale(Locale.ENGLISH);
+            writer.putContent(testText);
 
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Object execute()
-            {
-                final ContentWriter writer = compressingContentStore.getWriter(new ContentContext(null, null));
-                final String testText = CompressingContentStoreTest.generateCopmressableText();
-                writer.setMimetype(mimetype);
-                writer.setEncoding(StandardCharsets.UTF_8.name());
-                writer.setLocale(Locale.ENGLISH);
-                writer.putContent(testText);
+            final String contentUrl = writer.getContentUrl();
+            Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
 
-                final String contentUrl = writer.getContentUrl();
-                Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
+            final ContentReader properReader = compressingContentStore.getReader(contentUrl);
+            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
 
-                final ContentReader properReader = compressingContentStore.getReader(contentUrl);
-                Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
-                Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
+            // reader does not know about mimetype (provided via persisted ContentData at server runtime)
+            properReader.setMimetype(mimetype);
 
-                // reader does not know about mimetype (provided via persisted ContentData at server runtime)
-                properReader.setMimetype(mimetype);
+            final String readText = properReader.getContentString();
+            Assert.assertEquals("Read content does not match written test content", testText, readText);
 
-                final String readText = properReader.getContentString();
-                Assert.assertEquals("Read content does not match written test content", testText, readText);
+            final ContentReader backingReader = fileContentStore.getReader(contentUrl);
+            Assert.assertTrue("Backing reader was not returned for freshly written content", backingReader != null);
+            Assert.assertTrue("Backing reader does not refer to existing file for freshly written content", backingReader.exists());
 
-                final ContentReader backingReader = fileContentStore.getReader(contentUrl);
-                Assert.assertTrue("Backing reader was not returned for freshly written content", backingReader != null);
-                Assert.assertTrue("Backing reader does not refer to existing file for freshly written content", backingReader.exists());
+            backingReader.setMimetype(mimetype);
 
-                backingReader.setMimetype(mimetype);
+            // can't test for size as this would (at server runtime) be handled via persisted ContentData, not actual file size on disk
+            final String backingText = backingReader.getContentString();
+            Assert.assertEquals("Backing reader did not return unaltered content for uncompressable mimetype", testText, backingText);
 
-                // can't test for size as this would (at server runtime) be handled via persisted ContentData, not actual file size on disk
-                final String backingText = backingReader.getContentString();
-                Assert.assertEquals("Backing reader did not return unaltered content for uncompressable mimetype", testText, backingText);
-
-                return null;
-            }
+            return null;
         });
     }
 

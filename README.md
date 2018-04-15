@@ -31,9 +31,9 @@ This addon is being built using the [Acosix Alfresco Maven framework](https://gi
 
 ## Build
 
-This project can be built simply by executing the standard Maven build lifecycles for package, install or deploy depending on the intent for further processing. A Java Development Kit (JDK) version 8 or higher is required for the build of the master branch, while the branches targeting Alfresco 4.2 and 5.0/5.1 require Java 7.
+This project can be built simply by executing the standard Maven build lifecycles for package, install or deploy depending on the intent for further processing. A Java Development Kit (JDK) version 8 or higher is required for the build of the master and Alfresco 5.0/5.1 branches, while the branch targeting Alfresco 4.2 requires Java 7.
 
-By inheritance from the Acosix Alfresco Maven framework, this project uses the [Maven Toolchains plugin](http://maven.apache.org/plugins/maven-toolchains-plugin/) to allow cross-compilation against different Java versions. This is used in the branches targeting Alfresco 4.2 and 5.0/5.1. In order to build the project it is necessary to provide a basic toolchain configuration via the user specific Maven configuration home (usually ~/.m2/). That file (toolchains.xml) only needs to list the path to a compatible JDK for the Java version required by this project. The following is a sample file defining a Java 7 and 8 development kit.
+By inheritance from the Acosix Alfresco Maven framework, this project uses the [Maven Toolchains plugin](http://maven.apache.org/plugins/maven-toolchains-plugin/) to allow cross-compilation against different Java versions. This is used in the branch targeting Alfresco 4.2. In order to build the project it is necessary to provide a basic toolchain configuration via the user specific Maven configuration home (usually ~/.m2/). That file (toolchains.xml) only needs to list the path to a compatible JDK for the Java version required by this project. The following is a sample file defining a Java 7 and 8 development kit.
 
 ```xml
 <?xml version='1.0' encoding='UTF-8'?>

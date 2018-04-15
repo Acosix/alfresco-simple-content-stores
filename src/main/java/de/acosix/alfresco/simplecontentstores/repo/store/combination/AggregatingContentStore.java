@@ -127,12 +127,10 @@ public class AggregatingContentStore extends AbstractContentStore implements Ini
     public boolean isContentUrlSupported(final String contentUrl)
     {
         LOGGER.trace("Checking support for content URL {} across all stores", contentUrl);
-        boolean supported = false;
-
-        for (final ContentStore store : this.allStores)
-        {
-            supported = supported || store.isContentUrlSupported(contentUrl);
-        }
+        final boolean supported = this.allStores.stream().anyMatch((store) -> {
+            final boolean supportedByStore = store.isContentUrlSupported(contentUrl);
+            return supportedByStore;
+        });
         LOGGER.trace("Content URL {} is {}supported", supported ? "" : "not ");
         return supported;
     }
@@ -205,14 +203,12 @@ public class AggregatingContentStore extends AbstractContentStore implements Ini
     public boolean delete(final String contentUrl)
     {
         // allMatch on stream might short-circuit and not trigger delete on all stores
-        boolean considerDeleted;
+        final boolean considerDeleted;
 
         if (this.deleteContentFromSecondaryStores)
         {
             LOGGER.debug("Deleting content URL {} from primary and secondary stores", contentUrl);
-            considerDeleted = true;
-            for (final ContentStore store : this.allStores)
-            {
+            considerDeleted = this.allStores.stream().filter(store -> {
                 boolean deleted = false;
                 if (!store.isWriteSupported())
                 {
@@ -226,8 +222,8 @@ public class AggregatingContentStore extends AbstractContentStore implements Ini
                 {
                     deleted = store.delete(contentUrl);
                 }
-                considerDeleted = deleted && considerDeleted;
-            }
+                return deleted;
+            }).count() == this.allStores.size();
             LOGGER.debug("Content URL {} {}successfully deleted from both primary and secondary stores", contentUrl,
                     considerDeleted ? "" : "not ");
         }

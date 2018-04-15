@@ -36,7 +36,6 @@ import org.alfresco.repo.node.NodeServicePolicies.OnMoveNodePolicy;
 import org.alfresco.repo.policy.Behaviour.NotificationFrequency;
 import org.alfresco.repo.policy.JavaBehaviour;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
-import org.alfresco.repo.security.authentication.AuthenticationUtil.RunAsWork;
 import org.alfresco.repo.site.SiteModel;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
@@ -54,7 +53,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.routing.MoveCapableCommonRoutingContentStore;
 
 /**
@@ -230,7 +228,9 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
     }
 
     /**
-     * An object that prevents abuse of the underlying store(s)
+     * @param contentLimitProvider
+     *            the contentLimitProvider to set
+     *
      */
     public void setContentLimitProvider(final ContentLimitProvider contentLimitProvider)
     {
@@ -366,35 +366,29 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
             // can't use siteService without creating circular dependency graph
             // resolve all ancestors via old parent (up until site) and cross-check with ancestors of new parent
             // run as system to avoid performance overhead + issues with intermediary node access restrictions
-            final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(new RunAsWork<Boolean>()
-            {
-
-                @Override
-                public Boolean doWork()
+            final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(() -> {
+                final List<NodeRef> oldAncestors = new ArrayList<>();
+                NodeRef curParent = oldParent;
+                while (curParent != null)
                 {
-                    final List<NodeRef> oldAncestors = new ArrayList<>();
-                    NodeRef curParent = oldParent;
-                    while (curParent != null)
+                    oldAncestors.add(curParent);
+                    final QName curParentType = this.nodeService.getType(curParent);
+                    if (this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
                     {
-                        oldAncestors.add(curParent);
-                        final QName curParentType = SiteRoutingFileContentStore.this.nodeService.getType(curParent);
-                        if (SiteRoutingFileContentStore.this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
-                        {
-                            break;
-                        }
-                        curParent = SiteRoutingFileContentStore.this.nodeService.getPrimaryParent(curParent).getParentRef();
+                        break;
                     }
-
-                    boolean sameScope = false;
-                    curParent = newParent;
-                    while (!sameScope && curParent != null)
-                    {
-                        sameScope = oldAncestors.contains(curParent);
-                        curParent = SiteRoutingFileContentStore.this.nodeService.getPrimaryParent(curParent).getParentRef();
-                    }
-
-                    return Boolean.valueOf(sameScope);
+                    curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
                 }
+
+                boolean sameScope = false;
+                curParent = newParent;
+                while (!sameScope && curParent != null)
+                {
+                    sameScope = oldAncestors.contains(curParent);
+                    curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
+                }
+
+                return Boolean.valueOf(sameScope);
             });
 
             if (!Boolean.TRUE.equals(sameSiteOrBothGlobal))
@@ -461,19 +455,9 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
                 if (!contentPropertiesMap.isEmpty())
                 {
-                    ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                    {
-
-                        /**
-                         *
-                         * {@inheritDoc}
-                         */
-                        @Override
-                        public Void execute()
-                        {
-                            SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
-                            return null;
-                        }
+                    ContentStoreContext.executeInNewContext(() -> {
+                        SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
+                        return null;
                     });
                 }
             }

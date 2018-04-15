@@ -23,7 +23,6 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
@@ -46,9 +45,7 @@ import org.junit.rules.ExpectedException;
 import com.thedeanda.lorem.Lorem;
 import com.thedeanda.lorem.LoremIpsum;
 
-import de.acosix.alfresco.simplecontentstores.repo.TestUtilities.AggregatingVisitor;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.DeduplicatingContentStore;
 import de.acosix.alfresco.simplecontentstores.repo.store.file.FileContentStore;
 
@@ -138,33 +135,10 @@ public class DeduplicatingContentStoreTest
                         .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
 
         final Path rootPath = backingStoreFolder.toPath();
-        final long pathCountBeforeSecondWrite = TestUtilities.walk(rootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (!path.equals(rootPath))
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long pathCountBeforeSecondWrite = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
 
         final ContentWriter secondWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
@@ -172,33 +146,10 @@ public class DeduplicatingContentStoreTest
         Assert.assertEquals("Content URL of second writer does not match previous writer of identical content", firstWriter.getContentUrl(),
                 secondWriter.getContentUrl());
 
-        final long pathCountAfterSecondWrite = TestUtilities.walk(rootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (!path.equals(rootPath))
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long pathCountAfterSecondWrite = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
 
         Assert.assertEquals("Number of path elements in backing store should not change by writing same content twice",
@@ -212,33 +163,10 @@ public class DeduplicatingContentStoreTest
                 thirdWriter.getContentUrl()
                         .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
 
-        final long pathCountAfterThirdWrite = TestUtilities.walk(rootPath, new AggregatingVisitor<Path, Long>()
-        {
-
-            private final AtomicLong counter = new AtomicLong(0);
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public void visit(final Path path)
-            {
-                if (!path.equals(rootPath))
-                {
-                    this.counter.incrementAndGet();
-                }
-            }
-
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public Long getAggregate()
-            {
-                return this.counter.longValue();
-            }
+        final long pathCountAfterThirdWrite = TestUtilities.walk(rootPath, (stream) -> {
+            return stream.filter((path) -> {
+                return !path.equals(rootPath);
+            }).count();
         }, FileVisitOption.FOLLOW_LINKS);
 
         Assert.assertNotEquals("Number of path elements in backing store should change by writing different content",
@@ -383,41 +311,32 @@ public class DeduplicatingContentStoreTest
     private static ContentWriter testIndividualWriteAndRead(final DeduplicatingContentStore deduplicatingContentStore,
             final String testText)
     {
-        return ContentStoreContext.executeInNewContext(new ContentStoreOperation<ContentWriter>()
-        {
+        return ContentStoreContext.executeInNewContext(() -> {
+            final ContentWriter writer = deduplicatingContentStore.getWriter(new ContentContext(null, null));
+            writer.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
+            writer.setEncoding(StandardCharsets.UTF_8.name());
+            writer.setLocale(Locale.ENGLISH);
+            writer.putContent(testText);
 
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public ContentWriter execute()
-            {
-                final ContentWriter writer = deduplicatingContentStore.getWriter(new ContentContext(null, null));
-                writer.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
-                writer.setEncoding(StandardCharsets.UTF_8.name());
-                writer.setLocale(Locale.ENGLISH);
-                writer.putContent(testText);
+            final String contentUrl = writer.getContentUrl();
+            Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
+            Assert.assertTrue("Content URL does not start with the configured protocol",
+                    contentUrl.startsWith(STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER));
 
-                final String contentUrl = writer.getContentUrl();
-                Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
-                Assert.assertTrue("Content URL does not start with the configured protocol",
-                        contentUrl.startsWith(STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER));
+            Assert.assertTrue("Store does not report content URL to exist after writing content",
+                    deduplicatingContentStore.exists(contentUrl));
 
-                Assert.assertTrue("Store does not report content URL to exist after writing content",
-                        deduplicatingContentStore.exists(contentUrl));
+            final ContentReader properReader = deduplicatingContentStore.getReader(contentUrl);
+            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
 
-                final ContentReader properReader = deduplicatingContentStore.getReader(contentUrl);
-                Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
-                Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
+            // reader does not know about mimetype (provided via persisted ContentData at server runtime)
+            properReader.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
 
-                // reader does not know about mimetype (provided via persisted ContentData at server runtime)
-                properReader.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
+            final String readText = properReader.getContentString();
+            Assert.assertEquals("Read content does not match written test content", testText, readText);
 
-                final String readText = properReader.getContentString();
-                Assert.assertEquals("Read content does not match written test content", testText, readText);
-
-                return writer;
-            }
+            return writer;
         });
     }
 

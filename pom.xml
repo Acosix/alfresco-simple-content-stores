@@ -52,8 +52,9 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <maven.compiler.source>1.7</maven.compiler.source>
-        <maven.compiler.target>1.7</maven.compiler.target>
+        <!-- Java 7 is out of support -->
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
 
         <alfresco.distribution.version>5.0.d</alfresco.distribution.version>
 

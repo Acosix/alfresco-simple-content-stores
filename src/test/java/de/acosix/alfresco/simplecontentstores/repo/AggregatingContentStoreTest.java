@@ -41,7 +41,6 @@ import com.thedeanda.lorem.LoremIpsum;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.combination.AggregatingContentStore;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.file.FileContentStore;
 
 /**
@@ -113,7 +112,7 @@ public class AggregatingContentStoreTest
         store3.setRootDirectory(store3Folder.getAbsolutePath());
         store3.setProtocol(STORE_3_PROTOCOL);
 
-        aggregatingContentStore.setSecondaryStores(Arrays.<ContentStore> asList(store2, store3));
+        aggregatingContentStore.setSecondaryStores(Arrays.asList(store2, store3));
 
         store1.afterPropertiesSet();
         store2.afterPropertiesSet();
@@ -163,7 +162,7 @@ public class AggregatingContentStoreTest
         store3.setRootDirectory(store3Folder.getAbsolutePath());
         store3.setProtocol(STORE_1_PROTOCOL);
 
-        aggregatingContentStore.setSecondaryStores(Arrays.<ContentStore> asList(store2, store3));
+        aggregatingContentStore.setSecondaryStores(Arrays.asList(store2, store3));
 
         store1.afterPropertiesSet();
         store2.afterPropertiesSet();
@@ -211,7 +210,7 @@ public class AggregatingContentStoreTest
         store3.setRootDirectory(store3Folder.getAbsolutePath());
         store3.setProtocol(STORE_1_PROTOCOL);
 
-        aggregatingContentStore.setSecondaryStores(Arrays.<ContentStore> asList(store2, store3));
+        aggregatingContentStore.setSecondaryStores(Arrays.asList(store2, store3));
 
         store1.afterPropertiesSet();
         store2.afterPropertiesSet();
@@ -257,7 +256,7 @@ public class AggregatingContentStoreTest
         store3.setRootDirectory(store3Folder.getAbsolutePath());
         store3.setProtocol(STORE_1_PROTOCOL);
 
-        aggregatingContentStore.setSecondaryStores(Arrays.<ContentStore> asList(store2, store3));
+        aggregatingContentStore.setSecondaryStores(Arrays.asList(store2, store3));
 
         store1.afterPropertiesSet();
         store2.afterPropertiesSet();
@@ -307,7 +306,7 @@ public class AggregatingContentStoreTest
         store3.setRootDirectory(store3Folder.getAbsolutePath());
         store3.setProtocol(STORE_3_PROTOCOL);
 
-        aggregatingContentStore.setSecondaryStores(Arrays.<ContentStore> asList(store2, store3));
+        aggregatingContentStore.setSecondaryStores(Arrays.asList(store2, store3));
 
         store1.afterPropertiesSet();
         store2.afterPropertiesSet();
@@ -353,7 +352,7 @@ public class AggregatingContentStoreTest
         store3.setRootDirectory(store3Folder.getAbsolutePath());
         store3.setProtocol(STORE_3_PROTOCOL);
 
-        aggregatingContentStore.setSecondaryStores(Arrays.<ContentStore> asList(store2, store3));
+        aggregatingContentStore.setSecondaryStores(Arrays.asList(store2, store3));
 
         store1.afterPropertiesSet();
         store2.afterPropertiesSet();
@@ -416,41 +415,31 @@ public class AggregatingContentStoreTest
     private static ContentWriter testIndividualWriteAndRead(final ContentStore contentStore, final String testText,
             final String expectedProtocol)
     {
-        return ContentStoreContext.executeInNewContext(new ContentStoreOperation<ContentWriter>()
-        {
+        return ContentStoreContext.executeInNewContext(() -> {
+            final ContentWriter writer = contentStore.getWriter(new ContentContext(null, null));
+            writer.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
+            writer.setEncoding(StandardCharsets.UTF_8.name());
+            writer.setLocale(Locale.ENGLISH);
+            writer.putContent(testText);
 
-            /**
-             *
-             * {@inheritDoc}
-             */
-            @Override
-            public ContentWriter execute()
-            {
-                final ContentWriter writer = contentStore.getWriter(new ContentContext(null, null));
-                writer.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
-                writer.setEncoding(StandardCharsets.UTF_8.name());
-                writer.setLocale(Locale.ENGLISH);
-                writer.putContent(testText);
+            final String contentUrl = writer.getContentUrl();
+            Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
+            Assert.assertTrue("Content URL does not start with the configured protocol",
+                    contentUrl.startsWith(expectedProtocol + ContentStore.PROTOCOL_DELIMITER));
 
-                final String contentUrl = writer.getContentUrl();
-                Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
-                Assert.assertTrue("Content URL does not start with the configured protocol",
-                        contentUrl.startsWith(expectedProtocol + ContentStore.PROTOCOL_DELIMITER));
+            Assert.assertTrue("Store does not report content URL to exist after writing content", contentStore.exists(contentUrl));
 
-                Assert.assertTrue("Store does not report content URL to exist after writing content", contentStore.exists(contentUrl));
+            final ContentReader properReader = contentStore.getReader(contentUrl);
+            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
 
-                final ContentReader properReader = contentStore.getReader(contentUrl);
-                Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
-                Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
+            // reader does not know about mimetype (provided via persisted ContentData at server runtime)
+            properReader.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
 
-                // reader does not know about mimetype (provided via persisted ContentData at server runtime)
-                properReader.setMimetype(MimetypeMap.MIMETYPE_TEXT_PLAIN);
+            final String readText = properReader.getContentString();
+            Assert.assertEquals("Read content does not match written test content", testText, readText);
 
-                final String readText = properReader.getContentString();
-                Assert.assertEquals("Read content does not match written test content", testText, readText);
-
-                return writer;
-            }
+            return writer;
         });
     }
 

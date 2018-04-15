@@ -17,15 +17,13 @@ package de.acosix.alfresco.simplecontentstores.repo;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.FileVisitOption;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumSet;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import org.alfresco.util.GUID;
 
@@ -34,56 +32,6 @@ import org.alfresco.util.GUID;
  */
 public class TestUtilities
 {
-
-    /**
-     * Interface of to support test utilities similar to {@code java.util.Function}
-     *
-     * @author Axel Faust
-     *
-     * @param <P>
-     *            the type of the parameter to this visitor
-     * @param <R>
-     *            the type of the result of this visitor
-     */
-    public static interface AggregatingVisitor<P, R>
-    {
-
-        /**
-         * Visits a specific element
-         *
-         * @param param
-         *            the parameter to visit
-         */
-        void visit(P param);
-
-        /**
-         * Returns the aggregate of this visitor
-         *
-         * @return the aggregate result of the visitor over all visisted elements
-         */
-        R getAggregate();
-    }
-
-    /**
-     * Interface of {@code java.util.Consumer} backported to allow more similar unit tests between the branches of this module.
-     *
-     * @author Axel Faust
-     *
-     * @param <P>
-     *            the type of the parameter to this function
-     */
-    public static interface Consumer<P>
-    {
-
-        /**
-         * Applies this function on the specified parameter
-         *
-         * @param param
-         *            the parameter to the function
-         * @return the result of the function
-         */
-        void accept(P param);
-    }
 
     private TestUtilities()
     {
@@ -102,16 +50,8 @@ public class TestUtilities
     {
         try
         {
-            walk(folder.toPath(), new Consumer<Path>()
-            {
-
-                /**
-                 *
-                 * {@inheritDoc}
-                 */
-                @Override
-                public void accept(final Path path)
-                {
+            walk(folder.toPath(), (stream) -> {
+                stream.forEach(path -> {
                     try
                     {
                         Files.delete(path);
@@ -120,84 +60,28 @@ public class TestUtilities
                     {
                         // ignore
                     }
-                }
+                });
             });
         }
-        catch (final IOException ignore)
+        catch (final IOException | UncheckedIOException ignore)
         {
             // ignore
         }
     }
 
-    public static void walk(final Path path, final Consumer<Path> consumer, final FileVisitOption... options) throws IOException
+    public static void walk(final Path path, final Consumer<Stream<Path>> consumer, final FileVisitOption... options) throws IOException
     {
-        // use walkFileTree in the same depth-first manner as 1.8+ Files.list()
-        Files.walkFileTree(path, options.length == 0 ? Collections.<FileVisitOption> emptySet() : EnumSet.copyOf(Arrays.asList(options)),
-                Integer.MAX_VALUE, new SimpleFileVisitor<Path>()
-                {
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs)
-                    {
-                        consumer.accept(file);
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public FileVisitResult postVisitDirectory(final Path dir, final IOException exc) throws IOException
-                    {
-                        if (exc != null)
-                        {
-                            throw exc;
-                        }
-                        consumer.accept(dir);
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
+        try (Stream<Path> stream = Files.walk(path, options))
+        {
+            consumer.accept(stream);
+        }
     }
 
-    public static <R> R walk(final Path path, final AggregatingVisitor<Path, R> aggregator, final FileVisitOption... options)
-            throws IOException
+    public static <V> V walk(final Path path, final Function<Stream<Path>, V> fn, final FileVisitOption... options) throws IOException
     {
-        // use walkFileTree in the same depth-first manner as 1.8+ Files.list()
-        Files.walkFileTree(path, options.length == 0 ? Collections.<FileVisitOption> emptySet() : EnumSet.copyOf(Arrays.asList(options)),
-                Integer.MAX_VALUE, new SimpleFileVisitor<Path>()
-                {
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs)
-                    {
-                        aggregator.visit(file);
-                        return FileVisitResult.CONTINUE;
-                    }
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public FileVisitResult postVisitDirectory(final Path dir, final IOException exc) throws IOException
-                    {
-                        if (exc != null)
-                        {
-                            throw exc;
-                        }
-                        aggregator.visit(dir);
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-        return aggregator.getAggregate();
+        try (Stream<Path> stream = Files.walk(path, options))
+        {
+            return fn.apply(stream);
+        }
     }
 }

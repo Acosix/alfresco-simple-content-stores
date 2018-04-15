@@ -18,7 +18,6 @@ package de.acosix.alfresco.simplecontentstores.repo.store.file;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Calendar;
@@ -26,10 +25,10 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.stream.Stream;
 
 import org.alfresco.error.AlfrescoRuntimeException;
 import org.alfresco.repo.content.AbstractContentStore;
@@ -629,15 +628,10 @@ public class FileContentStore extends AbstractContentStore
                     break;
                 }
 
-                long children = 0;
-                try (DirectoryStream<Path> stream = Files.newDirectoryStream(curPath))
+                final long children;
+                try (Stream<Path> stream = Files.list(curPath))
                 {
-                    final Iterator<Path> streamIt = stream.iterator();
-                    while (streamIt.hasNext())
-                    {
-                        streamIt.next();
-                        children++;
-                    }
+                    children = stream.count();
                 }
 
                 if (children != 0)
