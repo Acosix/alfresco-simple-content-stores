@@ -26,20 +26,24 @@
     </bean>
     <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true" class="${project.artifactId}.store.routing.SiteRoutingContentStore"
-        parent="${moduleId}-propertyRestrictableRoutingStore" />
+    <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true"
+        class="${project.artifactId}.store.routing.SiteRoutingContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true" class="${project.artifactId}.store.routing.TenantRoutingContentStore"
-        parent="${moduleId}-propertyRestrictableRoutingStore" />
+    <bean id="simpleContentStoresTemplate-tenantRoutingStore" abstract="true"
+        class="${project.artifactId}.store.routing.TenantRoutingContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
 
-    <bean id="simpleContentStoresTemplate-siteRoutingFileStore" abstract="true" class="${project.artifactId}.store.file.SiteRoutingFileContentStore"
-        parent="${moduleId}-moveCapableRoutingStore">
+    <bean id="simpleContentStoresTemplate-siteRoutingFileStore" abstract="true"
+        class="${project.artifactId}.store.file.SiteRoutingFileContentStore" parent="${moduleId}-moveCapableRoutingStore">
         <property name="namespaceService" ref="NamespaceService" />
     </bean>
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.file.FileContentStore" />
-    
-    <bean id="simpleContentStoresTemplate-dummyFallbackStore" abstract="true" class="${project.artifactId}.store.file.DummyFallbackContentStore">
+
+    <bean id="simpleContentStoresTemplate-defaultTenantFileStore" abstract="true"
+        class="${project.artifactId}.store.file.TenantRoutingFileContentStore" parent="baseTenantRoutingContentStore" />
+
+    <bean id="simpleContentStoresTemplate-dummyFallbackStore" abstract="true"
+        class="${project.artifactId}.store.file.DummyFallbackContentStore">
         <property name="mimetypeService" ref="MimetypeService" />
         <property name="dummyFilePaths">
             <list>
@@ -62,7 +66,8 @@
         </property>
     </bean>
 
-    <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore" name="simpleContentStoresTemplate-siteRoutingFileStore" />
+    <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore"
+        name="simpleContentStoresTemplate-siteRoutingFileStore" />
 
     <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true"
         class="${project.artifactId}.store.facade.DeduplicatingContentStore" parent="${moduleId}-commonFacadeStore">
@@ -79,10 +84,11 @@
         <property name="scheduler" ref="schedulerFactory" />
     </bean>
 
-    <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true" class="${project.artifactId}.store.combination.AggregatingContentStore" />
+    <bean id="simpleContentStoresTemplate-aggregatingStore" abstract="true"
+        class="${project.artifactId}.store.combination.AggregatingContentStore" />
 
-    <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true" class="${project.artifactId}.store.facade.CompressingContentStore"
-        parent="${moduleId}-commonFacadeStore">
+    <bean id="simpleContentStoresTemplate-compressingFacadeStore" abstract="true"
+        class="${project.artifactId}.store.facade.CompressingContentStore" parent="${moduleId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="${project.artifactId}.store.file.FileContentStore">
                 <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
