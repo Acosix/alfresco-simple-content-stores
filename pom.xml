@@ -51,10 +51,18 @@
         <messages.path>acosix/simple-content-stores</messages.path>
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
-        
-        <alfresco.distribution.version>5.0.d</alfresco.distribution.version>
+
         <maven.compiler.source>1.7</maven.compiler.source>
         <maven.compiler.target>1.7</maven.compiler.target>
+
+        <alfresco.distribution.version>5.0.d</alfresco.distribution.version>
+
+		<acosix.utility.version>1.0.2.1</acosix.utility.version>
+        <tukaani.version>1.5</tukaani.version>
+
+        <logback.version>1.2.3</logback.version>
+        <easymock.version>3.4</easymock.version>
+        <lorem.version>2.1</lorem.version>
     </properties>
 
     <repositories>
@@ -70,16 +78,23 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>de.acosix.alfresco.utility</groupId>
+                <artifactId>de.acosix.alfresco.utility.repo</artifactId>
+                <version>${acosix.utility.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.tukaani</groupId>
                 <artifactId>xz</artifactId>
-                <version>1.5</version>
+                <version>${tukaani.version}</version>
                 <scope>compile</scope>
             </dependency>
 
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
-                <version>1.2.3</version>
+                <version>${logback.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -93,14 +108,14 @@
             <dependency>
                 <groupId>org.easymock</groupId>
                 <artifactId>easymock</artifactId>
-                <version>3.4</version>
+                <version>${easymock.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>com.thedeanda</groupId>
                 <artifactId>lorem</artifactId>
-                <version>2.1</version>
+                <version>${lorem.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
@@ -124,6 +139,11 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>de.acosix.alfresco.utility</groupId>
+            <artifactId>de.acosix.alfresco.utility.repo</artifactId>
         </dependency>
 
         <dependency>

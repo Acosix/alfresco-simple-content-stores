@@ -1,9 +1,36 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <import resource="classpath:alfresco/module/${moduleId}/context/factory-context.xml" />
-    <import resource="classpath:alfresco/module/${moduleId}/context/store-templates-context.xml" />
+    <bean id="${moduleId}-enablingBootstrap"
+        class="de.acosix.alfresco.utility.common.spring.PropertyAlteringBeanDefinitionRegistryPostProcessor">
+        <property name="enabledPropertyKey" value="simpleContentStores.enabled" />
+        <property name="propertiesSource" ref="global-properties" />
+        <property name="targetBeanName" value="ContentStore" />
+        <property name="expectedClassName" value="org.alfresco.repo.management.subsystems.CryptodocSwitchableApplicationContextFactory" />
+        <property name="propertyName" value="sourceBeanName" />
+        <property name="value" value="simpleContentStore" />
+    </bean>
+
+    <bean id="simpleContentStore" class="de.acosix.alfresco.utility.repo.subsystems.SubsystemChildApplicationContextFactory"
+        parent="abstractPropertyBackedBean">
+        <property name="autoStart">
+            <value>true</value>
+        </property>
+        <property name="category">
+            <value>ContentStore</value>
+        </property>
+        <property name="typeName">
+            <value>simple-content-stores</value>
+        </property>
+        <property name="instancePath">
+            <list>
+                <value>managed</value>
+                <value>simple-content-stores</value>
+            </list>
+        </property>
+    </bean>
 
 </beans>

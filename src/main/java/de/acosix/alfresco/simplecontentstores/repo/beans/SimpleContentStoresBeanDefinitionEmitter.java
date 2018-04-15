@@ -16,35 +16,38 @@
 package de.acosix.alfresco.simplecontentstores.repo.beans;
 
 import java.text.MessageFormat;
-import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.PropertyValue;
-import org.springframework.beans.factory.BeanNameAware;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.config.PlaceholderConfigurerSupport;
 import org.springframework.beans.factory.config.RuntimeBeanReference;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.beans.factory.support.ChildBeanDefinition;
 import org.springframework.beans.factory.support.ManagedList;
 import org.springframework.beans.factory.support.ManagedMap;
+import org.springframework.util.PropertyPlaceholderHelper;
 
 /**
  * @author Axel Faust
  */
-public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionRegistryPostProcessor, BeanNameAware
+public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionRegistryPostProcessor, InitializingBean
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SimpleContentStoresBeanDefinitionEmitter.class);
+
+    private static final String DEFAULT_CONTENT_STORE = "defaultFileContentStore";
 
     private static final String PROP_ROOT_STORE = "simpleContentStores.rootStore";
 
@@ -54,65 +57,30 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     private static final String STORE_TEMPLATE_PREFIX = "simpleContentStoresTemplate-";
 
-    protected String beanName;
-
-    protected List<BeanDefinitionRegistryPostProcessor> dependsOn;
-
     protected boolean executed;
-
-    protected Boolean enabled;
-
-    protected String enabledPropertyKey;
-
-    protected List<String> enabledPropertyKeys;
 
     protected Properties propertiesSource;
 
     protected String rootStoreProxyName;
 
+    protected String placeholderPrefix = PlaceholderConfigurerSupport.DEFAULT_PLACEHOLDER_PREFIX;
+
+    protected String placeholderSuffix = PlaceholderConfigurerSupport.DEFAULT_PLACEHOLDER_SUFFIX;
+
+    protected String valueSeparator = PlaceholderConfigurerSupport.DEFAULT_VALUE_SEPARATOR;
+
+    protected PropertyPlaceholderHelper placeholderHelper;
+
     /**
      * {@inheritDoc}
      */
     @Override
-    public void setBeanName(final String name)
+    public void afterPropertiesSet()
     {
-        this.beanName = name;
-    }
+        PropertyCheck.mandatory(this, "propertiesSource", this.propertiesSource);
+        PropertyCheck.mandatory(this, "rootStoreProxyName", this.rootStoreProxyName);
 
-    /**
-     * @param dependsOn
-     *            the dependsOn to set
-     */
-    public void setDependsOn(final List<BeanDefinitionRegistryPostProcessor> dependsOn)
-    {
-        this.dependsOn = dependsOn;
-    }
-
-    /**
-     * @param enabled
-     *            the enabled to set
-     */
-    public void setEnabled(final boolean enabled)
-    {
-        this.enabled = enabled;
-    }
-
-    /**
-     * @param enabledPropertyKey
-     *            the enabledPropertyKey to set
-     */
-    public void setEnabledPropertyKey(final String enabledPropertyKey)
-    {
-        this.enabledPropertyKey = enabledPropertyKey;
-    }
-
-    /**
-     * @param enabledPropertyKeys
-     *            the enabledPropertyKeys to set
-     */
-    public void setEnabledPropertyKeys(final List<String> enabledPropertyKeys)
-    {
-        this.enabledPropertyKeys = enabledPropertyKeys;
+        this.placeholderHelper = new PropertyPlaceholderHelper(this.placeholderPrefix, this.placeholderSuffix, this.valueSeparator, true);
     }
 
     /**
@@ -134,6 +102,33 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     }
 
     /**
+     * @param placeholderPrefix
+     *            the placeholderPrefix to set
+     */
+    public void setPlaceholderPrefix(final String placeholderPrefix)
+    {
+        this.placeholderPrefix = placeholderPrefix;
+    }
+
+    /**
+     * @param placeholderSuffix
+     *            the placeholderSuffix to set
+     */
+    public void setPlaceholderSuffix(final String placeholderSuffix)
+    {
+        this.placeholderSuffix = placeholderSuffix;
+    }
+
+    /**
+     * @param valueSeparator
+     *            the valueSeparator to set
+     */
+    public void setValueSeparator(final String valueSeparator)
+    {
+        this.valueSeparator = valueSeparator;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -150,75 +145,22 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     {
         if (!this.executed)
         {
-            final boolean enabled = this.isEnabled();
-
-            if (enabled)
-            {
-                if (this.dependsOn != null)
-                {
-                    for (final BeanDefinitionRegistryPostProcessor x : this.dependsOn)
-                    {
-                        x.postProcessBeanDefinitionRegistry(registry);
-                }
-                }
-
-                LOGGER.info("[{}] patch is being applied", this.beanName);
-                this.emitCustomStoreBeanDefinitions(registry);
-                this.processRootStore(registry);
-            }
-            else
-            {
-                LOGGER.info("[{}] patch will not be applied as it has been marked as inactive", this.beanName);
-            }
+            LOGGER.info("Generating simple-content-stores bean definitions");
+            this.emitCustomStoreBeanDefinitions(registry);
+            this.processRootStore(registry);
             this.executed = true;
         }
     }
 
-    protected boolean isEnabled()
-    {
-        Boolean enabled = this.enabled;
-        if (!Boolean.FALSE.equals(enabled) && this.enabledPropertyKey != null && !this.enabledPropertyKey.isEmpty())
-        {
-            final String property = this.propertiesSource.getProperty(this.enabledPropertyKey);
-            enabled = (property != null ? Boolean.valueOf(property) : Boolean.FALSE);
-        }
-
-        if (!Boolean.FALSE.equals(enabled) && this.enabledPropertyKeys != null && !this.enabledPropertyKeys.isEmpty())
-        {
-            final AtomicBoolean enabled2 = new AtomicBoolean(true);
-            for (final String key : this.enabledPropertyKeys)
-            {
-                final String property = this.propertiesSource.getProperty(key);
-                enabled2.compareAndSet(true, property != null ? Boolean.parseBoolean(property) : false);
-            }
-            enabled = Boolean.valueOf(enabled2.get());
-        }
-
-        return Boolean.TRUE.equals(enabled);
-    }
-
     protected void processRootStore(final BeanDefinitionRegistry registry)
     {
-        final String realRootStore = this.propertiesSource.getProperty(PROP_ROOT_STORE, "fileContentStore");
+        String realRootStore = this.propertiesSource.getProperty(PROP_ROOT_STORE, DEFAULT_CONTENT_STORE);
+        realRootStore = this.placeholderHelper.replacePlaceholders(realRootStore, this.propertiesSource);
         LOGGER.info("Setting {} as root content store", realRootStore);
 
         // complete the proxy definition
         final BeanDefinition rootStoreProxyDefinition = registry.getBeanDefinition(this.rootStoreProxyName);
         rootStoreProxyDefinition.getPropertyValues().add("target", new RuntimeBeanReference(realRootStore));
-        rootStoreProxyDefinition.getPropertyValues().add("singleton", Boolean.TRUE);
-
-        final BeanDefinition contentServiceDefinition = registry.getBeanDefinition("contentService");
-        contentServiceDefinition.getPropertyValues().add("store", new RuntimeBeanReference(this.rootStoreProxyName));
-
-        // baseMultiTAdminService may not be present if mt-*-context.xml files aren't included
-        final BeanDefinition baseMultiTAdminServiceDefinition = registry.getBeanDefinition("baseMultiTAdminService");
-        if (baseMultiTAdminServiceDefinition != null)
-        {
-            // though the property is named tenantFileContentStore it actually requires only ContentStore interface and runtime checks are
-            // against ContentStoreCaps or TenantDeployer (TenantRoutingContentStore was used sometime pre-5.x)
-            baseMultiTAdminServiceDefinition.getPropertyValues().add("tenantFileContentStore",
-                    new RuntimeBeanReference(this.rootStoreProxyName));
-        }
     }
 
     protected void emitCustomStoreBeanDefinitions(final BeanDefinitionRegistry registry)
