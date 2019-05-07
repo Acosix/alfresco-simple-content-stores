@@ -18,6 +18,7 @@ package de.acosix.alfresco.simplecontentstores.repo.store.context;
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.NodeContentContext;
+import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.site.SiteInfo;
 import org.alfresco.service.cmr.site.SiteService;
@@ -67,7 +68,7 @@ public class SiteAttributesInitializer implements ContentStoreContextInitializer
         if (siteAttribute == null && context instanceof NodeContentContext)
         {
             final NodeRef nodeRef = ((NodeContentContext) context).getNodeRef();
-            final SiteInfo site = this.siteService.getSite(nodeRef);
+            final SiteInfo site = AuthenticationUtil.runAsSystem( () -> this.siteService.getSite(nodeRef));
 
             if (site != null)
             {
