@@ -63,7 +63,7 @@ By inheritance from the Acosix Alfresco Maven framework, this project uses the [
 
 ## Dependency in Alfresco SDK
 
-The simplest option to include the addon in an All-in-One project is by declaring a dependency to the installable JAR artifact. Alternatively, the AMP package may be included which typically requires additional configuration in addition to the dependency. Since this addon depends on the [Acosix alfresco-utility addon](https://github.com/Acosix/alfresco-utility), the repository artifact for that addon is required to also be installed.
+The simplest option to include the addon in an All-in-One project is by declaring a dependency to the installable JAR artifact. Alternatively, the AMP package may be included which typically requires additional configuration in addition to the dependency. Since this addon depends on the [Acosix alfresco-utility addon](https://github.com/Acosix/alfresco-utility) in its "core" variant, the core repository artifact for that addon is required to also be installed.
 
 ### Using SNAPSHOT builds
 
@@ -88,14 +88,14 @@ In order to use a pre-built SNAPSHOT artifact published to the Open Source Sonat
 <dependency>
     <groupId>de.acosix.alfresco.utility</groupId>
     <artifactId>de.acosix.alfresco.utility.common</artifactId>
-    <version>1.0.2.1</version>
+    <version>1.0.3.1</version>
     <type>jar</type>
 </dependency>
 
 <dependency>
     <groupId>de.acosix.alfresco.utility</groupId>
-    <artifactId>de.acosix.alfresco.utility.repo</artifactId>
-    <version>1.0.2.1</version>
+    <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
+    <version>1.0.3.1</version>
     <type>jar</type>
     <classifier>installable</classifier>
 </dependency>
@@ -113,8 +113,8 @@ In order to use a pre-built SNAPSHOT artifact published to the Open Source Sonat
 <!-- AMP packaging -->
 <dependency>
     <groupId>de.acosix.alfresco.utility</groupId>
-    <artifactId>de.acosix.alfresco.utility.repo</artifactId>
-    <version>1.0.2.1</version>
+    <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
+    <version>1.0.3.1</version>
     <type>amp</type>
 </dependency>
 
@@ -139,7 +139,7 @@ In order to use a pre-built SNAPSHOT artifact published to the Open Source Sonat
             <!-- other AMPs -->
             <overlay>
                 <groupId>de.acosix.alfresco.utility</groupId>
-                <artifactId>de.acosix.alfresco.utility.repo</artifactId>
+                <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
                 <type>amp</type>
             </overlay>
             <overlay>
@@ -158,8 +158,8 @@ For Alfresco SDK 3 beta users:
 <platformModules>
     <moduleDependency>
         <groupId>de.acosix.alfresco.utility</groupId>
-        <artifactId>de.acosix.alfresco.utility.repo</artifactId>
-        <version>1.0.2.1</version>
+        <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
+        <version>1.0.3.1</version>
         <type>amp</type>
     </moduleDependency>
     <moduleDependency>
@@ -190,7 +190,7 @@ The only way to manually install an addon using JARs that is **guaranteed** not 
 For this addon the following JARs need to be dropped into &lt;tomcat&gt;/webapps/alfresco/WEB-INF/lib:
 
  - de.acosix.alfresco.utility.common-&lt;version&gt;.jar
- - de.acosix.alfresco.utility.repo-&lt;version&gt;-installable.jar
+ - de.acosix.alfresco.utility.core.repo-&lt;version&gt;-installable.jar
  - de.acosix.alfresco.simplecontentstores.repo-&lt;version&gt;-installable.jar
  - xz-1.5.jar (3rd-party JAR for compression)
  
