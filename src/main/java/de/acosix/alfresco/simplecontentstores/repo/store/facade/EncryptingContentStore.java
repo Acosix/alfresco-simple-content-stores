@@ -39,10 +39,12 @@ import org.alfresco.repo.domain.contentdata.ContentDataDAO;
 import org.alfresco.repo.domain.contentdata.ContentUrlEntity;
 import org.alfresco.repo.domain.contentdata.ContentUrlKeyEntity;
 import org.alfresco.repo.domain.contentdata.EncryptedKey;
+import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.EqualsHelper;
+import org.alfresco.util.Pair;
 import org.alfresco.util.PropertyCheck;
 import org.apache.commons.codec.DecoderException;
 import org.slf4j.Logger;
@@ -381,20 +383,16 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                 throw new ContentIOException("Error storing symmetric content encryption key", e);
             }
 
-            final String finalContentUrl = facadeWriter.getContentUrl();
-            final ContentUrlEntity contentUrlEntity = EncryptingContentStore.this.contentDataDAO.getContentUrl(finalContentUrl);
-
-            if (contentUrlEntity == null)
-            {
-                // can't create content URL entity directly so create via ContentData
-                EncryptingContentStore.this.contentDataDAO.createContentData(facadeWriter.getContentData());
-            }
+            // can't create content URL entity directly so create via ContentData
+            final Pair<Long, ContentData> contentDataPair = EncryptingContentStore.this.contentDataDAO
+                    .createContentData(facadeWriter.getContentData());
 
             final ContentUrlKeyEntity contentUrlKeyEntity = new ContentUrlKeyEntity();
             contentUrlKeyEntity.setUnencryptedFileSize(Long.valueOf(facadeWriter.getSize()));
             contentUrlKeyEntity.setEncryptedKey(eKey);
 
-            EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(finalContentUrl, contentUrlKeyEntity);
+            EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(contentDataPair.getSecond().getContentUrl(),
+                    contentUrlKeyEntity);
         });
 
         return facadeWriter;
@@ -463,7 +461,8 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         try
         {
             final KeyGenerator keygen = this.keyAlgorithmProvider != null
-                    ? KeyGenerator.getInstance(this.keyAlgorithm, this.keyAlgorithmProvider) : KeyGenerator.getInstance(this.keyAlgorithm);
+                    ? KeyGenerator.getInstance(this.keyAlgorithm, this.keyAlgorithmProvider)
+                    : KeyGenerator.getInstance(this.keyAlgorithm);
             keygen.init(this.keySize);
             final SecretKey key = keygen.generateKey();
             return key;
