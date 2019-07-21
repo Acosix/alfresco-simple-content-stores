@@ -4,8 +4,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
-        <artifactId>de.acosix.alfresco.maven.module.parent</artifactId>
-        <version>1.0.0.4-SNAPSHOT</version>
+        <artifactId>de.acosix.alfresco.maven.module.parent-5.0.d</artifactId>
+        <version>1.1.0</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores-50</groupId>
@@ -52,17 +52,10 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <!-- Java 7 is out of support -->
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <acosix.utility.version>1.0.6.0</acosix.utility.version>
+        <tukaani.version>1.8</tukaani.version>
 
-        <alfresco.distribution.version>5.0.d</alfresco.distribution.version>
-
-		<acosix.utility.version>1.0.2.1</acosix.utility.version>
-        <tukaani.version>1.5</tukaani.version>
-
-        <logback.version>1.2.3</logback.version>
-        <easymock.version>3.4</easymock.version>
+        <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
         <slf4j.version>1.7.26</slf4j.version>
     </properties>
@@ -259,13 +252,17 @@
             </plugin>
 
             <plugin>
+                <artifactId>maven-toolchains-plugin</artifactId>
+            </plugin>
+
+            <plugin>
                 <groupId>de.thetaphi</groupId>
                 <artifactId>forbiddenapis</artifactId>
             </plugin>
 
             <plugin>
-                <groupId>de.acosix.alfresco.maven</groupId>
-                <artifactId>de.acosix.alfresco.maven.plugins</artifactId>
+                <groupId>de.acosix.maven</groupId>
+                <artifactId>i18n-resources-plugin</artifactId>
             </plugin>
 
             <plugin>
@@ -281,6 +278,19 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>findbugs-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
             </plugin>
 
             <plugin>
