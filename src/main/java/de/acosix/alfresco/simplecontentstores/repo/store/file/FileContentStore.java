@@ -611,7 +611,7 @@ public class FileContentStore extends AbstractContentStore
         Path curPath = filePath.getParent();
         try
         {
-            while (!Files.isSameFile(rootDirectoryPath, curPath))
+            while (curPath != null && Files.exists(curPath) && !Files.isSameFile(rootDirectoryPath, curPath))
             {
                 if (Files.isSymbolicLink(curPath))
                 {
