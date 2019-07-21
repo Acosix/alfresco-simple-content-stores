@@ -73,7 +73,7 @@
         class="${project.artifactId}.store.facade.DeduplicatingContentStore" parent="${moduleId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="${project.artifactId}.store.file.FileContentStore">
-                <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
+                <property name="rootDirectory" value="\${java.io.tmpdir}/Alfresco" />
             </bean>
         </property>
     </bean>
@@ -91,7 +91,7 @@
         class="${project.artifactId}.store.facade.CompressingContentStore" parent="${moduleId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="${project.artifactId}.store.file.FileContentStore">
-                <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
+                <property name="rootDirectory" value="\${java.io.tmpdir}/Alfresco" />
             </bean>
         </property>
     </bean>

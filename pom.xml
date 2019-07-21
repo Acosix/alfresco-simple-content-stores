@@ -4,8 +4,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
-        <artifactId>de.acosix.alfresco.maven.module.parent-5.2.g</artifactId>
-        <version>1.0.0.4-SNAPSHOT</version>
+        <artifactId>de.acosix.alfresco.maven.module.parent-6.0.7</artifactId>
+        <version>1.2.0-SNAPSHOT</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
@@ -52,17 +52,11 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <!-- Java 7 is out of support -->
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <acosix.utility.version>1.0.6.0</acosix.utility.version>
+        <tukaani.version>1.8</tukaani.version>
+        <azure.version>8.3.0</azure.version>
 
-        <alfresco.distribution.version>5.2.g</alfresco.distribution.version>
-
-        <acosix.utility.version>1.0.3.0-SNAPSHOT</acosix.utility.version>
-        <tukaani.version>1.5</tukaani.version>
-        <azure.version>7.0.0</azure.version>
-
-        <easymock.version>3.4</easymock.version>
+        <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
     </properties>
 
@@ -78,13 +72,16 @@
 
     <dependencyManagement>
         <dependencies>
+
+<!--
             <dependency>
                 <groupId>de.acosix.alfresco.utility</groupId>
-                <artifactId>de.acosix.alfresco.utility.repo</artifactId>
+                <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
                 <version>${acosix.utility.version}</version>
                 <scope>provided</scope>
             </dependency>
-
+ -->
+ 
             <dependency>
                 <groupId>org.tukaani</groupId>
                 <artifactId>xz</artifactId>
@@ -121,16 +118,19 @@
             <artifactId>alfresco-repository</artifactId>
         </dependency>
 
+<!--
         <dependency>
             <groupId>de.acosix.alfresco.utility</groupId>
-            <artifactId>de.acosix.alfresco.utility.repo</artifactId>
+            <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
         </dependency>
-
+ -->
+ 
         <dependency>
             <groupId>org.tukaani</groupId>
             <artifactId>xz</artifactId>
         </dependency>
-<!-- 
+
+<!--
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-storage</artifactId>
@@ -241,13 +241,17 @@
             </plugin>
 
             <plugin>
+                <artifactId>maven-toolchains-plugin</artifactId>
+            </plugin>
+
+            <plugin>
                 <groupId>de.thetaphi</groupId>
                 <artifactId>forbiddenapis</artifactId>
             </plugin>
 
             <plugin>
-                <groupId>de.acosix.alfresco.maven</groupId>
-                <artifactId>de.acosix.alfresco.maven.plugins</artifactId>
+                <groupId>de.acosix.maven</groupId>
+                <artifactId>i18n-resources-plugin</artifactId>
             </plugin>
 
             <plugin>
@@ -263,6 +267,19 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>findbugs-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
             </plugin>
 
             <plugin>
