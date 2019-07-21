@@ -52,7 +52,7 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <acosix.utility.version>1.0.6.0</acosix.utility.version>
+        <acosix.utility.version>1.0.3.1</acosix.utility.version>
         <tukaani.version>1.8</tukaani.version>
         <azure.version>8.3.0</azure.version>
 
@@ -73,14 +73,12 @@
     <dependencyManagement>
         <dependencies>
 
-<!--
             <dependency>
                 <groupId>de.acosix.alfresco.utility</groupId>
                 <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
                 <version>${acosix.utility.version}</version>
                 <scope>provided</scope>
             </dependency>
- -->
  
             <dependency>
                 <groupId>org.tukaani</groupId>
@@ -118,12 +116,10 @@
             <artifactId>alfresco-repository</artifactId>
         </dependency>
 
-<!--
         <dependency>
             <groupId>de.acosix.alfresco.utility</groupId>
             <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
         </dependency>
- -->
  
         <dependency>
             <groupId>org.tukaani</groupId>
