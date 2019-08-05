@@ -116,37 +116,17 @@ public class RoutingStoresTest
         createRequest.setNodeType("cm:content");
 
         // test fallback for repository content
-        NodeResponseEntity createdNode = nodes.createNode("-shared-", createRequest);
+        final NodeResponseEntity createdNode = nodes.createNode("-shared-", createRequest);
 
-        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", exclusions);
+        final Path lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", exclusions);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
 
-        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
-
-        // test fallback for generic site content (random site ID will not be mapped to any store)
-        final String siteId = UUID.randomUUID().toString();
-        final String documentLibraryNodeId = createSiteAndGetDocumentLibrary(client, baseUrl, ticket, siteId, siteId);
-
-        createRequest.setName(UUID.randomUUID().toString() + ".html");
-        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
-
-        // different content to avoid false-positive for previous content
-        contentBytes = LoremIpsum.getInstance().getHtmlParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
-        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/html");
-
-        exclusions.add(lastModifiedFileInContent);
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", exclusions);
-
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        final byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
         Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
     }
 
