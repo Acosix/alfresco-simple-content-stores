@@ -21,8 +21,8 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,28 +31,19 @@ import org.slf4j.LoggerFactory;
  *
  * @author Axel Faust
  */
-public class LastModifiedFileFinder implements FileVisitor<Path>
+public class FileCollectingFinder implements FileVisitor<Path>
 {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LastModifiedFileFinder.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileCollectingFinder.class);
 
-    private final Collection<Path> exclusions;
-
-    private long lastModifiedStamp = -1;
-
-    private Path lastModifiedFile;
-
-    public LastModifiedFileFinder(final Collection<Path> exclusions)
-    {
-        this.exclusions = new HashSet<>(exclusions);
-    }
+    private final List<Path> collectedFiles = new ArrayList<>();
 
     /**
-     * @return the lastModifiedFile
+     * @return the collectedFiles
      */
-    public Path getLastModifiedFile()
+    public List<Path> getCollectedFiles()
     {
-        return this.lastModifiedFile;
+        return new ArrayList<>(this.collectedFiles);
     }
 
     /**
@@ -72,17 +63,10 @@ public class LastModifiedFileFinder implements FileVisitor<Path>
     @Override
     public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException
     {
-        // since some file systems may have shoddy "lastModifiedTime" resolutions (*cough* Windows NTFS *cough*) we support an exclusion
-        // list to avoid files we already found in previous runs
         // also: depending on API used, content-less nodes may still create 0-byte content files, which we don't care about
-        if (!this.exclusions.contains(file) && Files.size(file) > 0)
+        if (Files.size(file) > 0)
         {
-            final long lastModifiedTime = Files.getLastModifiedTime(file).toMillis();
-            if (this.lastModifiedStamp == -1 || lastModifiedTime > this.lastModifiedStamp)
-            {
-                this.lastModifiedFile = file;
-                this.lastModifiedStamp = lastModifiedTime;
-            }
+            this.collectedFiles.add(file);
         }
 
         return FileVisitResult.CONTINUE;

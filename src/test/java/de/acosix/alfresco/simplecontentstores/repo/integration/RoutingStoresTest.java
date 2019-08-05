@@ -16,13 +16,13 @@
 package de.acosix.alfresco.simplecontentstores.repo.integration;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -103,8 +103,11 @@ public class RoutingStoresTest
     }
 
     @Test
-    public void fallbackRoutedToDefaultFileStore() throws IOException
+    public void fallbackRoutedToDefaultFileStore() throws Exception
     {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusions = listFilesInAlfData("contentstore");
+
         final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
@@ -118,7 +121,7 @@ public class RoutingStoresTest
         byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", Collections.emptyList());
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", exclusions);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -130,13 +133,15 @@ public class RoutingStoresTest
         final String siteId = UUID.randomUUID().toString();
         final String documentLibraryNodeId = createSiteAndGetDocumentLibrary(client, baseUrl, ticket, siteId, siteId);
 
+        createRequest.setName(UUID.randomUUID().toString() + ".html");
         createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
 
         // different content to avoid false-positive for previous content
         contentBytes = LoremIpsum.getInstance().getHtmlParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/html");
 
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", Collections.singletonList(lastModifiedFileInContent));
+        exclusions.add(lastModifiedFileInContent);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("contentstore", exclusions);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -146,8 +151,14 @@ public class RoutingStoresTest
     }
 
     @Test
-    public void genericSitesRoutedToSiteRoutingFileStore() throws IOException
+    public void genericSitesRoutedToSiteRoutingFileStore() throws Exception
     {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("genericSiteRoutingFileStore/site-1");
+        final Collection<Path> exclusionsSpecificSite2 = listFilesInAlfData("genericSiteRoutingFileStore/site-2");
+        final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData(
+                "genericSiteRoutingFileStore/.otherSites/genericly-routed-site-1/site-2");
+
         final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
@@ -164,7 +175,7 @@ public class RoutingStoresTest
         final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/site-1", Collections.emptyList());
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/site-1", exclusionsSpecificSite1);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -179,7 +190,7 @@ public class RoutingStoresTest
         // can use same content as we are looking for difference in paths
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/site-2", Collections.emptyList());
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/site-2", exclusionsSpecificSite2);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -195,7 +206,7 @@ public class RoutingStoresTest
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
         lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/.otherSites/genericly-routed-site-1",
-                Collections.emptyList());
+                exclusionsGenericSite1);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -247,19 +258,49 @@ public class RoutingStoresTest
         return documentLibrary.getId();
     }
 
-    private static Path findLastModifiedFileInAlfData(final String subPath, final List<Path> exclusions) throws IOException
+    private static Path findLastModifiedFileInAlfData(final String subPath, final Collection<Path> exclusions) throws Exception
     {
         final LastModifiedFileFinder lastModifiedFileFinder = new LastModifiedFileFinder(exclusions);
 
         final Path alfData = Paths.get("target", "docker", "alf_data");
 
         final Path startingPoint = subPath != null && !subPath.isEmpty() ? alfData.resolve(subPath) : alfData;
-        Files.walkFileTree(startingPoint, lastModifiedFileFinder);
+        final Path lastModifiedFile;
+        if (Files.exists(startingPoint))
+        {
+            Files.walkFileTree(startingPoint, lastModifiedFileFinder);
 
-        final Path lastModifiedFile = lastModifiedFileFinder.getLastModifiedFile();
+            lastModifiedFile = lastModifiedFileFinder.getLastModifiedFile();
 
-        LOGGER.debug("Last modified file in alf_data/{} is {}", subPath, lastModifiedFile);
+            LOGGER.debug("Last modified file in alf_data/{} is {}", subPath, lastModifiedFile);
+        }
+        else
+        {
+            lastModifiedFile = null;
+        }
 
         return lastModifiedFile;
+    }
+
+    private static Collection<Path> listFilesInAlfData(final String subPath) throws Exception
+    {
+        final FileCollectingFinder collectingFinder = new FileCollectingFinder();
+
+        final Path alfData = Paths.get("target", "docker", "alf_data");
+
+        final Path startingPoint = subPath != null && !subPath.isEmpty() ? alfData.resolve(subPath) : alfData;
+        final List<Path> files;
+        if (Files.exists(startingPoint))
+        {
+            Files.walkFileTree(startingPoint, collectingFinder);
+
+            files = collectingFinder.getCollectedFiles();
+        }
+        else
+        {
+            files = new ArrayList<>();
+        }
+
+        return files;
     }
 }
