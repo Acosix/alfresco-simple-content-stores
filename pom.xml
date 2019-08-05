@@ -1,16 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2017 - 2019 Acosix GmbH
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
-        <artifactId>de.acosix.alfresco.maven.module.parent-6.0.7</artifactId>
+        <artifactId>de.acosix.alfresco.maven.project.parent-6.1.2</artifactId>
         <version>1.2.0-SNAPSHOT</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
-    <version>1.0.0.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
@@ -53,8 +68,12 @@
         <moduleId>acosix-simple-content-stores</moduleId>
 
         <acosix.utility.version>1.0.3.1</acosix.utility.version>
+        <acosix.alfresco.client.version>0.1.0-SNAPSHOT</acosix.alfresco.client.version>
         <tukaani.version>1.8</tukaani.version>
+        <!-- Not used yet  -->
+        <!-- 
         <azure.version>8.3.0</azure.version>
+         -->
 
         <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
@@ -79,7 +98,7 @@
                 <version>${acosix.utility.version}</version>
                 <scope>provided</scope>
             </dependency>
- 
+
             <dependency>
                 <groupId>org.tukaani</groupId>
                 <artifactId>xz</artifactId>
@@ -87,12 +106,15 @@
                 <scope>compile</scope>
             </dependency>
 
+            <!-- Not used yet  -->
+            <!--
             <dependency>
                 <groupId>com.microsoft.azure</groupId>
                 <artifactId>azure-storage</artifactId>
                 <version>${azure.version}</version>
                 <scope>compile</scope>
             </dependency>
+            -->
 
             <dependency>
                 <groupId>org.easymock</groupId>
@@ -107,6 +129,29 @@
                 <version>${lorem.version}</version>
                 <scope>test</scope>
             </dependency>
+
+            <dependency>
+                <groupId>de.acosix.alfresco.utility</groupId>
+                <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
+                <version>${acosix.utility.version}</version>
+                <classifier>installable</classifier>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>de.acosix.alfresco.rest.client</groupId>
+                <artifactId>de.acosix.alfresco.rest.client</artifactId>
+                <version>${acosix.alfresco.client.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>de.acosix.alfresco.rest.client</groupId>
+                <artifactId>de.acosix.alfresco.rest.client</artifactId>
+                <version>${acosix.alfresco.client.version}</version>
+                <classifier>tests</classifier>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -114,13 +159,40 @@
         <dependency>
             <groupId>org.alfresco</groupId>
             <artifactId>alfresco-repository</artifactId>
+            <exclusions>
+                <!-- xmlfactory and cxf mess with resteasy / JAX-RS in integration tests -->
+                <!-- opencmis exclusion excludes various transitive cxf inclusions -->
+                <!-- none of these are needed for this specific addon -->
+                <exclusion>
+                    <groupId>org.alfresco</groupId>
+                    <artifactId>alfresco-xmlfactory</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.chemistry.opencmis</groupId>
+                    <artifactId>chemistry-opencmis-client-impl</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.chemistry.opencmis</groupId>
+                    <artifactId>chemistry-opencmis-server-bindings</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.cxf</groupId>
+                    <artifactId>cxf-rt-rs-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>de.acosix.alfresco.utility</groupId>
             <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
         </dependency>
- 
+
+        <dependency>
+            <groupId>de.acosix.alfresco.utility</groupId>
+            <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
+            <classifier>installable</classifier>
+        </dependency>
+
         <dependency>
             <groupId>org.tukaani</groupId>
             <artifactId>xz</artifactId>
@@ -156,133 +228,82 @@
             <groupId>com.thedeanda</groupId>
             <artifactId>lorem</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-jaxb-provider</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-jackson2-provider</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.acosix.alfresco.rest.client</groupId>
+            <artifactId>de.acosix.alfresco.rest.client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.acosix.alfresco.rest.client</groupId>
+            <artifactId>de.acosix.alfresco.rest.client</artifactId>
+            <classifier>tests</classifier>
+        </dependency>
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
 
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-                <excludes>
-                    <exclude>.gitkeep</exclude>
-                </excludes>
-            </resource>
-            <!-- the following are only for mapping source folders in Eclipse -->
-            <resource>
-                <directory>src/main/config</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/globalConfig</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/messages</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/webscripts</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/webapp</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-        </resources>
-        <testResources>
-            <testResource>
-                <directory>src/test/resources</directory>
-                <filtering>true</filtering>
-                <excludes>
-                    <exclude>.gitkeep</exclude>
-                </excludes>
-            </testResource>
-        </testResources>
+                <!-- some image customisations -->
+                <!-- Maven + docker-maven-plugin result in somewhat weird inheritance handling -->
+                <!-- (relying on positional order of images for overrides) -->
+                <plugin>
+                    <groupId>io.fabric8</groupId>
+                    <artifactId>docker-maven-plugin</artifactId>
+                    <configuration>
+                        <images>
+                            <image>
+                                <!-- no change to postgres image (first image in parent POM) -->
+                            </image>
+                            <image>
+                                <!-- customise repository image (second image in parent POM) -->
+                                <build>
+                                    <!-- add Dockerfile to repository image for post-assembly customisation  -->
+                                    <dockerFile>Repository-Dockerfile</dockerFile>
+                                </build>
+                                <run>
+                                    <!-- add log config + log directory mount to just the contentstore -->
+                                    <!-- (cannot be done in parent POM due to hard requirement on specific project structure -->
+                                    <!-- for tests to easily check contentstore files, we also mount alf_data locally, not in a volume -->
+                                    <volumes>
+                                        <bind>
+                                            <volume>${project.build.directory}/docker/alf_data:/usr/local/tomcat/alf_data</volume>
+                                            <volume>${project.build.directory}/docker/repository-logs:/usr/local/tomcat/logs</volume>
+                                        </bind>
+                                    </volumes>
+                                </run>
+                            </image>
+                        </images>
+                    </configuration>
+                </plugin>
+
+            </plugins>
+        </pluginManagement>
 
         <plugins>
 
-            <plugin>
-                <artifactId>maven-enforcer-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-resources-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-jar-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-javadoc-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-toolchains-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>de.thetaphi</groupId>
-                <artifactId>forbiddenapis</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>de.acosix.maven</groupId>
-                <artifactId>i18n-resources-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.alfresco.maven.plugin</groupId>
-                <artifactId>alfresco-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>de.acosix.maven</groupId>
-                <artifactId>jshint-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>findbugs-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-failsafe-plugin</artifactId>
-            </plugin>
-
+            <!-- Docker use inherited from parent POM is optional - this enables it explicitly  -->
             <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
             </plugin>
 
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-            </plugin>
-
         </plugins>
-
     </build>
 </project>
