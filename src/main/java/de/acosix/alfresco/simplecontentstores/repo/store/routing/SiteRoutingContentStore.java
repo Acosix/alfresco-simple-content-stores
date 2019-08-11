@@ -272,17 +272,6 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
     }
 
     /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    protected List<ContentStore> getStores(final String contentUrl)
-    {
-        // TODO filter based on protocol
-        return this.getAllStores();
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override

@@ -278,7 +278,7 @@
                                     <dockerFile>Repository-Dockerfile</dockerFile>
                                 </build>
                                 <run>
-                                    <!-- add log config + log directory mount to just the contentstore -->
+                                    <!-- add log directory mount to just the contentstore -->
                                     <!-- (cannot be done in parent POM due to hard requirement on specific project structure -->
                                     <!-- for tests to easily check contentstore files, we also mount alf_data locally, not in a volume -->
                                     <volumes>

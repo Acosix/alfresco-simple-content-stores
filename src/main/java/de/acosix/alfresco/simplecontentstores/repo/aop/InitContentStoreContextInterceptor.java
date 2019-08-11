@@ -22,6 +22,8 @@ import org.alfresco.repo.content.ContentStore;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -37,6 +39,8 @@ import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreCon
  */
 public class InitContentStoreContextInterceptor implements MethodInterceptor, ApplicationContextAware
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(InitContentStoreContextInterceptor.class);
 
     protected ApplicationContext applicationContext;
 
@@ -77,6 +81,9 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor, Ap
             }
             catch (final Throwable ex)
             {
+                // only log as debug, since our rethrown exception should be properly logged by the top caller (web script or other API)
+                // (Some APIs, such as Alfresco Public ReST API, do horrible jobs of logging though)
+                LOGGER.debug("Error during call on ContentStore API", ex);
                 throw new ContentIOException("Error during call on ContentStore API", ex);
             }
         });

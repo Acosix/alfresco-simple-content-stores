@@ -321,6 +321,7 @@ public class FileContentStore extends AbstractContentStore
         }
         else
         {
+            LOGGER.debug("Checking if {} exists as a file", contentUrl);
             final Path filePath = this.makeFilePath(effectiveContentUrl);
             result = Files.exists(filePath) && !Files.isDirectory(filePath);
         }
@@ -348,6 +349,7 @@ public class FileContentStore extends AbstractContentStore
         {
             try
             {
+                LOGGER.debug("Checking if {} exists as a file to construct a reader", contentUrl);
                 final Path filePath = this.makeFilePath(effectiveContentUrl);
                 if (Files.exists(filePath) && !Files.isDirectory(filePath))
                 {
@@ -362,7 +364,7 @@ public class FileContentStore extends AbstractContentStore
                     reader = new EmptyContentReader(effectiveContentUrl);
                 }
 
-                LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {]", effectiveContentUrl, filePath, reader);
+                LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {}", effectiveContentUrl, filePath, reader);
             }
             catch (final UnsupportedContentUrlException e)
             {
@@ -397,6 +399,7 @@ public class FileContentStore extends AbstractContentStore
         }
         else
         {
+            LOGGER.debug("Checking if {} exists as a file to be deleted", contentUrl);
             final Path filePath = this.makeFilePath(effectiveContentUrl);
             if (!Files.isRegularFile(filePath))
             {
@@ -435,7 +438,7 @@ public class FileContentStore extends AbstractContentStore
     public String toString()
     {
         final StringBuilder sb = new StringBuilder(36);
-        sb.append("FileContentStore").append("[ root=").append(this.rootDirectory).append(", allowRandomAccess=")
+        sb.append(this.getClass().getSimpleName()).append("[ root=").append(this.rootDirectory).append(", allowRandomAccess=")
                 .append(this.allowRandomAccess).append(", readOnly=").append(this.readOnly).append("]");
         return sb.toString();
     }
@@ -500,6 +503,7 @@ public class FileContentStore extends AbstractContentStore
             throw new UnsupportedOperationException("This store is currently read-only: " + this);
         }
 
+        LOGGER.debug("Creating new file for {}", newContentUrl);
         final Path filePath = this.makeFilePath(newContentUrl);
 
         if (Files.exists(filePath))
@@ -508,7 +512,6 @@ public class FileContentStore extends AbstractContentStore
                     + this + "\n" + "   new URL: " + newContentUrl);
         }
 
-        LOGGER.trace("Creating content file {}", filePath);
         final Path parentPath = filePath.getParent();
         // unlikely but possible due to API definition
         if (parentPath != null)

@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.client.ClientRequestFilter;
 import javax.ws.rs.core.UriBuilder;
 
@@ -57,6 +58,7 @@ import de.acosix.alfresco.rest.client.api.SitesV1;
 import de.acosix.alfresco.rest.client.jackson.RestAPIBeanDeserializerModifier;
 import de.acosix.alfresco.rest.client.model.authentication.TicketEntity;
 import de.acosix.alfresco.rest.client.model.authentication.TicketRequest;
+import de.acosix.alfresco.rest.client.model.nodes.NodeCopyMoveRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeCreationRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeResponseEntity;
 import de.acosix.alfresco.rest.client.model.sites.SiteContainerResponseEntity;
@@ -131,19 +133,19 @@ public class RoutingStoresTest
     }
 
     @Test
-    public void genericSitesRoutedToSiteRoutingFileStore() throws Exception
+    public void siteRoutedToSiteRoutingFileStore_uniqueStores() throws Exception
     {
         // need to record pre-existing files to exclude in verification
-        final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("genericSiteRoutingFileStore/site-1");
-        final Collection<Path> exclusionsSpecificSite2 = listFilesInAlfData("genericSiteRoutingFileStore/site-2");
-        final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData(
-                "genericSiteRoutingFileStore/.otherSites/genericly-routed-site-1/site-2");
+        final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
+        final Collection<Path> exclusionsSpecificSite2 = listFilesInAlfData("siteRoutingFileStore1/site-2");
+        final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
+        final Collection<Path> exclusionsGenericSite2 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2");
 
         final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
-        String documentLibraryNodeId = createSiteAndGetDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-1",
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-1",
                 "Explicit Site 1");
 
         final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
@@ -155,7 +157,7 @@ public class RoutingStoresTest
         final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/site-1", exclusionsSpecificSite1);
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-1", exclusionsSpecificSite1);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -164,13 +166,13 @@ public class RoutingStoresTest
         Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
 
         // 2) verify routing for 2nd explicit site
-        documentLibraryNodeId = createSiteAndGetDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
 
         createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
         // can use same content as we are looking for difference in paths
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/site-2", exclusionsSpecificSite2);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-2", exclusionsSpecificSite2);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
@@ -179,13 +181,13 @@ public class RoutingStoresTest
         Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
 
         // 3) check generic filing for non-explicitly configured sites
-        documentLibraryNodeId = createSiteAndGetDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
 
         createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
         // can use same content as we are looking for difference in paths
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("genericSiteRoutingFileStore/.otherSites/genericly-routed-site-1",
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1",
                 exclusionsGenericSite1);
 
         Assert.assertNotNull(lastModifiedFileInContent);
@@ -193,6 +195,434 @@ public class RoutingStoresTest
 
         fileBytes = Files.readAllBytes(lastModifiedFileInContent);
         Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 4) verify generic filing for 2nd non-explicitly configured sites
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-2", "Generic Site 2");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2",
+                exclusionsGenericSite2);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+    }
+
+    @Test
+    public void siteRoutedToSiteRoutingFileStore_sharedStores() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
+        final Collection<Path> exclusionsGenericSites = listFilesInAlfData("siteRoutingFileStore2/sharedGenericSites");
+
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        // 1) check routing for 1st explicit site
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-3",
+                "Explicit Site 3");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedExplicitSites",
+                exclusionsSpecificSites);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) verify routing for 2nd explicit site
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-4", "Explicit Site 4");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        exclusionsSpecificSites.add(lastModifiedFileInContent);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedExplicitSites", exclusionsSpecificSites);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 3) check generic filing for non-explicitly configured sites
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-3", "Generic Site 3");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 4) verify generic filing for 2nd non-explicitly configured sites
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-4", "Generic Site 4");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        exclusionsGenericSites.add(lastModifiedFileInContent);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+    }
+
+    @Test
+    public void siteRoutedToSiteRoutingFileStore_copyToSiteWithDifferentStoreWithOnCopyMoveHandling() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
+        final Collection<Path> exclusionsSpecificSite2 = listFilesInAlfData("siteRoutingFileStore1/site-2");
+        final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
+        final Collection<Path> exclusionsGenericSite2 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2");
+
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        // 1) check routing for 1st explicit site
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-1",
+                "Explicit Site 1");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-1", exclusionsSpecificSite1);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) copy to 2nd explicit site and verify new, identical content was created
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
+
+        final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
+        copyRq.setTargetParentId(documentLibraryNodeId);
+
+        nodes.copyNode(createdNode.getId(), copyRq);
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-2", exclusionsSpecificSite2);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 3) check generic filing for non-explicitly configured sites
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1",
+                exclusionsGenericSite1);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) copy to 2nd generic site and verify new, identical content was created
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-2", "Generic Site 2");
+
+        copyRq.setTargetParentId(documentLibraryNodeId);
+
+        nodes.copyNode(createdNode.getId(), copyRq);
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2",
+                exclusionsGenericSite2);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+    }
+
+    @Test
+    public void siteRoutedToSiteRoutingFileStore_copyToSiteWithDifferentStoreWithoutOnCopyMoveHandling() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
+        final Collection<Path> exclusionsGenericSites = listFilesInAlfData("siteRoutingFileStore2/sharedGenericSites");
+
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        // 1) check routing for 1st explicit site
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-3",
+                "Explicit Site 3");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        final NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedExplicitSites",
+                exclusionsSpecificSites);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        final byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) copy to generic site and verify no new content was created
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-3", "Generic Site 3");
+
+        final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
+        copyRq.setTargetParentId(documentLibraryNodeId);
+
+        nodes.copyNode(createdNode.getId(), copyRq);
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
+
+        Assert.assertNull(lastModifiedFileInContent);
+    }
+
+    @Test
+    public void siteRoutedToSiteRoutingFileStore_copyToSiteWithSameStore() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
+        final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
+
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        // 1) check routing for 1st explicit site
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-1",
+                "Explicit Site 1");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-1", exclusionsSpecificSite1);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) copy to same site and verify no new content file was created
+        final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
+        copyRq.setTargetParentId(documentLibraryNodeId);
+        copyRq.setName("Copy of " + createdNode.getName());
+
+        nodes.copyNode(createdNode.getId(), copyRq);
+
+        exclusionsSpecificSite1.add(lastModifiedFileInContent);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-1", exclusionsSpecificSite1);
+
+        Assert.assertNull(lastModifiedFileInContent);
+
+        // 3) check generic filing for non-explicitly configured sites
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1",
+                exclusionsGenericSite1);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 4) copy to same site and verify no new content file was created
+        copyRq.setTargetParentId(documentLibraryNodeId);
+        copyRq.setName("Copy of " + createdNode.getName());
+
+        nodes.copyNode(createdNode.getId(), copyRq);
+
+        exclusionsGenericSite1.add(lastModifiedFileInContent);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1",
+                exclusionsGenericSite1);
+
+        Assert.assertNull(lastModifiedFileInContent);
+    }
+
+    @Test
+    public void siteRoutedToSiteRoutingFileStore_moveToSiteWithDifferentStoreWithOnCopyMoveHandling() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
+        final Collection<Path> exclusionsSpecificSite2 = listFilesInAlfData("siteRoutingFileStore1/site-2");
+        final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
+        final Collection<Path> exclusionsGenericSite2 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2");
+
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        // 1) check routing for 1st explicit site
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-1",
+                "Explicit Site 1");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-1", exclusionsSpecificSite1);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) move to 2nd explicit site and verify new content was created + previous (orphaned) content eager deleted
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
+
+        final NodeCopyMoveRequestEntity moveRq = new NodeCopyMoveRequestEntity();
+        moveRq.setTargetParentId(documentLibraryNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-2", exclusionsSpecificSite2);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 3) check generic filing for non-explicitly configured sites
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        // can use same content as we are looking for difference in paths
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1",
+                exclusionsGenericSite1);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) move to 2nd generic site and verify new content was created + previous (orphaned) content eager deleted
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-2", "Generic Site 2");
+
+        moveRq.setTargetParentId(documentLibraryNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2",
+                exclusionsGenericSite2);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+    }
+
+    @Test
+    public void siteRoutedToSiteRoutingFileStore_moveToSiteWithDifferentStoreWithoutOnCopyMoveHandling() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
+        final Collection<Path> exclusionsGenericSites = listFilesInAlfData("siteRoutingFileStore2/sharedGenericSites");
+
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        // 1) check routing for 1st explicit site
+        String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-3",
+                "Explicit Site 3");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        final NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedExplicitSites",
+                exclusionsSpecificSites);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+
+        final byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
+        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+
+        // 2) move to generic site and verify no new content was created while old still exists
+        documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-3", "Generic Site 3");
+
+        final NodeCopyMoveRequestEntity moveRq = new NodeCopyMoveRequestEntity();
+        moveRq.setTargetParentId(documentLibraryNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
+
+        Assert.assertNull(lastModifiedFileInContent);
     }
 
     // TODO Tests for other routing store configurations
@@ -222,19 +652,33 @@ public class RoutingStoresTest
         return targetServer.proxy(api);
     }
 
-    private static String createSiteAndGetDocumentLibrary(final ResteasyClient client, final String baseUrl, final String ticket,
+    private static String getOrCreateSiteAndDocumentLibrary(final ResteasyClient client, final String baseUrl, final String ticket,
             final String siteId, final String siteTitle)
     {
         final SitesV1 sites = createAPI(client, baseUrl, SitesV1.class, ticket);
 
-        final SiteCreationRequestEntity siteToCreate = new SiteCreationRequestEntity();
-        siteToCreate.setId(siteId);
-        siteToCreate.setTitle(siteTitle);
-        siteToCreate.setVisibility(SiteVisibility.PUBLIC);
+        SiteResponseEntity site = null;
 
-        final SiteResponseEntity createdSite = sites.createSite(siteToCreate, true, true, null);
+        try
+        {
+            site = sites.getSite(siteId);
+        }
+        catch (final NotFoundException ignore)
+        {
+            // getOrCreate implies that site might not exist (yet)
+        }
 
-        final SiteContainerResponseEntity documentLibrary = sites.getSiteContainer(createdSite.getId(), SiteService.DOCUMENT_LIBRARY);
+        if (site == null)
+        {
+            final SiteCreationRequestEntity siteToCreate = new SiteCreationRequestEntity();
+            siteToCreate.setId(siteId);
+            siteToCreate.setTitle(siteTitle);
+            siteToCreate.setVisibility(SiteVisibility.PUBLIC);
+
+            site = sites.createSite(siteToCreate, true, true, null);
+        }
+
+        final SiteContainerResponseEntity documentLibrary = sites.getSiteContainer(site.getId(), SiteService.DOCUMENT_LIBRARY);
         return documentLibrary.getId();
     }
 

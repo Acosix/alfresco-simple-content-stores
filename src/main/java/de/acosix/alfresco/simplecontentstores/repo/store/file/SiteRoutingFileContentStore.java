@@ -362,6 +362,8 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         final NodeRef newParent = newChildAssocRef.getParentRef();
         if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(movedNode.getStoreRef()) && !EqualsHelper.nullSafeEquals(oldParent, newParent))
         {
+            LOGGER.debug("Processing onMoveNode for {} from {} to {}", movedNode, oldChildAssocRef, newChildAssocRef);
+
             // check for actual site move
             // can't use siteService without creating circular dependency graph
             // resolve all ancestors via old parent (up until site) and cross-check with ancestors of new parent
@@ -408,14 +410,13 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         // only act on active nodes which can actually be in a site
         if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(targetNodeRef.getStoreRef()))
         {
+            LOGGER.debug("Processing onCopyComplete for copy from {} to {}", sourceNodeRef, targetNodeRef);
             this.checkAndProcessContentPropertiesMove(targetNodeRef);
         }
     }
 
     protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode)
     {
-        final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
-
         // just copied/moved so properties should be cached
         final Map<QName, Serializable> properties = this.nodeService.getProperties(affectedNode);
 
@@ -426,6 +427,7 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
             // explicit value wins
             if (moveStoresOnChangeOptionValue != null)
             {
+                LOGGER.debug("Using override property value {} to determine doMove state", moveStoresOnChangeOptionValue);
                 doMove = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
             }
             else
@@ -437,24 +439,33 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         {
             doMove = this.moveStoresOnNodeMoveOrCopy;
         }
+        LOGGER.debug("Determined doMove flag state of {} for {}", doMove, affectedNode);
 
         if (doMove)
         {
             final Collection<QName> setProperties = new HashSet<>(properties.keySet());
+
+            final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
             setProperties.retainAll(contentProperties);
 
-            // only act if node actually has content properties set
+            LOGGER.debug("Found {} set content properties on {}", setProperties.size(), affectedNode);
+
             if (!setProperties.isEmpty())
             {
                 final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
                 for (final QName contentProperty : setProperties)
                 {
                     final Serializable value = properties.get(contentProperty);
-                    contentPropertiesMap.put(contentProperty, value);
+                    if (value != null)
+                    {
+                        contentPropertiesMap.put(contentProperty, value);
+                    }
                 }
 
                 if (!contentPropertiesMap.isEmpty())
                 {
+                    LOGGER.debug("Processing {} set content properties with non-null values on {}", contentPropertiesMap.size(),
+                            affectedNode);
                     ContentStoreContext.executeInNewContext(() -> {
                         SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
                         return null;
@@ -510,18 +521,8 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         }
 
         final ContentStore targetStore = this.storeByProtocol.get(protocol);
+        LOGGER.debug("Selected store {}", targetStore);
         return targetStore;
-    }
-
-    /**
-     *
-     * {@inheritDoc}
-     */
-    @Override
-    protected List<ContentStore> getStores(final String contentUrl)
-    {
-        // TODO filter based on protocol
-        return this.getAllStores();
     }
 
     protected void afterPropertiesSet_setupDefaultStore()
@@ -594,6 +595,17 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
                 siteAwareFileContentStore.afterPropertiesSet();
             }
+
+            if (!this.rootAbsolutePathsBySite.keySet().containsAll(this.protocolsBySite.keySet()))
+            {
+                throw new IllegalStateException(
+                        "Invalid store configuration: 'protocolsBySite' specifies protocols for more sites than 'rootAbsolutePathsBySite' specifies storage locations");
+            }
+        }
+        else if (this.protocolsBySite != null && !this.protocolsBySite.isEmpty())
+        {
+            throw new IllegalStateException(
+                    "Invalid store configuration: 'protocolsBySite' is set without corresponding 'rootAbsolutePathsBySite'");
         }
 
         if (this.rootAbsolutePathsBySitePreset != null)
@@ -639,6 +651,17 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
                 siteAwareFileContentStore.afterPropertiesSet();
             }
+
+            if (!this.rootAbsolutePathsBySitePreset.keySet().containsAll(this.protocolsBySitePreset.keySet()))
+            {
+                throw new IllegalStateException(
+                        "Invalid store configuration: 'protocolsBySitePreset' specifies protocols for more sites than 'rootAbsolutePathsBySitePreset' specifies storage locations");
+            }
+        }
+        else if (this.protocolsBySitePreset != null && !this.protocolsBySitePreset.isEmpty())
+        {
+            throw new IllegalStateException(
+                    "Invalid store configuration: 'protocolsBySitePreset' is set without corresponding 'rootAbsolutePathsBySitePreset'");
         }
     }
 
