@@ -19,89 +19,53 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.UUID;
 
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.client.ClientRequestFilter;
-import javax.ws.rs.core.UriBuilder;
-
-import org.alfresco.service.cmr.site.SiteService;
-import org.apache.commons.codec.binary.Base64;
 import org.jboss.resteasy.client.jaxrs.ResteasyClient;
-import org.jboss.resteasy.client.jaxrs.ResteasyWebTarget;
-import org.jboss.resteasy.client.jaxrs.internal.LocalResteasyProviderFactory;
-import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
-import org.jboss.resteasy.core.providerfactory.ResteasyProviderFactoryImpl;
-import org.jboss.resteasy.plugins.providers.RegisterBuiltin;
-import org.jboss.resteasy.plugins.providers.jackson.ResteasyJackson2Provider;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.thedeanda.lorem.LoremIpsum;
 
-import de.acosix.alfresco.rest.client.api.AuthenticationV1;
 import de.acosix.alfresco.rest.client.api.NodesV1;
-import de.acosix.alfresco.rest.client.api.SitesV1;
-import de.acosix.alfresco.rest.client.jackson.RestAPIBeanDeserializerModifier;
-import de.acosix.alfresco.rest.client.model.authentication.TicketEntity;
-import de.acosix.alfresco.rest.client.model.authentication.TicketRequest;
+import de.acosix.alfresco.rest.client.api.PeopleV1;
 import de.acosix.alfresco.rest.client.model.nodes.NodeCopyMoveRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeCreationRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeResponseEntity;
-import de.acosix.alfresco.rest.client.model.sites.SiteContainerResponseEntity;
-import de.acosix.alfresco.rest.client.model.sites.SiteCreationRequestEntity;
-import de.acosix.alfresco.rest.client.model.sites.SiteResponseEntity;
-import de.acosix.alfresco.rest.client.model.sites.SiteVisibility;
-import de.acosix.alfresco.rest.client.resteasy.MultiValuedParamConverterProvider;
+import de.acosix.alfresco.rest.client.model.people.PersonRequestEntity;
 
 /**
  *
  * @author Axel Faust
  */
-public class RoutingStoresTest
+public class RoutingStoresTest extends AbstractStoresTest
 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(RoutingStoresTest.class);
-
-    private static final String baseUrl = "http://localhost:8082/alfresco";
 
     private static ResteasyClient client;
 
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
+    private static String testUser;
+
+    private static String testUserPassword;
 
     @BeforeClass
     public static void setup()
     {
-        final SimpleModule module = new SimpleModule();
-        module.setDeserializerModifier(new RestAPIBeanDeserializerModifier());
+        client = setupResteasyClient();
 
-        final ResteasyJackson2Provider resteasyJacksonProvider = new ResteasyJackson2Provider();
-        final ObjectMapper mapper = new ObjectMapper();
-        mapper.setSerializationInclusion(Include.NON_EMPTY);
-        mapper.registerModule(module);
-        resteasyJacksonProvider.setMapper(mapper);
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final PeopleV1 people = createAPI(client, baseUrl, PeopleV1.class, ticket);
 
-        final LocalResteasyProviderFactory resteasyProviderFactory = new LocalResteasyProviderFactory(new ResteasyProviderFactoryImpl());
-        resteasyProviderFactory.register(resteasyJacksonProvider);
-        // will cause a warning regarding Jackson provider which is already registered
-        RegisterBuiltin.register(resteasyProviderFactory);
-        resteasyProviderFactory.register(new MultiValuedParamConverterProvider());
-
-        client = new ResteasyClientBuilderImpl().providerFactory(resteasyProviderFactory).build();
+        final PersonRequestEntity personToCreate = new PersonRequestEntity();
+        testUser = UUID.randomUUID().toString();
+        personToCreate.setEmail(testUser + "@example.com");
+        personToCreate.setFirstName("Test");
+        personToCreate.setLastName("Guy");
+        personToCreate.setId(testUser);
+        testUserPassword = UUID.randomUUID().toString();
+        personToCreate.setPassword(testUserPassword);
+        people.createPerson(personToCreate);
     }
 
     @Test
@@ -110,7 +74,7 @@ public class RoutingStoresTest
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusions = listFilesInAlfData("contentstore");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
@@ -127,9 +91,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        final byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     @Test
@@ -141,7 +104,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
         final Collection<Path> exclusionsGenericSite2 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -161,9 +124,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) verify routing for 2nd explicit site
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
@@ -176,9 +138,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 3) check generic filing for non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
@@ -192,9 +153,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 4) verify generic filing for 2nd non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-2", "Generic Site 2");
@@ -208,9 +168,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     @Test
@@ -220,7 +179,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
         final Collection<Path> exclusionsGenericSites = listFilesInAlfData("siteRoutingFileStore2/sharedGenericSites");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -241,9 +200,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) verify routing for 2nd explicit site
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-4", "Explicit Site 4");
@@ -257,9 +215,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 3) check generic filing for non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-3", "Generic Site 3");
@@ -272,9 +229,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 4) verify generic filing for 2nd non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-4", "Generic Site 4");
@@ -288,9 +244,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     @Test
@@ -302,7 +257,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
         final Collection<Path> exclusionsGenericSite2 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -322,9 +277,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) copy to 2nd explicit site and verify new, identical content was created
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
@@ -332,15 +286,14 @@ public class RoutingStoresTest
         final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
         copyRq.setTargetParentId(documentLibraryNodeId);
 
-        nodes.copyNode(createdNode.getId(), copyRq);
+        NodeResponseEntity copyNode = nodes.copyNode(createdNode.getId(), copyRq);
 
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-2", exclusionsSpecificSite2);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copyNode.getId())));
 
         // 3) check generic filing for non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
@@ -354,25 +307,23 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) copy to 2nd generic site and verify new, identical content was created
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-2", "Generic Site 2");
 
         copyRq.setTargetParentId(documentLibraryNodeId);
 
-        nodes.copyNode(createdNode.getId(), copyRq);
+        copyNode = nodes.copyNode(createdNode.getId(), copyRq);
 
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2",
                 exclusionsGenericSite2);
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copyNode.getId())));
     }
 
     @Test
@@ -382,7 +333,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
         final Collection<Path> exclusionsGenericSites = listFilesInAlfData("siteRoutingFileStore2/sharedGenericSites");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -403,9 +354,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        final byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) copy to generic site and verify no new content was created
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-3", "Generic Site 3");
@@ -413,11 +363,12 @@ public class RoutingStoresTest
         final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
         copyRq.setTargetParentId(documentLibraryNodeId);
 
-        nodes.copyNode(createdNode.getId(), copyRq);
+        final NodeResponseEntity copyNode = nodes.copyNode(createdNode.getId(), copyRq);
 
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
 
         Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copyNode.getId())));
     }
 
     @Test
@@ -427,7 +378,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
         final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -447,21 +398,21 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) copy to same site and verify no new content file was created
         final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
         copyRq.setTargetParentId(documentLibraryNodeId);
         copyRq.setName("Copy of " + createdNode.getName());
 
-        nodes.copyNode(createdNode.getId(), copyRq);
+        NodeResponseEntity copyNode = nodes.copyNode(createdNode.getId(), copyRq);
 
         exclusionsSpecificSite1.add(lastModifiedFileInContent);
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/site-1", exclusionsSpecificSite1);
 
         Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copyNode.getId())));
 
         // 3) check generic filing for non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
@@ -475,21 +426,21 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 4) copy to same site and verify no new content file was created
         copyRq.setTargetParentId(documentLibraryNodeId);
         copyRq.setName("Copy of " + createdNode.getName());
 
-        nodes.copyNode(createdNode.getId(), copyRq);
+        copyNode = nodes.copyNode(createdNode.getId(), copyRq);
 
         exclusionsGenericSite1.add(lastModifiedFileInContent);
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1",
                 exclusionsGenericSite1);
 
         Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copyNode.getId())));
     }
 
     @Test
@@ -501,7 +452,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsGenericSite1 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-1");
         final Collection<Path> exclusionsGenericSite2 = listFilesInAlfData("siteRoutingFileStore1/.otherSites/genericly-routed-site-2");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -521,9 +472,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) move to 2nd explicit site and verify new content was created + previous (orphaned) content eager deleted
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "explicitly-routed-site-2", "Explicit Site 2");
@@ -539,9 +489,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 3) check generic filing for non-explicitly configured sites
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-1", "Generic Site 1");
@@ -555,9 +504,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) move to 2nd generic site and verify new content was created + previous (orphaned) content eager deleted
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-2", "Generic Site 2");
@@ -573,9 +521,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     @Test
@@ -585,7 +532,7 @@ public class RoutingStoresTest
         final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
         final Collection<Path> exclusionsGenericSites = listFilesInAlfData("siteRoutingFileStore2/sharedGenericSites");
 
-        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
         // 1) check routing for 1st explicit site
@@ -606,9 +553,8 @@ public class RoutingStoresTest
 
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-
-        final byte[] fileBytes = Files.readAllBytes(lastModifiedFileInContent);
-        Assert.assertTrue(Arrays.equals(contentBytes, fileBytes));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // 2) move to generic site and verify no new content was created while old still exists
         documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "genericly-routed-site-3", "Generic Site 3");
@@ -623,108 +569,9 @@ public class RoutingStoresTest
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
 
         Assert.assertNull(lastModifiedFileInContent);
+
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     // TODO Tests for other routing store configurations
-
-    private static String obtainTicket(final ResteasyClient client, final String baseUrl, final String user, final String password)
-    {
-        final ResteasyWebTarget targetServer = client.target(UriBuilder.fromPath(baseUrl));
-        final AuthenticationV1 authentication = targetServer.proxy(AuthenticationV1.class);
-
-        final TicketRequest rq = new TicketRequest();
-        rq.setUserId(user);
-        rq.setPassword(password);
-        final TicketEntity ticket = authentication.createTicket(rq);
-        return ticket.getId();
-    }
-
-    private static <T> T createAPI(final ResteasyClient client, final String baseUrl, final Class<T> api, final String ticket)
-    {
-        final ResteasyWebTarget targetServer = client.target(UriBuilder.fromPath(baseUrl));
-
-        final ClientRequestFilter rqAuthFilter = (requestContext) -> {
-            final String base64Token = Base64.encodeBase64String(ticket.getBytes(StandardCharsets.UTF_8));
-            requestContext.getHeaders().add("Authorization", "Basic " + base64Token);
-        };
-        targetServer.register(rqAuthFilter);
-
-        return targetServer.proxy(api);
-    }
-
-    private static String getOrCreateSiteAndDocumentLibrary(final ResteasyClient client, final String baseUrl, final String ticket,
-            final String siteId, final String siteTitle)
-    {
-        final SitesV1 sites = createAPI(client, baseUrl, SitesV1.class, ticket);
-
-        SiteResponseEntity site = null;
-
-        try
-        {
-            site = sites.getSite(siteId);
-        }
-        catch (final NotFoundException ignore)
-        {
-            // getOrCreate implies that site might not exist (yet)
-        }
-
-        if (site == null)
-        {
-            final SiteCreationRequestEntity siteToCreate = new SiteCreationRequestEntity();
-            siteToCreate.setId(siteId);
-            siteToCreate.setTitle(siteTitle);
-            siteToCreate.setVisibility(SiteVisibility.PUBLIC);
-
-            site = sites.createSite(siteToCreate, true, true, null);
-        }
-
-        final SiteContainerResponseEntity documentLibrary = sites.getSiteContainer(site.getId(), SiteService.DOCUMENT_LIBRARY);
-        return documentLibrary.getId();
-    }
-
-    private static Path findLastModifiedFileInAlfData(final String subPath, final Collection<Path> exclusions) throws Exception
-    {
-        final LastModifiedFileFinder lastModifiedFileFinder = new LastModifiedFileFinder(exclusions);
-
-        final Path alfData = Paths.get("target", "docker", "alf_data");
-
-        final Path startingPoint = subPath != null && !subPath.isEmpty() ? alfData.resolve(subPath) : alfData;
-        final Path lastModifiedFile;
-        if (Files.exists(startingPoint))
-        {
-            Files.walkFileTree(startingPoint, lastModifiedFileFinder);
-
-            lastModifiedFile = lastModifiedFileFinder.getLastModifiedFile();
-
-            LOGGER.debug("Last modified file in alf_data/{} is {}", subPath, lastModifiedFile);
-        }
-        else
-        {
-            lastModifiedFile = null;
-        }
-
-        return lastModifiedFile;
-    }
-
-    private static Collection<Path> listFilesInAlfData(final String subPath) throws Exception
-    {
-        final FileCollectingFinder collectingFinder = new FileCollectingFinder();
-
-        final Path alfData = Paths.get("target", "docker", "alf_data");
-
-        final Path startingPoint = subPath != null && !subPath.isEmpty() ? alfData.resolve(subPath) : alfData;
-        final List<Path> files;
-        if (Files.exists(startingPoint))
-        {
-            Files.walkFileTree(startingPoint, collectingFinder);
-
-            files = collectingFinder.getCollectedFiles();
-        }
-        else
-        {
-            files = new ArrayList<>();
-        }
-
-        return files;
-    }
 }
