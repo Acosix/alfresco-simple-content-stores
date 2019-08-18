@@ -33,7 +33,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 import java.util.stream.Collectors;
 
 import org.alfresco.error.AlfrescoRuntimeException;
-import org.alfresco.model.ContentModel;
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.content.AbstractRoutingContentStore;
 import org.alfresco.repo.content.ContentContext;
@@ -691,7 +690,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         // only act if actually managed in this store
         if (this.exists(currentContentUrl))
         {
-            this.initializeContentStoreContext(nodeRef);
+            this.initializeContentStoreContext(nodeRef, propertyQName);
 
             final ContentStore targetStore = this.selectStoreForContentDataMove(nodeRef, propertyQName, contentData, customData);
 
@@ -803,15 +802,13 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         }
     }
 
-    protected void initializeContentStoreContext(final NodeRef nodeRef)
+    protected void initializeContentStoreContext(final NodeRef nodeRef, final QName propertyQName)
     {
         this.ensureInitializersAreSet();
 
-        // use ContentModel.PROP_CONTENT as a dummy we need for initialization
-        final NodeContentContext initializerContext = new NodeContentContext(null, null, nodeRef, ContentModel.PROP_CONTENT);
         for (final ContentStoreContextInitializer initializer : this.contentStoreContextInitializers)
         {
-            initializer.initialize(initializerContext);
+            initializer.initialize(nodeRef, propertyQName);
         }
     }
 

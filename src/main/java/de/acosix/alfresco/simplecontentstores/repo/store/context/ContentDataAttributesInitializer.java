@@ -15,14 +15,16 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.store.context;
 
+import java.io.Serializable;
+
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
+import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentService;
 import org.alfresco.service.cmr.repository.NodeRef;
-import org.alfresco.service.cmr.site.SiteInfo;
-import org.alfresco.service.cmr.site.SiteService;
+import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.PropertyCheck;
 import org.springframework.beans.factory.InitializingBean;
@@ -30,16 +32,16 @@ import org.springframework.beans.factory.InitializingBean;
 /**
  * This initializer will enrich the currently active {@link ContentStoreContext content store context} with site-related information from
  * the current {@link ContentStore#getWriter(ContentContext) getWriter}/{@link ContentService#getReader(NodeRef, QName) getReader}-call if
- * possible. The initializer will check if the {@link NodeRef node} in the current call context is contained in a site, the interceptor will
- * transfer the {@link ContentStoreContext#DEFAULT_ATTRIBUTE_SITE site} and {@link ContentStoreContext#DEFAULT_ATTRIBUTE_SITE_PRESET site
- * preset} identifiers as attributes in the content store context.
+ * possible. The initializer will check if the current call context is provides information about the affected node and qualified content
+ * property name, and initialise the {@link ContentStoreContext#DEFAULT_ATTRIBUTE_CONTENT_DATA content data} attribute with the current
+ * value of that property.
  *
  * @author Axel Faust
  */
-public class SiteAttributesInitializer implements ContentStoreContextInitializer, InitializingBean
+public class ContentDataAttributesInitializer implements ContentStoreContextInitializer, InitializingBean
 {
 
-    protected SiteService siteService;
+    protected NodeService nodeService;
 
     /**
      *
@@ -48,16 +50,16 @@ public class SiteAttributesInitializer implements ContentStoreContextInitializer
     @Override
     public void afterPropertiesSet()
     {
-        PropertyCheck.mandatory(this, "siteService", this.siteService);
+        PropertyCheck.mandatory(this, "nodeService", this.nodeService);
     }
 
     /**
-     * @param siteService
-     *            the siteService to set
+     * @param nodeService
+     *            the nodeService to set
      */
-    public void setSiteService(final SiteService siteService)
+    public void setNodeService(final NodeService nodeService)
     {
-        this.siteService = siteService;
+        this.nodeService = nodeService;
     }
 
     /**
@@ -66,16 +68,17 @@ public class SiteAttributesInitializer implements ContentStoreContextInitializer
     @Override
     public void initialize(final ContentContext context)
     {
-        final Object siteAttribute = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
-        if (siteAttribute == null && context instanceof NodeContentContext)
+        final Object contentDataAttribute = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_CONTENT_DATA);
+        if (contentDataAttribute == null && context instanceof NodeContentContext)
         {
             final NodeRef nodeRef = ((NodeContentContext) context).getNodeRef();
-            final SiteInfo site = AuthenticationUtil.runAsSystem(() -> this.siteService.getSite(nodeRef));
+            final QName propertyQName = ((NodeContentContext) context).getPropertyQName();
 
-            if (site != null)
+            final Serializable currentValue = AuthenticationUtil.runAsSystem(() -> this.nodeService.getProperty(nodeRef, propertyQName));
+
+            if (currentValue instanceof ContentData)
             {
-                ContentStoreContext.setContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE, site.getShortName());
-                ContentStoreContext.setContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET, site.getSitePreset());
+                ContentStoreContext.setContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_CONTENT_DATA, currentValue);
             }
         }
     }
@@ -86,15 +89,14 @@ public class SiteAttributesInitializer implements ContentStoreContextInitializer
     @Override
     public void initialize(final NodeRef node, final QName propertyQName)
     {
-        final Object siteAttribute = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
-        if (siteAttribute == null)
+        final Object contentDataAttribute = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_CONTENT_DATA);
+        if (contentDataAttribute == null)
         {
-            final SiteInfo site = AuthenticationUtil.runAsSystem(() -> this.siteService.getSite(node));
+            final Serializable currentValue = AuthenticationUtil.runAsSystem(() -> this.nodeService.getProperty(node, propertyQName));
 
-            if (site != null)
+            if (currentValue instanceof ContentData)
             {
-                ContentStoreContext.setContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE, site.getShortName());
-                ContentStoreContext.setContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET, site.getSitePreset());
+                ContentStoreContext.setContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_CONTENT_DATA, currentValue);
             }
         }
     }

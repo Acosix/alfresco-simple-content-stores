@@ -23,6 +23,7 @@ import java.security.Key;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.EmptyContentReader;
+import org.alfresco.repo.content.MimetypeMap;
 import org.alfresco.repo.content.encoding.ContentCharsetFinder;
 import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
@@ -228,9 +229,9 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
 
             String mimetype;
             // TODO Why do 5.1/5.2 include this special check here and not in mimetypeService?
-            if (filename != null && filename.startsWith("._"))
+            if (filename != null && filename.startsWith(MimetypeMap.MACOS_RESOURCE_FORK_FILE_NAME_PREFIX))
             {
-                mimetype = "application/applefile";
+                mimetype = MimetypeMap.MIMETYPE_APPLEFILE;
             }
             else
             {

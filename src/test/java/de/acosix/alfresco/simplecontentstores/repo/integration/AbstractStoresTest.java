@@ -302,8 +302,9 @@ public abstract class AbstractStoresTest
         {
             try (InputStream isB = Files.newInputStream(fileB))
             {
-                final byte[] buffA = new byte[8192];
-                final byte[] buffB = new byte[8192];
+                final byte[] buffA = new byte[4096];
+                final byte[] buffB = new byte[4096];
+                int offset = 0;
 
                 matches = true;
                 while (matches)
@@ -314,12 +315,27 @@ public abstract class AbstractStoresTest
                     if (bytesReadA != bytesReadB)
                     {
                         matches = false;
+                        if (!matches)
+                        {
+                            LOGGER.debug(
+                                    "contentMatches failed due to difference in length - read {} expected vs {} bytes in slice starting at position {}",
+                                    bytesReadA, bytesReadB, offset);
+                        }
                     }
                     else if (bytesReadA != -1)
                     {
                         // note: don't have to care about equals check including bytes between bytesRead and length
                         // (any left over bytes from previous read would be identical in both buffers)
                         matches = Arrays.areEqual(buffA, buffB);
+
+                        if (!matches)
+                        {
+                            LOGGER.debug(
+                                    "contentMatches failed due to difference in content slice starting at position {} and with a length of {}",
+                                    offset, bytesReadA);
+                        }
+
+                        offset += bytesReadA;
                     }
                     else
                     {
@@ -378,6 +394,11 @@ public abstract class AbstractStoresTest
             if (bytesRead == -1)
             {
                 matches = offset == contentBytes.length;
+                if (!matches)
+                {
+                    LOGGER.debug("contentMatches failed due to difference in length - read {} bytes and expected {}", offset,
+                            contentBytes.length);
+                }
                 break;
             }
             else
@@ -385,11 +406,19 @@ public abstract class AbstractStoresTest
                 if (bytesRead > (contentBytes.length - offset))
                 {
                     matches = false;
+                    LOGGER.debug("contentMatches failed due to difference in length - read {} bytes and expected {}", offset + bytesRead,
+                            contentBytes.length);
                 }
 
                 for (int i = 0; i < bytesRead && matches; i++)
                 {
                     matches = buff[i] == contentBytes[offset + i];
+
+                    if (!matches)
+                    {
+                        LOGGER.debug("contentMatches failed due to difference in content at position {}: expected byte {} and found {}",
+                                offset + i, contentBytes[offset + i], buff[i]);
+                    }
                 }
 
                 offset += bytesRead;

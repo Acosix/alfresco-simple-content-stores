@@ -15,11 +15,14 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.aop;
 
+import java.lang.reflect.Method;
 import java.util.Collection;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.service.cmr.repository.ContentIOException;
+import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.namespace.QName;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.slf4j.Logger;
@@ -60,17 +63,39 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor, Ap
     public Object invoke(final MethodInvocation invocation) throws Throwable
     {
         return ContentStoreContext.executeInNewContext(() -> {
-            final Object[] arguments = invocation.getArguments();
-            final Collection<ContentStoreContextInitializer> initializers = InitContentStoreContextInterceptor.this.applicationContext
-                    .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
 
-            for (final Object argument : arguments)
+            final Method method = invocation.getMethod();
+            final Class<?>[] parameterTypes = method.getParameterTypes();
+            final Class<?> declaringClass = method.getDeclaringClass();
+
+            if (ContentStore.class.isAssignableFrom(declaringClass))
             {
-                if (argument instanceof ContentContext)
+                final Object[] arguments = invocation.getArguments();
+                final Collection<ContentStoreContextInitializer> initializers = InitContentStoreContextInterceptor.this.applicationContext
+                        .getBeansOfType(ContentStoreContextInitializer.class, false, false).values();
+
+                if ("getWriter".equals(method.getName()) && parameterTypes.length == 1
+                        && ContentContext.class.isAssignableFrom(parameterTypes[0]))
                 {
+                    final ContentContext context = (ContentContext) arguments[0];
                     for (final ContentStoreContextInitializer initializer : initializers)
                     {
-                        initializer.initialize((ContentContext) argument);
+                        initializer.initialize(context);
+                    }
+                }
+                else if ("getReader".equals(method.getName()) && parameterTypes.length == 1 && String.class.equals(parameterTypes[0]))
+                {
+                    final NodeRef node = ContentServiceGetReaderInterceptor.getCurrentGetReaderContextNode();
+                    final QName propertyQName = ContentServiceGetReaderInterceptor.getCurrentGetReaderContextPropertyQName();
+
+                    if (node != null && propertyQName != null)
+                    {
+                        ContentServiceGetReaderInterceptor.markCurrentContextConsumed();
+
+                        for (final ContentStoreContextInitializer initializer : initializers)
+                        {
+                            initializer.initialize(node, propertyQName);
+                        }
                     }
                 }
             }
