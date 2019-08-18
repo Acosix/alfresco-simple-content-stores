@@ -39,7 +39,6 @@
         class="${project.artifactId}.store.routing.SelectorPropertyContentStore" parent="${moduleId}-propertyRestrictableRoutingStore">
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
-    <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
 
     <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true"
         class="${project.artifactId}.store.routing.SiteRoutingContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
@@ -81,9 +80,6 @@
         </property>
     </bean>
 
-    <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore"
-        name="simpleContentStoresTemplate-siteRoutingFileStore" />
-
     <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true"
         class="${project.artifactId}.store.facade.DeduplicatingContentStore" parent="${moduleId}-commonFacadeStore">
         <property name="temporaryStore">
@@ -93,8 +89,8 @@
         </property>
     </bean>
 
-    <bean id="simpleContentStoresTemplate-standardCachingStore" class="${project.artifactId}.beans.CachingContentStoreFactoryBean"
-        scope="prototype">
+    <bean id="simpleContentStoresTemplate-standardCachingStore" abstract="true"
+        class="${project.artifactId}.beans.CachingContentStoreFactoryBean">
         <property name="cacheFactory" ref="cacheFactory" />
         <property name="scheduler" ref="schedulerFactory" />
     </bean>
