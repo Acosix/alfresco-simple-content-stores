@@ -26,14 +26,17 @@ import org.jboss.resteasy.client.jaxrs.ResteasyClient;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
 
 import com.thedeanda.lorem.LoremIpsum;
 
 import de.acosix.alfresco.rest.client.api.NodesV1;
 import de.acosix.alfresco.rest.client.api.PeopleV1;
+import de.acosix.alfresco.rest.client.model.nodes.CommonNodeEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeCopyMoveRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeCreationRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeResponseEntity;
+import de.acosix.alfresco.rest.client.model.nodes.PermissionsInfo;
 import de.acosix.alfresco.rest.client.model.people.PersonRequestEntity;
 
 /**
@@ -96,7 +99,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_uniqueStores() throws Exception
+    public void siteRoutingFileStore_uniqueStores() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
@@ -173,7 +176,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_sharedStores() throws Exception
+    public void siteRoutingFileStore_sharedStores() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
@@ -249,7 +252,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_copyToSiteWithDifferentStoreWithOnCopyMoveHandling() throws Exception
+    public void siteRoutingFileStore_copyToSiteWithDifferentStoreWithOnCopyMoveHandling() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
@@ -327,7 +330,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_copyToSiteWithDifferentStoreWithoutOnCopyMoveHandling() throws Exception
+    public void siteRoutingFileStore_copyToSiteWithDifferentStoreWithoutOnCopyMoveHandling() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
@@ -372,7 +375,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_copyToSiteWithSameStore() throws Exception
+    public void siteRoutingFileStore_copyToSiteWithSameStore() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
@@ -444,7 +447,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_moveToSiteWithDifferentStoreWithOnCopyMoveHandling() throws Exception
+    public void siteRoutingFileStore_moveToSiteWithDifferentStoreWithOnCopyMoveHandling() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSite1 = listFilesInAlfData("siteRoutingFileStore1/site-1");
@@ -526,7 +529,7 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
-    public void siteRoutedToSiteRoutingFileStore_moveToSiteWithDifferentStoreWithoutOnCopyMoveHandling() throws Exception
+    public void siteRoutingFileStore_moveToSiteWithDifferentStoreWithoutOnCopyMoveHandling() throws Exception
     {
         // need to record pre-existing files to exclude in verification
         final Collection<Path> exclusionsSpecificSites = listFilesInAlfData("siteRoutingFileStore2/sharedExplicitSites");
@@ -569,9 +572,355 @@ public class RoutingStoresTest extends AbstractStoresTest
         lastModifiedFileInContent = findLastModifiedFileInAlfData("siteRoutingFileStore2/sharedGenericSites", exclusionsGenericSites);
 
         Assert.assertNull(lastModifiedFileInContent);
-
         Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
-    // TODO Tests for other routing store configurations
+    @Test
+    public void propertyRoutingStore_moveEnabledStore() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsFallbackStore = listFilesInAlfData("propertySelectorFallbackFileStore");
+        final Collection<Path> exclusionsStore1 = listFilesInAlfData("propertySelectorFileStore11");
+        final Collection<Path> exclusionsStore2 = listFilesInAlfData("propertySelectorFileStore12");
+
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "property-selector-1",
+                "Property Selector Site 1");
+
+        // 1) test fallback routing without property value
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        final NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", exclusionsFallbackStore);
+        // not adding to exclusions as we later will move it back, resulting in the same file
+        // exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 2) test move when property value is set
+        final CommonNodeEntity<PermissionsInfo> nodeUpdate = new CommonNodeEntity<>();
+        nodeUpdate.setProperty("aco6scst:selectorProperty", "store1");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore11", exclusionsStore1);
+        exclusionsStore1.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 3) test move to fallback when unmapped property value is set
+        nodeUpdate.setProperty("aco6scst:selectorProperty", "nonExistingStore");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", exclusionsFallbackStore);
+        exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 4) test move/copy to store via copy + setting of selector property
+        final NodeCopyMoveRequestEntity copyRq = new NodeCopyMoveRequestEntity();
+        copyRq.setName(UUID.randomUUID().toString() + ".txt");
+        copyRq.setTargetParentId(documentLibraryNodeId);
+
+        final NodeResponseEntity copiedNode = nodes.copyNode(createdNode.getId(), copyRq);
+
+        nodeUpdate.setProperty("aco6scst:selectorProperty", "store2");
+        nodes.updateNode(copiedNode.getId(), nodeUpdate);
+        LoggerFactory.getLogger(RoutingStoresTest.class).debug("Updated node {} - expect copy to store12", createdNode.getId());
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore12", exclusionsStore2);
+        exclusionsStore2.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 5) test update of copy and deletion of copied content
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(copiedNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore12", exclusionsStore2);
+        exclusionsStore2.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 6) test property to prevent move
+        nodeUpdate.setProperty("aco6scst:moveStoreOnSelectorChange", "false");
+        nodeUpdate.setProperty("aco6scst:selectorProperty", "store1");
+        nodes.updateNode(copiedNode.getId(), nodeUpdate);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore11", exclusionsStore1);
+
+        Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+    }
+
+    @Test
+    public void propertyRoutingStore_moveDisabledStore() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsStore1 = listFilesInAlfData("propertySelectorFileStore21");
+        final Collection<Path> exclusionsStore2 = listFilesInAlfData("propertySelectorFileStore22");
+
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "property-selector-2",
+                "Property Selector Site 2");
+
+        // 1) test fallback routing without property value
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+        createRequest.setProperty("aco6scst:selectorProperty", "store2");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore22", exclusionsStore2);
+        exclusionsStore2.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 2) test lack of move when property value is set
+        final CommonNodeEntity<PermissionsInfo> nodeUpdate = new CommonNodeEntity<>();
+        nodeUpdate.setProperty("aco6scst:selectorProperty", "store1");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        final Path lastModifiedFileInStore22 = lastModifiedFileInContent;
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore21", exclusionsStore1);
+
+        Assert.assertNull(lastModifiedFileInContent);
+
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 3) test routing to specific store when content is updated
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInStore22));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore21", exclusionsStore1);
+        exclusionsStore1.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 4) test routing to specific store when property already set during creation
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setProperty("aco6scst:selectorProperty", "store2");
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore22", exclusionsStore2);
+        exclusionsStore2.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+    }
+
+    @Test
+    public void siteRoutingStore_copyMoveBetweenSitesWithSharedFileStore() throws Exception
+    {
+        final Collection<Path> exclusionsFallbackStore = listFilesInAlfData("propertySelectorFallbackFileStore");
+
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String documentLibrary1NodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "property-selector-1",
+                "Property Selector Site 1");
+        final String documentLibrary2NodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "property-selector-2",
+                "Property Selector Site 2");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibrary1NodeId, createRequest);
+
+        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", exclusionsFallbackStore);
+        exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // test move across sites with same fallback store (selector property is not set)
+        final NodeCopyMoveRequestEntity moveCopyRq = new NodeCopyMoveRequestEntity();
+        moveCopyRq.setTargetParentId(documentLibrary2NodeId);
+
+        nodes.moveNode(createdNode.getId(), moveCopyRq);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", exclusionsFallbackStore);
+
+        Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // create second test content
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createdNode = nodes.createNode(documentLibrary1NodeId, createRequest);
+
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", exclusionsFallbackStore);
+        exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // test copy across sites with same fallback store (selector property is not set)
+        final NodeResponseEntity copiedNode = nodes.copyNode(createdNode.getId(), moveCopyRq);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        final Path sharedFileInContent = lastModifiedFileInContent;
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", exclusionsFallbackStore);
+
+        Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copiedNode.getId())));
+
+        // test that shared content is not deleted if either of the copies is deleted
+        nodes.deleteNode(createdNode.getId());
+
+        Assert.assertTrue(Files.exists(sharedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copiedNode.getId())));
+    }
+
+    @Test
+    public void siteRoutingStore_copyMoveBetweenSitesWithDistinctFileStore() throws Exception
+    {
+        final Collection<Path> exclusionsStore11 = listFilesInAlfData("propertySelectorFileStore11");
+        final Collection<Path> exclusionsStore21 = listFilesInAlfData("propertySelectorFileStore21");
+
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String documentLibrary1NodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "property-selector-1",
+                "Property Selector Site 1");
+        final String documentLibrary2NodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "property-selector-2",
+                "Property Selector Site 2");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+        createRequest.setProperty("aco6scst:selectorProperty", "store1");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibrary1NodeId, createRequest);
+
+        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore11", exclusionsStore11);
+        exclusionsStore11.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // test move across sites with different store (selector property is set)
+        final NodeCopyMoveRequestEntity moveCopyRq = new NodeCopyMoveRequestEntity();
+        moveCopyRq.setTargetParentId(documentLibrary2NodeId);
+
+        nodes.moveNode(createdNode.getId(), moveCopyRq);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore21", exclusionsStore21);
+        exclusionsStore21.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // create second test content
+        createRequest.setName(UUID.randomUUID().toString());
+        createdNode = nodes.createNode(documentLibrary1NodeId, createRequest);
+
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore11", exclusionsStore11);
+        exclusionsStore11.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // test copy across sites with different store (selector property is set)
+        final NodeResponseEntity copiedNode = nodes.copyNode(createdNode.getId(), moveCopyRq);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+        final Path lastModifiedFileInContentStore11 = lastModifiedFileInContent;
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore21", exclusionsStore21);
+        exclusionsStore21.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copiedNode.getId())));
+
+        // test that specific content is deleted if either of the copies is deleted
+        nodes.deleteNode(createdNode.getId(), true);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContentStore11));
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copiedNode.getId())));
+    }
 }

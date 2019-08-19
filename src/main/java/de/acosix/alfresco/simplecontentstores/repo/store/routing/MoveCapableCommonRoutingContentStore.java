@@ -592,6 +592,39 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         return this.fallbackStore;
     }
 
+    protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode, final boolean defaultMoveFlag,
+            final QName moveFlagOverridePropertyQName, final CD customData)
+    {
+        // just copied/moved so properties should be cached
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(affectedNode);
+
+        boolean doMove = false;
+        if (moveFlagOverridePropertyQName != null)
+        {
+            final Serializable moveStoresOnChangeOptionValue = properties.get(moveFlagOverridePropertyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
+            {
+                LOGGER.debug("Using override property value {} to determine doMove state", moveStoresOnChangeOptionValue);
+                doMove = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
+            }
+            else
+            {
+                doMove = defaultMoveFlag;
+            }
+        }
+        else
+        {
+            doMove = defaultMoveFlag;
+        }
+        LOGGER.debug("Determined doMove flag state of {} for {}", doMove, affectedNode);
+
+        if (doMove)
+        {
+            this.checkAndProcessContentPropertiesMove(affectedNode, properties, customData);
+        }
+    }
+
     protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode, final Map<QName, Serializable> properties,
             final CD customData)
     {
@@ -600,18 +633,24 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         final Collection<QName> setProperties = new HashSet<>(properties.keySet());
         setProperties.retainAll(contentProperties);
 
-        // only act if node actually has content properties set
+        LOGGER.debug("Found {} set content properties on {}", setProperties.size(), affectedNode);
+
         if (!setProperties.isEmpty())
         {
             final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
             for (final QName contentProperty : setProperties)
             {
                 final Serializable value = properties.get(contentProperty);
-                contentPropertiesMap.put(contentProperty, value);
+                if (value != null)
+                {
+                    contentPropertiesMap.put(contentProperty, value);
+                }
             }
 
             if (!contentPropertiesMap.isEmpty())
             {
+                LOGGER.debug("Processing {} set content properties with non-null values on {}", contentPropertiesMap.size(), affectedNode);
+
                 ContentStoreContext.executeInNewContext(() -> {
                     MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, customData);
                     return null;
@@ -683,13 +722,17 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     protected ContentData processContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
             final CD customData)
     {
+        LOGGER.debug("Processing content data {} for property {} on node {}", contentData, propertyQName, nodeRef);
+
         ContentData updatedContentData = null;
         boolean noContentDataUpdateRequired = false;
         final String currentContentUrl = contentData.getContentUrl();
 
-        // only act if actually managed in this store
+        LOGGER.debug("Checking if content URL {} exists in store {}", currentContentUrl, this);
         if (this.exists(currentContentUrl))
         {
+            LOGGER.debug("Handling existing content for URL {}", currentContentUrl);
+
             this.initializeContentStoreContext(nodeRef, propertyQName);
 
             final ContentStore targetStore = this.selectStoreForContentDataMove(nodeRef, propertyQName, contentData, customData);
@@ -708,17 +751,25 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
             final Set<String> urlsToTest = new LinkedHashSet<>(
                     Arrays.asList(oldWildcardContentUrl, oldWildcardBaseContentUrl, legacyContentUrl));
 
+            LOGGER.debug("Checking if target store {} already contains content for base content URL {}", targetStore, baseContentUrl);
+            String firstSupportedContentUrl = null;
             for (final String urlToTest : urlsToTest)
             {
                 if (targetStore.isContentUrlSupported(urlToTest))
                 {
+                    if (firstSupportedContentUrl == null)
+                    {
+                        firstSupportedContentUrl = urlToTest;
+                    }
+
                     final ContentReader reader = targetStore.getReader(urlToTest);
                     if (reader != null && reader.exists())
                     {
-                        if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
+                        final String targetStoreContentUrl = reader.getContentUrl();
+                        if (!EqualsHelper.nullSafeEquals(currentContentUrl, targetStoreContentUrl))
                         {
-                            LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
-                                    reader.getContentUrl());
+                            LOGGER.debug("Content already exists in target store with identified by content URL {} - updating content data",
+                                    targetStoreContentUrl);
 
                             reader.setMimetype(contentData.getMimetype());
                             reader.setEncoding(contentData.getEncoding());
@@ -728,7 +779,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                             break;
                         }
 
-                        LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
+                        LOGGER.debug(
+                                "Content already exists in target store with identical content URL - no need to copy content / update content data");
                         updatedContentData = null;
                         noContentDataUpdateRequired = true;
                         break;
@@ -744,20 +796,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                     throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
                 }
 
-                // we can only (semi-)dictate the content URL to use if the target store supports the protocol
-                // check URLs variants using the wildcard, current or the legacy content store protocol
-                // default to no contextContentUrl to avoid UnsupportedContentUrlException
-                String contextContentUrl = null;
-                for (final String urlToTest : urlsToTest)
-                {
-                    if (targetStore.isContentUrlSupported(urlToTest))
-                    {
-                        contextContentUrl = urlToTest;
-                        break;
-                    }
-                }
-
-                final NodeContentContext contentContext = new NodeContentContext(reader, contextContentUrl, nodeRef, propertyQName);
+                final NodeContentContext contentContext = new NodeContentContext(reader, firstSupportedContentUrl, nodeRef, propertyQName);
                 final ContentWriter writer = targetStore.getWriter(contentContext);
 
                 final String newContentUrl = writer.getContentUrl();

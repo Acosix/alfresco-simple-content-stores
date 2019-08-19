@@ -17,11 +17,8 @@ package de.acosix.alfresco.simplecontentstores.repo.store.file;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -44,6 +41,7 @@ import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
+import org.alfresco.service.cmr.site.SiteService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
 import org.alfresco.util.EqualsHelper;
@@ -365,37 +363,22 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
             LOGGER.debug("Processing onMoveNode for {} from {} to {}", movedNode, oldChildAssocRef, newChildAssocRef);
 
             // check for actual site move
-            // can't use siteService without creating circular dependency graph
-            // resolve all ancestors via old parent (up until site) and cross-check with ancestors of new parent
-            // run as system to avoid performance overhead + issues with intermediary node access restrictions
             final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(() -> {
-                final List<NodeRef> oldAncestors = new ArrayList<>();
-                NodeRef curParent = oldParent;
-                while (curParent != null)
-                {
-                    oldAncestors.add(curParent);
-                    final QName curParentType = this.nodeService.getType(curParent);
-                    if (this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
-                    {
-                        break;
-                    }
-                    curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
-                }
+                final NodeRef sourceSite = this.resolveSiteForNode(oldParent);
+                final NodeRef targetSite = this.resolveSiteForNode(newParent);
 
-                boolean sameScope = false;
-                curParent = newParent;
-                while (!sameScope && curParent != null)
-                {
-                    sameScope = oldAncestors.contains(curParent);
-                    curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
-                }
-
-                return Boolean.valueOf(sameScope);
+                final boolean sameSiteOrBothGlobal_ = EqualsHelper.nullSafeEquals(sourceSite, targetSite);
+                return Boolean.valueOf(sameSiteOrBothGlobal_);
             });
 
             if (!Boolean.TRUE.equals(sameSiteOrBothGlobal))
             {
+                LOGGER.debug("Node {} was moved into a different site context", movedNode);
                 this.checkAndProcessContentPropertiesMove(movedNode);
+            }
+            else
+            {
+                LOGGER.debug("Node {} was not moved into a different site context", movedNode);
             }
         }
     }
@@ -411,68 +394,58 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         if (StoreRef.STORE_REF_WORKSPACE_SPACESSTORE.equals(targetNodeRef.getStoreRef()))
         {
             LOGGER.debug("Processing onCopyComplete for copy from {} to {}", sourceNodeRef, targetNodeRef);
-            this.checkAndProcessContentPropertiesMove(targetNodeRef);
+
+            // check for actual inter-site copy
+            final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(() -> {
+                final NodeRef sourceSite = this.resolveSiteForNode(sourceNodeRef);
+                final NodeRef targetSite = this.resolveSiteForNode(targetNodeRef);
+
+                final boolean sameSiteOrBothGlobal_ = EqualsHelper.nullSafeEquals(sourceSite, targetSite);
+                return Boolean.valueOf(sameSiteOrBothGlobal_);
+            });
+
+            if (!Boolean.TRUE.equals(sameSiteOrBothGlobal))
+            {
+                LOGGER.debug("Node {} was copied into a different site context", targetNodeRef);
+                this.checkAndProcessContentPropertiesMove(targetNodeRef);
+            }
+            else
+            {
+                LOGGER.debug("Node {} was not copied into a different site context", targetNodeRef);
+            }
         }
+    }
+
+    /**
+     * This internal method only exists to avoid the circular dependency we would create when requiring the {@link SiteService} as a
+     * dependency for {@link SiteService#getSite(NodeRef) resolving the site of a node}.
+     *
+     * @param node
+     *            the node for which to resolve the site
+     * @return the node reference for the site, or {@code null} if the node is not contained in a site via a graph of primary parent
+     *         associations
+     */
+    protected NodeRef resolveSiteForNode(final NodeRef node)
+    {
+        NodeRef site = null;
+        NodeRef curParent = node;
+        while (curParent != null)
+        {
+            final QName curParentType = this.nodeService.getType(curParent);
+            if (this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
+            {
+                site = curParent;
+                break;
+            }
+            curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
+        }
+        return site;
     }
 
     protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode)
     {
-        // just copied/moved so properties should be cached
-        final Map<QName, Serializable> properties = this.nodeService.getProperties(affectedNode);
-
-        boolean doMove = false;
-        if (this.moveStoresOnNodeMoveOrCopyOverridePropertyQName != null)
-        {
-            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnNodeMoveOrCopyOverridePropertyQName);
-            // explicit value wins
-            if (moveStoresOnChangeOptionValue != null)
-            {
-                LOGGER.debug("Using override property value {} to determine doMove state", moveStoresOnChangeOptionValue);
-                doMove = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
-            }
-            else
-            {
-                doMove = this.moveStoresOnNodeMoveOrCopy;
-            }
-        }
-        else
-        {
-            doMove = this.moveStoresOnNodeMoveOrCopy;
-        }
-        LOGGER.debug("Determined doMove flag state of {} for {}", doMove, affectedNode);
-
-        if (doMove)
-        {
-            final Collection<QName> setProperties = new HashSet<>(properties.keySet());
-
-            final Collection<QName> contentProperties = this.dictionaryService.getAllProperties(DataTypeDefinition.CONTENT);
-            setProperties.retainAll(contentProperties);
-
-            LOGGER.debug("Found {} set content properties on {}", setProperties.size(), affectedNode);
-
-            if (!setProperties.isEmpty())
-            {
-                final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
-                for (final QName contentProperty : setProperties)
-                {
-                    final Serializable value = properties.get(contentProperty);
-                    if (value != null)
-                    {
-                        contentPropertiesMap.put(contentProperty, value);
-                    }
-                }
-
-                if (!contentPropertiesMap.isEmpty())
-                {
-                    LOGGER.debug("Processing {} set content properties with non-null values on {}", contentPropertiesMap.size(),
-                            affectedNode);
-                    ContentStoreContext.executeInNewContext(() -> {
-                        SiteRoutingFileContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap, null);
-                        return null;
-                    });
-                }
-            }
-        }
+        this.checkAndProcessContentPropertiesMove(affectedNode, this.moveStoresOnNodeMoveOrCopy,
+                this.moveStoresOnNodeMoveOrCopyOverridePropertyQName, null);
     }
 
     /**

@@ -306,6 +306,36 @@ public class FileContentStore extends AbstractContentStore
      * {@inheritDoc}
      */
     @Override
+    public boolean isContentUrlSupported(final String contentUrl)
+    {
+        ParameterCheck.mandatoryString("contentUrl", contentUrl);
+
+        // improved check to avoid the implicit, more expensive getReader call performed in super implementation
+        // also trims down on logging
+        final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
+        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
+        final String protocol = urlParts.getFirst();
+
+        boolean contentUrlSupported;
+        if (SPOOF_PROTOCOL.equals(protocol) || this.protocol.equals(protocol))
+        {
+            LOGGER.debug("Content URL {} with effective protocol {} is supported by store {} with protocol {}", contentUrl, protocol, this,
+                    this.protocol);
+            contentUrlSupported = true;
+        }
+        else
+        {
+            LOGGER.debug("Content URL {} with effective protocol {} is not supported by store {} with protocol {}", contentUrl, protocol,
+                    this, this.protocol);
+            contentUrlSupported = false;
+        }
+        return contentUrlSupported;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public boolean exists(final String contentUrl)
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
@@ -321,9 +351,9 @@ public class FileContentStore extends AbstractContentStore
         }
         else
         {
-            LOGGER.debug("Checking if {} exists as a file", contentUrl);
             final Path filePath = this.makeFilePath(effectiveContentUrl);
             result = Files.exists(filePath) && !Files.isDirectory(filePath);
+            LOGGER.debug("Content URL {} {} as a file", contentUrl, result ? "exists" : "does not exist");
         }
         return result;
     }

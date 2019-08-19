@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- xsi:schemaLocation="http://www.alfresco.org/model/dictionary/1.0 modelSchema.xsd" -->
+<model name="aco6scst:testModel" xmlns="http://www.alfresco.org/model/dictionary/1.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <description>Alfresco Simple Content Store Test Model</description>
+    <author>Acosix GmbH</author>
+    <version>1.0</version>
+
+    <imports>
+        <import uri="http://www.alfresco.org/model/dictionary/1.0" prefix="d" />
+    </imports>
+
+    <namespaces>
+        <namespace uri="http://acosix.de/model/simpleContentStoresTest/1.0" prefix="aco6scst" />
+    </namespaces>
+    
+    <aspects>
+    
+        <aspect name="aco6scst:propertySelectorAspect">
+            <properties>
+                <property name="aco6scst:selectorProperty">
+                    <type>d:text</type>
+                </property>
+                <property name="aco6scst:moveStoreOnSelectorChange">
+                    <type>d:boolean</type>
+                </property>
+            </properties>
+        </aspect>
+    
+    </aspects>
+</model>
