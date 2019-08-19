@@ -44,6 +44,14 @@ public class SiteAwareFileContentStore extends FileContentStore
     protected boolean useSiteFolderInGenericDirectories;
 
     /**
+     * @return the useSiteFolderInGenericDirectories
+     */
+    public boolean isUseSiteFolderInGenericDirectories()
+    {
+        return this.useSiteFolderInGenericDirectories;
+    }
+
+    /**
      * @param useSiteFolderInGenericDirectories
      *            the useSiteFolderInGenericDirectories to set
      */

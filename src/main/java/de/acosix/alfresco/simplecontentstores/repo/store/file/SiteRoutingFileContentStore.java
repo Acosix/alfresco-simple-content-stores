@@ -41,6 +41,7 @@ import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.StoreRef;
+import org.alfresco.service.cmr.repository.datatype.DefaultTypeConverter;
 import org.alfresco.service.cmr.site.SiteService;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
@@ -76,7 +77,7 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
     protected Map<String, String> protocolsBySite;
 
-    protected transient Map<String, ContentStore> storeByProtocol = new HashMap<>();
+    protected transient Map<String, SiteAwareFileContentStore> storeByProtocol = new HashMap<>();
 
     protected boolean allowRandomAccess;
 
@@ -327,24 +328,62 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
     }
 
     /**
-     * @param moveStoresOnNodeMoveOrCopyName
-     *            the moveStoresOnNodeMoveOrCopyName to set
-     * @deprecated Only exists for backwards compatibility with existing configuration. Use
-     *             {@link #setMoveStoresOnNodeMoveOrCopyOverridePropertyName(String)} instead. Will be removed before any proper release.
-     */
-    @Deprecated
-    public void setMoveStoresOnNodeMoveOrCopyName(final String moveStoresOnNodeMoveOrCopyName)
-    {
-        this.setMoveStoresOnNodeMoveOrCopyOverridePropertyName(moveStoresOnNodeMoveOrCopyName);
-    }
-
-    /**
      * @param moveStoresOnNodeMoveOrCopyOverridePropertyName
      *            the moveStoresOnNodeMoveOrCopyOverridePropertyName to set
      */
     public void setMoveStoresOnNodeMoveOrCopyOverridePropertyName(final String moveStoresOnNodeMoveOrCopyOverridePropertyName)
     {
         this.moveStoresOnNodeMoveOrCopyOverridePropertyName = moveStoresOnNodeMoveOrCopyOverridePropertyName;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isContentUrlSupported(final String contentUrl)
+    {
+        // optimisation: check the likely candidate store based on context first
+        final ContentStore storeForCurrentContext = this.selectStoreForCurrentContext();
+
+        boolean supported = false;
+        if (storeForCurrentContext != null)
+        {
+            LOGGER.debug("Preferentially using store for current context to check support for content URL {}", contentUrl);
+            supported = storeForCurrentContext.isContentUrlSupported(contentUrl);
+        }
+
+        if (!supported)
+        {
+            LOGGER.debug("Delegating to super implementation to check support for content URL {}", contentUrl);
+            supported = super.isContentUrlSupported(contentUrl);
+        }
+        return supported;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isWriteSupported()
+    {
+        // optimisation: check the likely candidate store based on context first
+        final ContentStore storeForCurrentContext = this.selectStoreForCurrentContext();
+
+        boolean supported = false;
+        if (storeForCurrentContext != null)
+        {
+            LOGGER.debug("Preferentially using store for current context to check write suport");
+            supported = storeForCurrentContext.isWriteSupported();
+        }
+
+        if (!supported)
+        {
+            LOGGER.debug("Delegating to super implementation to check write support");
+            supported = super.isWriteSupported();
+        }
+        return supported;
     }
 
     /**
@@ -362,23 +401,31 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         {
             LOGGER.debug("Processing onMoveNode for {} from {} to {}", movedNode, oldChildAssocRef, newChildAssocRef);
 
-            // check for actual site move
-            final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(() -> {
+            // check for actual move-relevant site move
+            final Boolean moveRelevant = AuthenticationUtil.runAsSystem(() -> {
                 final NodeRef sourceSite = this.resolveSiteForNode(oldParent);
                 final NodeRef targetSite = this.resolveSiteForNode(newParent);
 
-                final boolean sameSiteOrBothGlobal_ = EqualsHelper.nullSafeEquals(sourceSite, targetSite);
-                return Boolean.valueOf(sameSiteOrBothGlobal_);
+                final SiteAwareFileContentStore sourceStore = this.resolveStoreForSite(sourceSite);
+                final SiteAwareFileContentStore targetStore = this.resolveStoreForSite(targetSite);
+
+                boolean moveRelevantB = sourceStore != targetStore;
+                if (!moveRelevantB && !EqualsHelper.nullSafeEquals(sourceSite, targetSite)
+                        && targetStore.isUseSiteFolderInGenericDirectories())
+                {
+                    moveRelevantB = true;
+                }
+                return Boolean.valueOf(moveRelevantB);
             });
 
-            if (!Boolean.TRUE.equals(sameSiteOrBothGlobal))
+            if (Boolean.TRUE.equals(moveRelevant))
             {
-                LOGGER.debug("Node {} was moved into a different site context", movedNode);
+                LOGGER.debug("Node {} was moved to a location for which content should be stored in a different store", movedNode);
                 this.checkAndProcessContentPropertiesMove(movedNode);
             }
             else
             {
-                LOGGER.debug("Node {} was not moved into a different site context", movedNode);
+                LOGGER.debug("Node {} was not moved into a location for which content should be stored in a different store", movedNode);
             }
         }
     }
@@ -395,57 +442,70 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
         {
             LOGGER.debug("Processing onCopyComplete for copy from {} to {}", sourceNodeRef, targetNodeRef);
 
-            // check for actual inter-site copy
-            final Boolean sameSiteOrBothGlobal = AuthenticationUtil.runAsSystem(() -> {
+            // check for actual move-relevant site copy
+            final Boolean moveRelevant = AuthenticationUtil.runAsSystem(() -> {
                 final NodeRef sourceSite = this.resolveSiteForNode(sourceNodeRef);
                 final NodeRef targetSite = this.resolveSiteForNode(targetNodeRef);
 
-                final boolean sameSiteOrBothGlobal_ = EqualsHelper.nullSafeEquals(sourceSite, targetSite);
-                return Boolean.valueOf(sameSiteOrBothGlobal_);
+                final SiteAwareFileContentStore sourceStore = this.resolveStoreForSite(sourceSite);
+                final SiteAwareFileContentStore targetStore = this.resolveStoreForSite(targetSite);
+
+                boolean moveRelevantB = sourceStore != targetStore;
+                if (!moveRelevantB && !EqualsHelper.nullSafeEquals(sourceSite, targetSite)
+                        && targetStore.isUseSiteFolderInGenericDirectories())
+                {
+                    moveRelevantB = true;
+                }
+                return Boolean.valueOf(moveRelevantB);
             });
 
-            if (!Boolean.TRUE.equals(sameSiteOrBothGlobal))
+            if (Boolean.TRUE.equals(moveRelevant))
             {
-                LOGGER.debug("Node {} was copied into a different site context", targetNodeRef);
+                LOGGER.debug("Node {} was copied into a location for which content should be stored in a different store", targetNodeRef);
                 this.checkAndProcessContentPropertiesMove(targetNodeRef);
             }
             else
             {
-                LOGGER.debug("Node {} was not copied into a different site context", targetNodeRef);
+                LOGGER.debug("Node {} was not copied into a location for which content should be stored in a different store",
+                        targetNodeRef);
             }
         }
-    }
-
-    /**
-     * This internal method only exists to avoid the circular dependency we would create when requiring the {@link SiteService} as a
-     * dependency for {@link SiteService#getSite(NodeRef) resolving the site of a node}.
-     *
-     * @param node
-     *            the node for which to resolve the site
-     * @return the node reference for the site, or {@code null} if the node is not contained in a site via a graph of primary parent
-     *         associations
-     */
-    protected NodeRef resolveSiteForNode(final NodeRef node)
-    {
-        NodeRef site = null;
-        NodeRef curParent = node;
-        while (curParent != null)
-        {
-            final QName curParentType = this.nodeService.getType(curParent);
-            if (this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
-            {
-                site = curParent;
-                break;
-            }
-            curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
-        }
-        return site;
     }
 
     protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode)
     {
         this.checkAndProcessContentPropertiesMove(affectedNode, this.moveStoresOnNodeMoveOrCopy,
                 this.moveStoresOnNodeMoveOrCopyOverridePropertyQName, null);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected ContentStore selectStore(final String contentUrl, final boolean mustExist)
+    {
+        // optimisation: check the likely candidate store based on context first
+        final ContentStore storeForCurrentContext = this.selectStoreForCurrentContext();
+
+        ContentStore store = null;
+        if (storeForCurrentContext != null)
+        {
+            LOGGER.debug(
+                    "Preferentially testing store for current context to select store for read of content URL {} with mustExist flag of {}",
+                    contentUrl, mustExist);
+            if (!mustExist || (storeForCurrentContext.isContentUrlSupported(contentUrl) && storeForCurrentContext.exists(contentUrl)))
+            {
+                store = storeForCurrentContext;
+            }
+        }
+
+        if (store == null)
+        {
+            LOGGER.debug("Delegating to super implementation to select store for read of content URL {} with mustExist flag of {}",
+                    contentUrl, mustExist);
+            store = super.selectStore(contentUrl, mustExist);
+        }
+        return store;
     }
 
     /**
@@ -473,29 +533,92 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
     protected ContentStore selectStoreForCurrentContext()
     {
-        final Object site = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE);
-        final Object sitePreset = ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET);
+        final String site = DefaultTypeConverter.INSTANCE.convert(String.class,
+                ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE));
+        final String sitePreset = DefaultTypeConverter.INSTANCE.convert(String.class,
+                ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_SITE_PRESET));
+
+        return this.resolveStoreForSite(site, sitePreset);
+    }
+
+    /**
+     * Resolves the content store to use for a particular site.
+     *
+     * @param siteNode
+     *            the node representing the site - may be {@code null}
+     * @return the content store to use for the site - never {@code null}
+     */
+    protected SiteAwareFileContentStore resolveStoreForSite(final NodeRef siteNode)
+    {
+        String site = null;
+        String sitePreset = null;
+
+        if (siteNode != null)
+        {
+            final Map<QName, Serializable> properties = this.nodeService.getProperties(siteNode);
+            site = DefaultTypeConverter.INSTANCE.convert(String.class, properties.get(ContentModel.PROP_NAME));
+            sitePreset = DefaultTypeConverter.INSTANCE.convert(String.class, properties.get(SiteModel.PROP_SITE_PRESET));
+        }
+
+        return this.resolveStoreForSite(site, sitePreset);
+    }
+
+    /**
+     * Resolves the content store to use for a particular site.
+     *
+     * @param site
+     *            the short name of the site
+     * @param sitePreset
+     *            the preset of the site
+     * @return the content store to use for the site - never {@code null}
+     */
+    protected SiteAwareFileContentStore resolveStoreForSite(final String site, final String sitePreset)
+    {
+        LOGGER.debug("Resolving store for site {} and preset {}", site, sitePreset);
 
         final String protocol;
-        if (this.protocolsBySite != null && this.protocolsBySite.containsKey(site))
+        if (this.protocolsBySite != null && site != null && this.protocolsBySite.containsKey(site))
         {
-            LOGGER.debug("Selecting store for site {}", site);
             protocol = this.protocolsBySite.get(site);
         }
-        else if (this.protocolsBySitePreset != null && this.protocolsBySitePreset.containsKey(sitePreset))
+        else if (this.protocolsBySitePreset != null && sitePreset != null && this.protocolsBySitePreset.containsKey(sitePreset))
         {
-            LOGGER.debug("Selecting store for site preset {}", sitePreset);
             protocol = this.protocolsBySitePreset.get(sitePreset);
         }
         else
         {
-            LOGGER.debug("Selecting default store");
             protocol = this.protocol;
         }
 
-        final ContentStore targetStore = this.storeByProtocol.get(protocol);
-        LOGGER.debug("Selected store {}", targetStore);
+        final SiteAwareFileContentStore targetStore = this.storeByProtocol.get(protocol);
+        LOGGER.debug("Resolved store {}", targetStore);
         return targetStore;
+    }
+
+    /**
+     * This internal method only exists to avoid the circular dependency we would create when requiring the {@link SiteService} as a
+     * dependency for {@link SiteService#getSite(NodeRef) resolving the site of a node}.
+     *
+     * @param node
+     *            the node for which to resolve the site
+     * @return the node reference for the site, or {@code null} if the node is not contained in a site via a graph of primary parent
+     *         associations
+     */
+    protected NodeRef resolveSiteForNode(final NodeRef node)
+    {
+        NodeRef site = null;
+        NodeRef curParent = node;
+        while (curParent != null)
+        {
+            final QName curParentType = this.nodeService.getType(curParent);
+            if (this.dictionaryService.isSubClass(curParentType, SiteModel.TYPE_SITE))
+            {
+                site = curParent;
+                break;
+            }
+            curParent = this.nodeService.getPrimaryParent(curParent).getParentRef();
+        }
+        return site;
     }
 
     protected void afterPropertiesSet_setupDefaultStore()
