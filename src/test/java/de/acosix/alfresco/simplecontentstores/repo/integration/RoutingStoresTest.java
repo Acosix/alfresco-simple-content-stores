@@ -26,7 +26,6 @@ import org.jboss.resteasy.client.jaxrs.ResteasyClient;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 
 import com.thedeanda.lorem.LoremIpsum;
 
@@ -646,7 +645,6 @@ public class RoutingStoresTest extends AbstractStoresTest
 
         nodeUpdate.setProperty("aco6scst:selectorProperty", "store2");
         nodes.updateNode(copiedNode.getId(), nodeUpdate);
-        LoggerFactory.getLogger(RoutingStoresTest.class).debug("Updated node {} - expect copy to store12", createdNode.getId());
 
         Assert.assertTrue(Files.exists(lastModifiedFileInContent));
 
@@ -670,7 +668,7 @@ public class RoutingStoresTest extends AbstractStoresTest
         Assert.assertNotNull(lastModifiedFileInContent);
         Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
         Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copiedNode.getId())));
 
         // 6) test property to prevent move
         nodeUpdate.setProperty("aco6scst:moveStoreOnSelectorChange", "false");
@@ -682,7 +680,7 @@ public class RoutingStoresTest extends AbstractStoresTest
         lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFileStore11", exclusionsStore1);
 
         Assert.assertNull(lastModifiedFileInContent);
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(copiedNode.getId())));
     }
 
     @Test

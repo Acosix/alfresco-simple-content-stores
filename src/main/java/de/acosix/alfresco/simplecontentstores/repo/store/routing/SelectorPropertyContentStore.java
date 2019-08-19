@@ -156,7 +156,12 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
     @Override
     public void onAddAspect(final NodeRef nodeRef, final QName aspectQName)
     {
-        // TODO Avoid processing as part of node creation
+        // aspect may be added as part of node creation, which is not really an update, but we can't properly eliminate this scenario
+        // without significant overhead
+
+        // typically, no content data to move would exist in this case, except for the special scenario of a copy, in which case the content
+        // would only be moved if the selector value from the original is not copied as-is or modified as part of the copy behaviour
+        // callback logic, potentially resulting in a different store to be selected for the content that was copied over as well
 
         // there will be no onUpdateProperties for properties added via addAspect or lazy aspect application as result of
         // addProperties/setProperties
@@ -206,7 +211,7 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
     @Override
     public void onUpdateProperties(final NodeRef nodeRef, final Map<QName, Serializable> before, final Map<QName, Serializable> after)
     {
-        // creation is not a real update
+        // don't handle creations - here we can actually properly and efficiently eliminate the scenario (other than during onAddAspect)
         if (!before.isEmpty())
         {
             LOGGER.debug("Processing onUpdateProperties for {}", nodeRef);
