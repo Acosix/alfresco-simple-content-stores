@@ -131,6 +131,18 @@ public class TenantRoutingFileContentStore extends AbstractTenantRoutingContentS
      * Simple alias to {@link #setRootLocation(String)} to support identical parameter names for this implementation and base
      * {@link FileContentStore}
      *
+     * @param rootAbsolutePath
+     *            the rootAbsolutePath to set
+     */
+    public void setRootAbsolutePath(final String rootAbsolutePath)
+    {
+        this.setRootLocation(rootAbsolutePath);
+    }
+
+    /**
+     * Simple alias to {@link #setRootLocation(String)} to support identical parameter names for this implementation and base
+     * {@link FileContentStore}
+     *
      * @param rootDirectory
      *            the rootDirectory to set
      */

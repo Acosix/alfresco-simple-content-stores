@@ -419,7 +419,7 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
         return site;
     }
 
-    private void afterPropertiesSet_setupChangePolicies()
+    protected void afterPropertiesSet_setupChangePolicies()
     {
         if (this.moveStoresOnNodeMoveOrCopyOverridePropertyName != null)
         {
@@ -452,7 +452,7 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
         }
     }
 
-    private void afterPropertiesSet_setupStoreData()
+    protected void afterPropertiesSet_setupStoreData()
     {
         if ((this.storeBySite == null || this.storeBySite.isEmpty())
                 && (this.storeBySitePreset == null || this.storeBySitePreset.isEmpty()))

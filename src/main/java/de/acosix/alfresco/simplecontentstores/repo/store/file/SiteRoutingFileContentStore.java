@@ -650,7 +650,7 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
 
     protected void afterPropertiesSet_setupStoreData()
     {
-        if (this.rootAbsolutePathsBySite != null)
+        if (this.rootAbsolutePathsBySite != null && !this.rootAbsolutePathsBySite.isEmpty())
         {
             PropertyCheck.mandatory(this, "protocolBySite", this.protocolsBySite);
 
@@ -704,7 +704,7 @@ public class SiteRoutingFileContentStore extends MoveCapableCommonRoutingContent
                     "Invalid store configuration: 'protocolsBySite' is set without corresponding 'rootAbsolutePathsBySite'");
         }
 
-        if (this.rootAbsolutePathsBySitePreset != null)
+        if (this.rootAbsolutePathsBySitePreset != null && !this.rootAbsolutePathsBySitePreset.isEmpty())
         {
             PropertyCheck.mandatory(this, "protocolBySitePreset", this.protocolsBySitePreset);
 

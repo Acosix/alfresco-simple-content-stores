@@ -12,18 +12,18 @@ This module is built to be compatible with Alfresco 5.2 and above. It may be use
 
 The [wiki](https://github.com/Acosix/alfresco-simple-content-stores/wiki) contains detailed information about all the stores this addon provides, as well as their configuration properties and configuration examples. Currently, this addon provides:
 
-- a simple [file store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/File-Store)
-- a [tenant routing file store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Default-Tenant-Routing-File-Store) (for backwards compatibility with Alfresco default unencrypted content store)
-- a [site file store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Site-File-Store)
-- a [site routing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Site-Routing-Store)
-- a [tenant routing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Tenant-Routing-Store)
-- a [selector property-based routing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Selector-Property-Store)
-- a [compressing store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Compressing-Store)
-- a [deduplicating store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Deduplicating-Store)
-- an [encrypting store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Encrypting-Store)
-- a [caching store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Caching-Store)
-- an [aggregating store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Aggregating-Store)
-- a [dummy store](https://github.com/Acosix/alfresco-simple-content-stores/wiki/Dummy-Store)
+- a simple [file store](./docs/StandardFileStore.md)
+- a [tenant routing file store](./docs/TenantRoutingFileStore.md) (for backwards compatibility with Alfresco default unencrypted content store)
+- a [site file store](./docs/SiteRoutingFileStore.md)
+- a [site routing store](./docs/SiteRoutingStore.md)
+- a [tenant routing store](./docs/TenantRoutingStore.md)
+- a [selector property-based routing store](./docs/SelectorPropertyRoutingStore.md)
+- a [compressing store](./docs/CompressingStore.md)
+- a [deduplicating store](./docs/DeduplicatingStore.md)
+- an [encrypting store](./docs/EncryptingStore.md)
+- a [caching store](./docs/CachingStore.md)
+- an [aggregating store](./docs/AggregatingStore.md)
+- a [dummy store](./docs/DummyStore.md)
 
 # Build
 
@@ -62,43 +62,11 @@ In order to build the project it is necessary to provide a basic toolchain confi
 
 This is used in the branch targeting Alfresco 4.2 which requires Java 7, while the branch for Alfresco 5.0 / 5.1 as well as master (Alfresco 5.2 and newer) all use Java 8.
 
-## Build
-
-This project can be built simply by executing the standard Maven build lifecycles for package, install or deploy depending on the intent for further processing. A Java Development Kit (JDK) version 8 or higher is required for the build of the master and Alfresco 5.0/5.1 branches, while the branch targeting Alfresco 4.2 requires Java 7.
-
-By inheritance from the Acosix Alfresco Maven framework, this project uses the [Maven Toolchains plugin](http://maven.apache.org/plugins/maven-toolchains-plugin/) to allow cross-compilation against different Java versions. This is used in the branch targeting Alfresco 4.2. In order to build the project it is necessary to provide a basic toolchain configuration via the user specific Maven configuration home (usually ~/.m2/). That file (toolchains.xml) only needs to list the path to a compatible JDK for the Java version required by this project. The following is a sample file defining a Java 7 and 8 development kit.
-
-```xml
-<?xml version='1.0' encoding='UTF-8'?>
-<toolchains xmlns="http://maven.apache.org/TOOLCHAINS/1.1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/TOOLCHAINS/1.1.0 http://maven.apache.org/xsd/toolchains-1.1.0.xsd">
-  <toolchain>
-    <type>jdk</type>
-    <provides>
-      <version>1.8</version>
-      <vendor>oracle</vendor>
-    </provides>
-    <configuration>
-      <jdkHome>C:\Program Files\Java\jdk1.8.0_112</jdkHome>
-    </configuration>
-  </toolchain>
-  <toolchain>
-    <type>jdk</type>
-    <provides>
-      <version>1.7</version>
-      <vendor>oracle</vendor>
-    </provides>
-    <configuration>
-      <jdkHome>C:\Program Files\Java\jdk1.7.0_80</jdkHome>
-    </configuration>
-  </toolchain>
-</toolchains>
-```
-
 ## Docker-based integration tests
 
 In a default build using ```mvn clean install```, this project will build the extension for Alfresco Content Services, executing regular unit-tests without running integration tests. The integration tests of this project are based on Docker and require a Docker engine to run the necessary components (PostgreSQL database as well as Alfresco Content Services). Since a Docker engine may not be available in all environments of interested community members / collaborators, the integration tests have been made optional. A full build, including integration tests, can be run by executing
 
-```
+```text
 mvn clean install -Ddocker.tests.enabled=true
 ```
 
