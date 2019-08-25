@@ -10,7 +10,7 @@ This module is built to be compatible with Alfresco 5.2 and above. It may be use
 
 ## Provided Stores
 
-The [wiki](https://github.com/Acosix/alfresco-simple-content-stores/wiki) contains detailed information about all the stores this addon provides, as well as their configuration properties and configuration examples. Currently, this addon provides:
+Currently, this addon provides:
 
 - a simple [file store](./docs/StandardFileStore.md)
 - a [tenant routing file store](./docs/TenantRoutingFileStore.md) (for backwards compatibility with Alfresco default unencrypted content store)
