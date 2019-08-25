@@ -2,7 +2,7 @@
 
 # About
 
-This addon provides a set of simple / common content store implementations to enhance any installation of Alfresco Community or Enterprise. It also provides a mechanism that supports configuring custom content stores without any need for Spring bean definition / XML manipulation or overriding, just by using properties inside of the alfresco-global.properties file.
+This addon provides a set of simple / common content store implementations to enhance any installation of Alfresco Community or Enterprise. It also provides a mechanism that supports configuring custom content stores without any need for Spring bean definition / XML manipulation or overriding, just by using properties inside of the alfresco-global.properties file. General information about [general aspects](./docs/GeneralAspects.md) and [configuration approach](./docs/GeneralConfiguration.md) can be found in the specific documentation pages in the ``docs`` folder in this project.
 
 ## Compatibility
 

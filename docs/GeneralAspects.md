@@ -1,4 +1,4 @@
-# Architecture
+# General Aspects
 
 ## Content URLs
 
