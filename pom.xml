@@ -68,7 +68,7 @@
         <moduleId>acosix-simple-content-stores</moduleId>
 
         <acosix.utility.version>1.0.3.1</acosix.utility.version>
-        <acosix.alfresco.client.version>0.1.0-SNAPSHOT</acosix.alfresco.client.version>
+        <acosix.alfresco.client.version>0.1.0</acosix.alfresco.client.version>
         <tukaani.version>1.8</tukaani.version>
         <!-- Not used yet  -->
         <!-- 
