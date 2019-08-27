@@ -70,6 +70,10 @@ In a default build using ```mvn clean install```, this project will build the ex
 mvn clean install -Ddocker.tests.enabled=true
 ```
 
+**Note**: The Docker-based integration tests are currently only available on the master branch. This is due to the fact that official Alfresco Docker images are only available for Alfresco 6.0 and above, and the public ReST API used in the integration tests is only available for Alfresco 5.2 and above. Acosix will work on building custom images for earlier Alfresco versions to be used in integration tests in future versions, while switching over to using - and possibly even providing custom - legacy ReST APIs via web scripts.
+
+Due to OS- and file system specific permission handling, as well as the use of Docker mounted directories to access the Alfresco content store from within unit test classes, the integration tests may also not work on systems with strict file system security in place. The project is currently being developed in a Microsoft Windows environment, and integration tests should work without fail in that environment, while *nix-based environments have been reported as problematic. Acosix will aim to work on finding alternative approaches to verifying files in the content store in future versions to enable integration tests to be run on any environment.
+
 ## Dependencies
 
 This module depends on the following projects / libraries:
