@@ -18,9 +18,13 @@ package de.acosix.alfresco.simplecontentstores.repo.store.context;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.alfresco.model.ContentModel;
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
+import org.alfresco.repo.content.NodeContentContext;
+import org.alfresco.repo.site.SiteModel;
 import org.alfresco.service.cmr.repository.ContentIOException;
+import org.alfresco.service.cmr.repository.ContentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,9 +40,25 @@ import org.slf4j.LoggerFactory;
 public final class ContentStoreContext
 {
 
+    /**
+     * Key for accessing the {@link ContentModel#PROP_NAME short name} of the site the node used as the context in the active
+     * {@code getWriter}/{@code getReader} call, if the node is located in a site at all
+     */
     public static final String DEFAULT_ATTRIBUTE_SITE = "site";
 
+    /**
+     * Key for accessing the {@link SiteModel#PROP_SITE_PRESET preset} of the site the node used as the context in the active
+     * {@code getWriter}/{@code getReader} call, if the node is located in a site at all
+     */
     public static final String DEFAULT_ATTRIBUTE_SITE_PRESET = "sitePreset";
+
+    /**
+     * Key for accessing the current content data of the node for which a call to
+     * {@link ContentService#getReader(org.alfresco.service.cmr.repository.NodeRef, org.alfresco.service.namespace.QName) getReader}
+     * is processed via the public {@link ContentService} bean, or a call to {@link ContentStore#getWriter(ContentContext) getWriter} is
+     * provided with a {@link NodeContentContext}
+     */
+    public static final String DEFAULT_ATTRIBUTE_CONTENT_DATA = "contentData";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ContentStoreContext.class);
 

@@ -44,6 +44,14 @@ public class SiteAwareFileContentStore extends FileContentStore
     protected boolean useSiteFolderInGenericDirectories;
 
     /**
+     * @return the useSiteFolderInGenericDirectories
+     */
+    public boolean isUseSiteFolderInGenericDirectories()
+    {
+        return this.useSiteFolderInGenericDirectories;
+    }
+
+    /**
      * @param useSiteFolderInGenericDirectories
      *            the useSiteFolderInGenericDirectories to set
      */
@@ -120,6 +128,7 @@ public class SiteAwareFileContentStore extends FileContentStore
 
     protected String checkAndAdjustInboundContentUrl(final String contentUrl, final boolean allowExistingPrefixChange)
     {
+        LOGGER.debug("Checking and potentially adjusting inbound content URL {}", contentUrl);
         String effectiveContentUrl = contentUrl;
 
         final List<String> prefixes = ContentUrlUtils.extractPrefixes(effectiveContentUrl);
@@ -153,6 +162,10 @@ public class SiteAwareFileContentStore extends FileContentStore
             alteredPrefixes.remove(sitePrefixIndex);
             effectiveContentUrl = ContentUrlUtils.getContentUrlWithPrefixes(ContentUrlUtils.getBaseContentUrl(effectiveContentUrl),
                     alteredPrefixes.toArray(new String[0]));
+        }
+        else
+        {
+            LOGGER.debug("No adaption of content URL is required");
         }
         return effectiveContentUrl;
     }
@@ -197,7 +210,7 @@ public class SiteAwareFileContentStore extends FileContentStore
             if (indexSiteIndicator != -1 && prefixes.size() > indexSiteIndicator + 1)
             {
                 final String site = prefixes.get(indexSiteIndicator + 1);
-                LOGGER.debug("Prepending site {} to relative content path", site, relativePath);
+                LOGGER.debug("Prepending site {} to relative content path {}", site, relativePath);
                 relativePath = site + "/" + relativePath;
             }
         }

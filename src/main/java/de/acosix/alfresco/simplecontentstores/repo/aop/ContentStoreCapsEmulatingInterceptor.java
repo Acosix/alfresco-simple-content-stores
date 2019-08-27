@@ -167,7 +167,8 @@ public class ContentStoreCapsEmulatingInterceptor implements MethodInterceptor, 
                     {
                         final ContentStoreCaps contentStoreCaps = (ContentStoreCaps) contentStore;
                         final TenantDeployer tenantAwareContentStore = tenantRoutingContentStoreRequired
-                                ? contentStoreCaps.getTenantRoutingContentStore() : contentStoreCaps.getTenantDeployer();
+                                ? contentStoreCaps.getTenantRoutingContentStore()
+                                : contentStoreCaps.getTenantDeployer();
                         if (tenantAwareContentStore != null)
                         {
                             tenantAwareContentStores.add(tenantAwareContentStore);

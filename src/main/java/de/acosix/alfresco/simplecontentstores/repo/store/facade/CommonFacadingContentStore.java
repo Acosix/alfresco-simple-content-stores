@@ -33,6 +33,7 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.namespace.NamespaceService;
 import org.alfresco.service.namespace.QName;
+import org.alfresco.util.GUID;
 import org.alfresco.util.ParameterCheck;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
@@ -46,6 +47,8 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CommonFacadingContentStore.class);
+
+    protected final String instanceKey = GUID.generate();
 
     protected NamespaceService namespaceService;
 
@@ -212,7 +215,8 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
      *
      * {@inheritDoc}
      */
-    @Override @SuppressWarnings("deprecation")
+    @Override
+    @SuppressWarnings("deprecation")
     public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler) throws ContentIOException
     {
         this.backingStore.getUrls(createdAfter, createdBefore, handler);
@@ -221,7 +225,8 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     /**
      * {@inheritDoc}
      */
-    @Override @SuppressWarnings("deprecation")
+    @Override
+    @SuppressWarnings("deprecation")
     public void getUrls(final ContentUrlHandler handler) throws ContentIOException
     {
         this.backingStore.getUrls(handler);
@@ -235,6 +240,17 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     public boolean delete(final String contentUrl)
     {
         return this.backingStore.delete(contentUrl);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        final StringBuilder builder = new StringBuilder();
+        builder.append(this.getClass().getSimpleName()).append(" [instanceKey=").append(this.instanceKey).append("]");
+        return builder.toString();
     }
 
     protected boolean isSpecialHandlingRequired(final ContentContext ctx)

@@ -23,9 +23,9 @@ import java.nio.channels.ClosedChannelException;
 import org.alfresco.util.ParameterCheck;
 
 /**
- * This class has been based on {@link de.acosix.alfresco.simplecontentstores.repo.store.facade.ByteBufferByteChannel} to limit the
- * dependency on external / peripheral
- * libraries in case that specific library may be removed / alterered in a different version of Alfresco.
+ * This class has been based on {@code com.googlecode.mp4parser.util.ByteBufferByteChannel} to limit the
+ * dependency on external / peripheral libraries in case that specific library may be removed / alterered in a different version of
+ * Alfresco.
  *
  * @author Axel Faust
  */
@@ -48,29 +48,30 @@ public class ByteBufferByteChannel implements ByteChannel
     @Override
     public synchronized int read(final ByteBuffer dst) throws IOException
     {
-        int bytesRead = -1;
-
-        if (this.open)
+        if (!this.open)
         {
-            final int free = dst.remaining();
+            throw new ClosedChannelException();
+        }
 
-            if (free > 0)
+        int bytesRead = -1;
+        final int free = dst.remaining();
+
+        if (free > 0)
+        {
+            if (this.byteBuffer.hasRemaining())
             {
-                if (this.byteBuffer.hasRemaining())
+                if (free < this.byteBuffer.remaining())
                 {
-                    if (free < this.byteBuffer.remaining())
-                    {
-                        final int limit = this.byteBuffer.limit();
-                        this.byteBuffer.limit(this.byteBuffer.position() + free);
-                        dst.put(this.byteBuffer);
-                        this.byteBuffer.limit(limit);
-                    }
-                    else
-                    {
-                        dst.put(this.byteBuffer);
-                    }
-                    bytesRead = free - dst.remaining();
+                    final int limit = this.byteBuffer.limit();
+                    this.byteBuffer.limit(this.byteBuffer.position() + free);
+                    dst.put(this.byteBuffer);
+                    this.byteBuffer.limit(limit);
                 }
+                else
+                {
+                    dst.put(this.byteBuffer);
+                }
+                bytesRead = free - dst.remaining();
             }
         }
 

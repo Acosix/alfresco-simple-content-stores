@@ -28,13 +28,14 @@ import org.alfresco.repo.content.caching.cleanup.CachedContentCleaner;
 import org.alfresco.repo.content.caching.cleanup.CachedContentCleanupJob;
 import org.alfresco.repo.content.caching.quota.QuotaManagerStrategy;
 import org.alfresco.repo.content.caching.quota.UnlimitedQuotaStrategy;
-import org.alfresco.util.AbstractTriggerBean;
-import org.alfresco.util.CronTriggerBean;
 import org.alfresco.util.PropertyCheck;
-import org.alfresco.util.TriggerBean;
 import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
 import org.quartz.SimpleTrigger;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.BeanNameAware;
@@ -42,11 +43,15 @@ import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.beans.factory.support.DefaultSingletonBeanRegistry;
+import org.springframework.beans.factory.support.ManagedList;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
-import org.springframework.scheduling.quartz.JobDetailBean;
+import org.springframework.scheduling.quartz.CronTriggerFactoryBean;
+import org.springframework.scheduling.quartz.JobDetailFactoryBean;
+import org.springframework.scheduling.quartz.SchedulerAccessorBean;
+import org.springframework.scheduling.quartz.SimpleTriggerFactoryBean;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.DisposableStandardQuotaStrategy;
 
@@ -371,6 +376,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
         if (this.quotaStrategy != null)
         {
             store.setQuota(this.quotaStrategy);
+            // cannot use content cleaner with external quota strategy (requires pre-init control)
         }
         else if (this.useStandardQuotaStrategy)
         {
@@ -383,80 +389,8 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
             standardQuotaStrategy.setNormalCleanThresholdSec(this.standardQuotaNormalCleanThresholdSeconds);
             standardQuotaStrategy.setMaxFileSizeMB(this.standardQuotaMaxFileSizeMebiBytes);
 
-            final CachedContentCleaner cachedContentCleaner = new CachedContentCleaner();
-            cachedContentCleaner.setMinFileAgeMillis(this.cleanerMinFileAgeMillis);
-            if (this.cleanerMaxDeleteWatchCount != null)
-            {
-                cachedContentCleaner.setMaxDeleteWatchCount(this.cleanerMaxDeleteWatchCount);
-            }
-            cachedContentCleaner.setCache(cache);
-            cachedContentCleaner.setUsageTracker(standardQuotaStrategy);
-            cachedContentCleaner.setApplicationEventPublisher(this.applicationEventPublisher);
-            if (this.beanFactory instanceof ConfigurableBeanFactory)
-            {
-                ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-CachedContentCleaner",
-                        cachedContentCleaner);
-            }
-
-            store.setQuota(standardQuotaStrategy);
-            standardQuotaStrategy.setCleaner(cachedContentCleaner);
-            standardQuotaStrategy.init();
-            if (this.beanFactory instanceof ConfigurableBeanFactory)
-            {
-                ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-QuotaStrategy", standardQuotaStrategy);
-            }
-            if (this.beanFactory instanceof DefaultSingletonBeanRegistry)
-            {
-                ((DefaultSingletonBeanRegistry) this.beanFactory).registerDisposableBean(this.beanName + "-QuotaStrategy",
-                        standardQuotaStrategy);
-            }
-
-            final JobDetailBean cleanerDetail = new JobDetailBean();
-            cleanerDetail.setJobClass(CachedContentCleanupJob.class);
-            cleanerDetail.setJobDataAsMap(Collections.<String, Object> singletonMap("cachedContentCleaner", cachedContentCleaner));
-            cleanerDetail.setBeanName(this.beanName + "-JobDetail");
-            cleanerDetail.setApplicationContext(this.applicationContext);
-            cleanerDetail.afterPropertiesSet();
-
-            if (this.beanFactory instanceof ConfigurableBeanFactory)
-            {
-                ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-JobDetail", cleanerDetail);
-            }
-
-            AbstractTriggerBean trigger;
-            if (this.cleanerCronExpression != null)
-            {
-                final CronTriggerBean cronTriggerBean = new CronTriggerBean();
-                cronTriggerBean.setBeanName(this.beanName + "-JobTrigger");
-                cronTriggerBean.setJobDetail(cleanerDetail);
-                cronTriggerBean.setCronExpression(this.cleanerCronExpression);
-                cronTriggerBean.setStartDelay(this.cleanerStartDelay);
-                cronTriggerBean.setScheduler(this.scheduler);
-                cronTriggerBean.afterPropertiesSet();
-                trigger = cronTriggerBean;
-            }
-            else
-            {
-                final TriggerBean triggerBean = new TriggerBean();
-                triggerBean.setBeanName(this.beanName + "-JobTrigger");
-                triggerBean.setJobDetail(cleanerDetail);
-                triggerBean.setStartDelay(this.cleanerStartDelay);
-                triggerBean.setRepeatInterval(this.cleanerRepeatInterval);
-                triggerBean.setRepeatCount(this.cleanerRepeatCount);
-                triggerBean.setScheduler(this.scheduler);
-                triggerBean.afterPropertiesSet();
-                trigger = triggerBean;
-            }
-
-            if (this.beanFactory instanceof ConfigurableBeanFactory)
-            {
-                ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(trigger.getBeanName(), trigger);
-            }
-
-            if (this.beanFactory instanceof DefaultSingletonBeanRegistry)
-            {
-                ((DefaultSingletonBeanRegistry) this.beanFactory).registerDisposableBean(trigger.getBeanName(), trigger);
-            }
+            final CachedContentCleaner cachedContentCleaner = this.setupCleaner(cache, store, standardQuotaStrategy);
+            this.setupCleanerJob(cachedContentCleaner);
         }
         else
         {
@@ -466,6 +400,104 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
         store.init();
 
         return store;
+    }
+
+    protected CachedContentCleaner setupCleaner(final ContentCacheImpl cache, final CachingContentStore store,
+            final DisposableStandardQuotaStrategy standardQuotaStrategy)
+    {
+        final CachedContentCleaner cachedContentCleaner = new CachedContentCleaner();
+        cachedContentCleaner.setMinFileAgeMillis(this.cleanerMinFileAgeMillis);
+        if (this.cleanerMaxDeleteWatchCount != null)
+        {
+            cachedContentCleaner.setMaxDeleteWatchCount(this.cleanerMaxDeleteWatchCount);
+        }
+        cachedContentCleaner.setCache(cache);
+        cachedContentCleaner.setUsageTracker(standardQuotaStrategy);
+        cachedContentCleaner.setApplicationEventPublisher(this.applicationEventPublisher);
+        if (this.beanFactory instanceof ConfigurableBeanFactory)
+        {
+            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-CachedContentCleaner", cachedContentCleaner);
+        }
+
+        store.setQuota(standardQuotaStrategy);
+        standardQuotaStrategy.setCleaner(cachedContentCleaner);
+        standardQuotaStrategy.init();
+
+        if (this.beanFactory instanceof ConfigurableBeanFactory)
+        {
+            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-QuotaStrategy", standardQuotaStrategy);
+        }
+        if (this.beanFactory instanceof DefaultSingletonBeanRegistry)
+        {
+            ((DefaultSingletonBeanRegistry) this.beanFactory).registerDisposableBean(this.beanName + "-QuotaStrategy",
+                    standardQuotaStrategy);
+        }
+        return cachedContentCleaner;
+    }
+
+    protected void setupCleanerJob(final CachedContentCleaner cachedContentCleaner) throws Exception, SchedulerException
+    {
+        // due to incompatible Quartz API between Alfresco 5.x / 6.x, we have to deal with Quartz via Spring reflection utils
+
+        final JobDetailFactoryBean cleanerJobDetailFactory = new JobDetailFactoryBean();
+        cleanerJobDetailFactory.setJobClass(CachedContentCleanupJob.class);
+        cleanerJobDetailFactory.setJobDataAsMap(Collections.<String, Object> singletonMap("cachedContentCleaner", cachedContentCleaner));
+        cleanerJobDetailFactory.setBeanName(this.beanName + "-JobDetail");
+        cleanerJobDetailFactory.setApplicationContext(this.applicationContext);
+        cleanerJobDetailFactory.afterPropertiesSet();
+        final Object jobDetail = cleanerJobDetailFactory.getObject();
+
+        // should never happen, but static code analyser claims it is technically possible
+        // my analysis shows this to be impossible as only case would be if exception is thrown in afterPropertiesSet()
+        if (jobDetail == null)
+        {
+            throw new IllegalStateException("Job detail factory bean did not create a detail object");
+        }
+
+        if (this.beanFactory instanceof ConfigurableBeanFactory)
+        {
+            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(this.beanName + "-JobDetail", jobDetail);
+        }
+
+        final MutablePropertyValues triggerFactoryProperties = new MutablePropertyValues();
+
+        triggerFactoryProperties.add("jobDetail", jobDetail);
+        final String triggerBeanName = this.beanName + "-JobTrigger";
+        triggerFactoryProperties.add("beanName", triggerBeanName);
+        triggerFactoryProperties.add("startDelay", this.cleanerStartDelay);
+
+        BeanWrapper triggerFactoryWrapper;
+        if (this.cleanerCronExpression != null)
+        {
+            triggerFactoryWrapper = new BeanWrapperImpl(CronTriggerFactoryBean.class);
+            triggerFactoryProperties.add("cronExpression", this.cleanerCronExpression);
+        }
+        else
+        {
+            triggerFactoryWrapper = new BeanWrapperImpl(SimpleTriggerFactoryBean.class);
+            triggerFactoryProperties.add("repeatInterval", this.cleanerRepeatInterval);
+            triggerFactoryProperties.add("repeatCount", this.cleanerRepeatCount);
+        }
+        triggerFactoryWrapper.setPropertyValues(triggerFactoryProperties);
+        final Object trigger = ((FactoryBean<?>) triggerFactoryWrapper.getWrappedInstance()).getObject();
+
+        if (this.beanFactory instanceof ConfigurableBeanFactory)
+        {
+            ((ConfigurableBeanFactory) this.beanFactory).registerSingleton(triggerBeanName, trigger);
+        }
+
+        final BeanWrapper schedulerAccessorBeanWrapper = new BeanWrapperImpl(SchedulerAccessorBean.class);
+        final MutablePropertyValues schedulerAccessorBeanProperties = new MutablePropertyValues();
+        schedulerAccessorBeanProperties.add("scheduler", this.scheduler);
+
+        final ManagedList<Object> triggersList = new ManagedList<>();
+        triggersList.add(trigger);
+        schedulerAccessorBeanProperties.add("triggers", triggersList);
+        schedulerAccessorBeanWrapper.setPropertyValues(schedulerAccessorBeanProperties);
+
+        final SchedulerAccessorBean schedulerAccessorBean = (SchedulerAccessorBean) schedulerAccessorBeanWrapper.getWrappedInstance();
+        // performs the actual registration
+        schedulerAccessorBean.afterPropertiesSet();
     }
 
     /**

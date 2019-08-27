@@ -531,8 +531,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
                         if (writer.getSize() > 0)
                         {
-                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype,
-                                    mimetype);
+                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype, mimetype);
                             break;
                         }
                         else

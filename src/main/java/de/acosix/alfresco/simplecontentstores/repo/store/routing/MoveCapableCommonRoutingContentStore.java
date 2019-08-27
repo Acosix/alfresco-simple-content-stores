@@ -17,11 +17,13 @@ package de.acosix.alfresco.simplecontentstores.repo.store.routing;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -29,9 +31,9 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
+import java.util.stream.Collectors;
 
 import org.alfresco.error.AlfrescoRuntimeException;
-import org.alfresco.model.ContentModel;
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.content.AbstractRoutingContentStore;
 import org.alfresco.repo.content.ContentContext;
@@ -66,7 +68,6 @@ import org.springframework.context.ApplicationContextAware;
 import de.acosix.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContextInitializer;
 
 /**
@@ -85,9 +86,11 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     private static final int PROTOCOL_DELIMETER_LENGTH = PROTOCOL_DELIMITER.length();
 
-    protected ApplicationContext applicationContext;
-
     private final Object contentStoreContextInitializersLock = new Object();
+
+    protected final String instanceKey = GUID.generate();
+
+    protected ApplicationContext applicationContext;
 
     protected transient volatile Collection<ContentStoreContextInitializer> contentStoreContextInitializers;
 
@@ -96,8 +99,6 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     protected DictionaryService dictionaryService;
 
     protected NodeService nodeService;
-
-    protected final String instanceKey = GUID.generate();
 
     protected SimpleCache<Pair<String, String>, ContentStore> storesByContentUrl;
 
@@ -210,7 +211,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
             }
         }
 
-        LOGGER.debug("The url {} supported by at least one store", (supported ? "is" : "is not"));
+        LOGGER.debug("The url {} {} supported by at least one store", contentUrl, (supported ? "is" : "is not"));
 
         return supported;
     }
@@ -273,8 +274,17 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     @Override
     public boolean exists(final String contentUrl) throws ContentIOException
     {
-        final ContentStore store = this.selectReadStore(contentUrl);
-        return (store != null);
+        boolean exists;
+        if (this.isContentUrlSupported(contentUrl))
+        {
+            final ContentStore store = this.selectReadStore(contentUrl);
+            exists = store != null;
+        }
+        else
+        {
+            exists = false;
+        }
+        return exists;
     }
 
     /**
@@ -318,36 +328,27 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         final Pair<String, String> cacheKey = new Pair<>(this.instanceKey, contentUrl);
         if (contentUrl != null)
         {
-            // Check to see if it is in the cache
             this.storesCacheReadLock.lock();
             try
             {
-                // Check if the store is in the cache
                 final ContentStore store = this.storesByContentUrl.get(cacheKey);
                 if (store != null)
                 {
                     throw new ContentExistsException(this, contentUrl);
                 }
-                /*
-                 * We could go further and check each store for the existence of the URL,
-                 * but that would be overkill. The main problem we need to prevent is
-                 * the simultaneous access of the same store. The router represents
-                 * a single store and therefore if the URL is present in any of the stores,
-                 * it is effectively present in all of them.
-                 */
             }
             finally
             {
                 this.storesCacheReadLock.unlock();
             }
         }
-        // Select the store for writing
+
         final ContentStore store = this.selectWriteStore(context);
-        // Check that we were given a valid store
+
         if (store == null)
         {
-            throw new NullPointerException(
-                    "Unable to find a writer. 'selectWriteStore' may not return null: \n\tRouter: " + this + "\n\tChose: null");
+            // default Alfresco throws a NullPointerException, which is really inprecise
+            throw new IllegalStateException("Unable to find a writer. 'selectWriteStore' may not return null: \n\tRouter: " + this);
         }
         else if (!store.isWriteSupported())
         {
@@ -418,10 +419,11 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         /*
          * This operation has to be performed on all the stores in order to maintain the
          * {@link ContentStore#exists(String)} contract.
+         * Still need to apply the isContentUrlSupported guard though.
          */
         for (final ContentStore store : stores)
         {
-            if (store.isWriteSupported())
+            if (store.isContentUrlSupported(contentUrl) && store.isWriteSupported())
             {
                 deleted &= store.delete(contentUrl);
             }
@@ -430,6 +432,17 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         LOGGER.debug("Deleted content URL from stores: \n\tStores:  {}\n\tDeleted: {}", stores.size(), deleted);
 
         return deleted;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString()
+    {
+        final StringBuilder builder = new StringBuilder();
+        builder.append(this.getClass().getSimpleName()).append(" [instanceKey=").append(this.instanceKey).append("]");
+        return builder.toString();
     }
 
     /**
@@ -465,7 +478,10 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      */
     protected List<ContentStore> getStores(final String contentUrl)
     {
-        return this.getAllStores();
+        final List<ContentStore> allStores = this.getAllStores();
+        final List<ContentStore> filteredStores = allStores.stream().filter(store -> store.isContentUrlSupported(contentUrl))
+                .collect(Collectors.toList());
+        return filteredStores;
     }
 
     protected ContentStore getStore(final String contentUrl, final boolean mustExist)
@@ -473,11 +489,9 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         ContentStore store = this.getStoreFromCache(contentUrl, mustExist);
         if (store == null || !store.exists(contentUrl))
         {
-            // Get the write lock and double check
             this.storesCacheWriteLock.lock();
             try
             {
-                // Double check
                 store = this.getStoreFromCache(contentUrl, mustExist);
                 if (store == null)
                 {
@@ -485,7 +499,6 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
                     if (store != null)
                     {
-                        // Put the value in the cache
                         final Pair<String, String> cacheKey = new Pair<>(this.instanceKey, contentUrl);
                         this.storesByContentUrl.put(cacheKey, store);
                     }
@@ -504,52 +517,20 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     {
         ContentStore store = null;
 
-        // Keep track of the unsupported state of the content URL - it might be a rubbish URL
-        boolean contentUrlSupported = false;
-
-        // first step - optimized store traversal over potential sub-list of pre-filtered stores
         final List<ContentStore> stores = this.getStores(contentUrl);
-        for (final ContentStore storeInList : stores)
-        {
-            if (storeInList.isContentUrlSupported(contentUrl))
-            {
-                // At least the content URL was supported
-                contentUrlSupported = true;
 
-                if (!mustExist || storeInList.exists(contentUrl))
-                {
-                    store = storeInList;
-                    break;
-                }
-            }
-        }
-
-        if (store == null)
-        {
-            final List<ContentStore> allStores = this.getAllStores();
-            if (allStores != stores)
-            {
-                for (final ContentStore storeInList : allStores)
-                {
-                    if (storeInList.isContentUrlSupported(contentUrl))
-                    {
-                        // At least the content URL was supported
-                        contentUrlSupported = true;
-
-                        if (!mustExist || storeInList.exists(contentUrl))
-                        {
-                            store = storeInList;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Check if the content URL was supported
-        if (!contentUrlSupported)
+        if (stores.isEmpty())
         {
             throw new UnsupportedContentUrlException(this, contentUrl);
+        }
+
+        for (final ContentStore storeInList : stores)
+        {
+            if (!mustExist || storeInList.exists(contentUrl))
+            {
+                store = storeInList;
+                break;
+            }
         }
 
         return store;
@@ -562,18 +543,13 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         this.storesCacheReadLock.lock();
         try
         {
-            // Check if the store is in the cache
             final ContentStore store = this.storesByContentUrl.get(cacheKey);
             if (store != null)
             {
-                // We found a store that was previously used
                 try
                 {
-                    // It is possible for content to be removed from a store and
-                    // it might have moved into another store.
                     if (!mustExist || store.exists(contentUrl))
                     {
-                        // We found a store and can use it
                         readStore = store;
                     }
                 }
@@ -650,6 +626,39 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         return this.fallbackStore;
     }
 
+    protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode, final boolean defaultMoveFlag,
+            final QName moveFlagOverridePropertyQName, final CD customData)
+    {
+        // just copied/moved so properties should be cached
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(affectedNode);
+
+        boolean doMove = false;
+        if (moveFlagOverridePropertyQName != null)
+        {
+            final Serializable moveStoresOnChangeOptionValue = properties.get(moveFlagOverridePropertyQName);
+            // explicit value wins
+            if (moveStoresOnChangeOptionValue != null)
+            {
+                LOGGER.debug("Using override property value {} to determine doMove state", moveStoresOnChangeOptionValue);
+                doMove = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
+            }
+            else
+            {
+                doMove = defaultMoveFlag;
+            }
+        }
+        else
+        {
+            doMove = defaultMoveFlag;
+        }
+        LOGGER.debug("Determined doMove flag state of {} for {}", doMove, affectedNode);
+
+        if (doMove)
+        {
+            this.checkAndProcessContentPropertiesMove(affectedNode, properties, customData);
+        }
+    }
+
     protected void checkAndProcessContentPropertiesMove(final NodeRef affectedNode, final Map<QName, Serializable> properties,
             final CD customData)
     {
@@ -658,32 +667,28 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         final Collection<QName> setProperties = new HashSet<>(properties.keySet());
         setProperties.retainAll(contentProperties);
 
-        // only act if node actually has content properties set
+        LOGGER.debug("Found {} set content properties on {}", setProperties.size(), affectedNode);
+
         if (!setProperties.isEmpty())
         {
             final Map<QName, Serializable> contentPropertiesMap = new HashMap<>();
             for (final QName contentProperty : setProperties)
             {
                 final Serializable value = properties.get(contentProperty);
-                contentPropertiesMap.put(contentProperty, value);
+                if (value != null)
+                {
+                    contentPropertiesMap.put(contentProperty, value);
+                }
             }
 
             if (!contentPropertiesMap.isEmpty())
             {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
+                LOGGER.debug("Processing {} set content properties with non-null values on {}", contentPropertiesMap.size(), affectedNode);
 
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap,
-                                customData);
-                        return null;
-                    }
+                ContentStoreContext.executeInNewContext(() -> {
+                    MoveCapableCommonRoutingContentStore.this.processContentPropertiesMove(affectedNode, contentPropertiesMap,
+                            customData);
+                    return null;
                 });
             }
         }
@@ -752,13 +757,18 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     protected ContentData processContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
             final CD customData)
     {
+        LOGGER.debug("Processing content data {} for property {} on node {}", contentData, propertyQName, nodeRef);
+
         ContentData updatedContentData = null;
+        boolean noContentDataUpdateRequired = false;
         final String currentContentUrl = contentData.getContentUrl();
 
-        // only act if actually managed in this store
+        LOGGER.debug("Checking if content URL {} exists in store {}", currentContentUrl, this);
         if (this.exists(currentContentUrl))
         {
-            this.initializeContentStoreContext(nodeRef);
+            LOGGER.debug("Handling existing content for URL {}", currentContentUrl);
+
+            this.initializeContentStoreContext(nodeRef, propertyQName);
 
             final ContentStore targetStore = this.selectStoreForContentDataMove(nodeRef, propertyQName, contentData, customData);
 
@@ -766,88 +776,86 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
             final String protocol = urlParts.getFirst();
             final String baseContentUrl = ContentUrlUtils.getBaseContentUrl(currentContentUrl);
 
-            // use both wildcard, current and legacy store protocol to check for existing content
+            // use wildcard and legacy store protocols to check for existing content
+            // if the current content URL / existing content is still valid for the potentially different context after move, one of the
+            // wildcard URLs should resolve back to it
             final String oldWildcardContentUrl = StoreConstants.WILDCARD_PROTOCOL + currentContentUrl.substring(protocol.length());
             final String oldWildcardBaseContentUrl = StoreConstants.WILDCARD_PROTOCOL + baseContentUrl.substring(protocol.length());
             final String legacyContentUrl = FileContentStore.STORE_PROTOCOL + baseContentUrl.substring(protocol.length());
-            final String[] urlsToTest = new String[] { oldWildcardContentUrl, oldWildcardBaseContentUrl, currentContentUrl,
-                    legacyContentUrl };
 
+            final Set<String> urlsToTest = new LinkedHashSet<>(
+                    Arrays.asList(oldWildcardContentUrl, oldWildcardBaseContentUrl, legacyContentUrl));
+
+            LOGGER.debug("Checking if target store {} already contains content for base content URL {}", targetStore, baseContentUrl);
+            String firstSupportedContentUrl = null;
             for (final String urlToTest : urlsToTest)
             {
-                if (targetStore.isContentUrlSupported(urlToTest) && targetStore.exists(urlToTest))
+                if (targetStore.isContentUrlSupported(urlToTest))
                 {
+                    if (firstSupportedContentUrl == null)
+                    {
+                        firstSupportedContentUrl = urlToTest;
+                    }
+
                     final ContentReader reader = targetStore.getReader(urlToTest);
-                    if (!EqualsHelper.nullSafeEquals(currentContentUrl, reader.getContentUrl()))
+                    if (reader != null && reader.exists())
                     {
-                        LOGGER.debug("Updating content data for {} on {} with new content URL {}", propertyQName, nodeRef,
-                                reader.getContentUrl());
-
-                        reader.setMimetype(contentData.getMimetype());
-                        reader.setEncoding(contentData.getEncoding());
-                        reader.setLocale(contentData.getLocale());
-
-                        updatedContentData = reader.getContentData();
-                        break;
-                    }
-
-                    LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
-                    updatedContentData = null;
-                }
-            }
-
-            if (updatedContentData == null)
-            {
-                // only if we don't have any special markers in currentContentUrl should we check for a simple exist
-                if (EqualsHelper.nullSafeEquals(currentContentUrl, baseContentUrl) && targetStore.isContentUrlSupported(currentContentUrl)
-                        && targetStore.exists(currentContentUrl))
-                {
-                    LOGGER.trace("No relevant change in content URL for {} on {}", propertyQName, nodeRef);
-                    updatedContentData = null;
-                }
-                else
-                {
-                    final ContentReader reader = this.getReader(currentContentUrl);
-                    if (reader == null || !reader.exists())
-                    {
-                        throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
-                    }
-
-                    // we can only (semi-)dictate the content URL to use if the target store supports the protocol
-                    // check URLs variants using the wildcard, current or the legacy content store protocol
-                    // default to no contextContentUrl to avoid UnsupportedContentUrlException
-                    String contextContentUrl = null;
-                    for (final String urlToTest : urlsToTest)
-                    {
-                        if (targetStore.isContentUrlSupported(urlToTest))
+                        final String targetStoreContentUrl = reader.getContentUrl();
+                        if (!EqualsHelper.nullSafeEquals(currentContentUrl, targetStoreContentUrl))
                         {
-                            contextContentUrl = urlToTest;
+                            LOGGER.debug("Content already exists in target store with identified by content URL {} - updating content data",
+                                    targetStoreContentUrl);
+
+                            reader.setMimetype(contentData.getMimetype());
+                            reader.setEncoding(contentData.getEncoding());
+                            reader.setLocale(contentData.getLocale());
+
+                            updatedContentData = reader.getContentData();
                             break;
                         }
+
+                        LOGGER.debug(
+                                "Content already exists in target store with identical content URL - no need to copy content / update content data");
+                        updatedContentData = null;
+                        noContentDataUpdateRequired = true;
+                        break;
                     }
-
-                    final NodeContentContext contentContext = new NodeContentContext(reader, contextContentUrl, nodeRef, propertyQName);
-                    final ContentWriter writer = targetStore.getWriter(contentContext);
-
-                    final String newContentUrl = writer.getContentUrl();
-
-                    LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentContentUrl, newContentUrl);
-
-                    // ensure content cleanup on rollback (only if a new, unique URL was created
-                    if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
-                    {
-                        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-                        urlsToDelete.add(newContentUrl);
-                    }
-
-                    writer.putContent(reader);
-
-                    // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
-                    // transformations, i.e. compression)
-                    updatedContentData = new ContentData(writer.getContentUrl(), contentData.getMimetype(), contentData.getSize(),
-                            contentData.getEncoding(), contentData.getLocale());
                 }
             }
+
+            if (updatedContentData == null && !noContentDataUpdateRequired)
+            {
+                final ContentReader reader = this.getReader(currentContentUrl);
+                if (reader == null || !reader.exists())
+                {
+                    throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
+                }
+
+                final NodeContentContext contentContext = new NodeContentContext(reader, firstSupportedContentUrl, nodeRef, propertyQName);
+                final ContentWriter writer = targetStore.getWriter(contentContext);
+
+                final String newContentUrl = writer.getContentUrl();
+
+                LOGGER.debug("Copying content of {} on {} from {} to {}", propertyQName, nodeRef, currentContentUrl, newContentUrl);
+
+                // ensure content cleanup on rollback (only if a new, unique URL was created
+                if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
+                {
+                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+                    urlsToDelete.add(newContentUrl);
+                }
+
+                writer.putContent(reader);
+
+                // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
+                // transformations, i.e. compression)
+                updatedContentData = new ContentData(writer.getContentUrl(), contentData.getMimetype(), contentData.getSize(),
+                        contentData.getEncoding(), contentData.getLocale());
+            }
+        }
+        else
+        {
+            LOGGER.debug("Not handling {} on {} as content URL does not exist in this store", contentData, nodeRef);
         }
 
         return updatedContentData;
@@ -868,15 +876,13 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         }
     }
 
-    protected void initializeContentStoreContext(final NodeRef nodeRef)
+    protected void initializeContentStoreContext(final NodeRef nodeRef, final QName propertyQName)
     {
         this.ensureInitializersAreSet();
 
-        // use ContentModel.PROP_CONTENT as a dummy we need for initialization
-        final NodeContentContext initializerContext = new NodeContentContext(null, null, nodeRef, ContentModel.PROP_CONTENT);
         for (final ContentStoreContextInitializer initializer : this.contentStoreContextInitializers)
         {
-            initializer.initialize(initializerContext);
+            initializer.initialize(nodeRef, propertyQName);
         }
     }
 

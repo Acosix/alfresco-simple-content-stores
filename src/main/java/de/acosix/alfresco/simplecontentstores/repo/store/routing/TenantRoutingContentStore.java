@@ -163,7 +163,7 @@ public class TenantRoutingContentStore extends PropertyRestrictableRoutingConten
      * {@inheritDoc}
      */
     @Override
-    protected List<ContentStore> getStores(final String contentUrl)
+    protected List<ContentStore> getAllStores()
     {
         final List<ContentStore> stores = new ArrayList<>();
         if (!TenantUtil.isCurrentDomainDefault())

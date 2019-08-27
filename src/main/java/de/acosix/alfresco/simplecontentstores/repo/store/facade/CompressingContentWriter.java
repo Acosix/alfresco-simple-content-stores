@@ -44,7 +44,6 @@ import org.springframework.util.FileCopyUtils;
 /**
  * @author Axel Faust
  */
-// TODO Refactor into a proper facade similar to EncryptingContentWriterFacade
 public class CompressingContentWriter extends AbstractContentWriter implements ContentStreamListener
 {
 
@@ -65,6 +64,8 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
     protected final Collection<String> mimetypesToCompress;
 
     protected boolean writtenToBackingWriter = false;
+
+    protected long properSize = -1;
 
     protected MimetypeService mimetypeService;
 
@@ -98,7 +99,22 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
     @Override
     public long getSize()
     {
-        final long size = this.writtenToBackingWriter ? this.backingWriter.getSize() : this.temporaryWriter.getSize();
+        // Note: backingWriter.getSize() may be incorrect due to compression
+        // if mimetype requires compression only properSize or temporaryWriter.getSize() should ever be used
+        // if mimetype is excluded from compression, backingWriter.getSize() is perfectly fine
+        final long size;
+        if (this.properSize > 0)
+        {
+            size = this.properSize;
+        }
+        else if (this.writtenToBackingWriter)
+        {
+            size = this.backingWriter.getSize();
+        }
+        else
+        {
+            size = this.temporaryWriter.getSize();
+        }
         return size;
     }
 
@@ -108,7 +124,11 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
     @Override
     public void contentStreamClosed()
     {
-        this.writeToBackingStore();
+        // should never happen that we are called twice, but still good idea to protect against incorrect interface invocation
+        if (!this.writtenToBackingWriter)
+        {
+            this.writeToBackingStore();
+        }
     }
 
     /**
@@ -141,11 +161,46 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
 
         if (this.writtenToBackingWriter)
         {
-            reader = new DecompressingContentReader(this.backingWriter.getReader(), this.compressionType, this.mimetypesToCompress);
+            final String mimetype = this.getMimetype();
+            final boolean shouldCompress = this.mimetypesToCompress == null || this.mimetypesToCompress.isEmpty() || (mimetype != null
+                    && (this.mimetypesToCompress.contains(mimetype) || this.isMimetypeToCompressWildcardMatch(mimetype)));
+
+            if (shouldCompress)
+            {
+                reader = new DecompressingContentReader(this.backingWriter.getReader(), this.compressionType, this.mimetypesToCompress,
+                        this.properSize);
+            }
+            else
+            {
+                reader = this.backingWriter.getReader();
+            }
         }
         else
         {
-            reader = this.temporaryWriter.getReader();
+            // reader with faked content url to match expectation of super.getReader()
+            reader = new ContentReaderFacade(this.temporaryWriter.getReader())
+            {
+
+                /**
+                 *
+                 * {@inheritDoc}
+                 */
+                @Override
+                public String getContentUrl()
+                {
+                    return CompressingContentWriter.this.getContentUrl();
+                }
+
+                /**
+                 *
+                 * {@inheritDoc}
+                 */
+                @Override
+                public ContentReader getReader()
+                {
+                    return CompressingContentWriter.this.getReader();
+                }
+            };
         }
         return reader;
     }
@@ -162,18 +217,30 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
 
             private final WritableByteChannel channel = CompressingContentWriter.this.temporaryWriter.getWritableChannel();
 
+            /**
+             *
+             * {@inheritDoc}
+             */
             @Override
             public boolean isOpen()
             {
                 return this.channel.isOpen();
             }
 
+            /**
+             *
+             * {@inheritDoc}
+             */
             @Override
             public void close() throws IOException
             {
                 this.channel.close();
             }
 
+            /**
+             *
+             * {@inheritDoc}
+             */
             @Override
             public int write(final ByteBuffer src) throws IOException
             {
@@ -201,45 +268,43 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
             }
         }
 
-        try
-        {
-            final boolean shouldCompress = this.mimetypesToCompress == null || this.mimetypesToCompress.isEmpty() || (mimetype != null
-                    && (this.mimetypesToCompress.contains(mimetype) || this.isMimetypeToCompressWildcardMatch(mimetype)));
-            if (shouldCompress)
-            {
-                LOGGER.debug("Content will be compressed to backing store (url={})", this.getContentUrl());
-                final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty()
-                        ? this.compressionType
-                        : CompressorStreamFactory.GZIP;
-                try (final OutputStream contentOutputStream = this.backingWriter.getContentOutputStream())
-                {
-                    try (OutputStream compressedOutputStream = COMPRESSOR_STREAM_FACTORY.createCompressorOutputStream(compressiongType,
-                            contentOutputStream))
-                    {
-                        final ContentReader reader = this.createReader();
-                        final InputStream contentInputStream = reader.getContentInputStream();
-                        FileCopyUtils.copy(contentInputStream, compressedOutputStream);
-                    }
-                }
-                catch (final IOException | CompressorException ex)
-                {
-                    throw new ContentIOException("Error writing compressed content", ex);
-                }
-            }
-            else
-            {
-                LOGGER.debug("Content will not be compressed to backing store (url={})", this.getContentUrl());
-                this.backingWriter.putContent(this.createReader());
-            }
+        final boolean shouldCompress = this.mimetypesToCompress == null || this.mimetypesToCompress.isEmpty()
+                || (mimetype != null && (this.mimetypesToCompress.contains(mimetype) || this.isMimetypeToCompressWildcardMatch(mimetype)));
 
-            final String finalContentUrl = this.backingWriter.getContentUrl();
-            // we don't expect a different content URL, but just to make sure
-            this.setContentUrl(finalContentUrl);
-        }
-        finally
+        if (shouldCompress)
         {
-            this.writtenToBackingWriter = true;
+            LOGGER.debug("Content will be compressed to backing store (url={})", this.getContentUrl());
+            final String compressiongType = this.compressionType != null && !this.compressionType.trim().isEmpty() ? this.compressionType
+                    : CompressorStreamFactory.GZIP;
+            try (final OutputStream contentOutputStream = this.backingWriter.getContentOutputStream())
+            {
+                try (OutputStream compressedOutputStream = COMPRESSOR_STREAM_FACTORY.createCompressorOutputStream(compressiongType,
+                        contentOutputStream))
+                {
+                    final ContentReader reader = this.temporaryWriter.getReader();
+                    final InputStream contentInputStream = reader.getContentInputStream();
+                    FileCopyUtils.copy(contentInputStream, compressedOutputStream);
+                    this.properSize = this.temporaryWriter.getSize();
+                }
+            }
+            catch (final IOException | CompressorException ex)
+            {
+                throw new ContentIOException("Error writing compressed content", ex);
+            }
         }
+        else
+        {
+            LOGGER.debug("Content will not be compressed to backing store (url={})", this.getContentUrl());
+            this.backingWriter.putContent(this.createReader());
+        }
+
+        this.writtenToBackingWriter = true;
+
+        final String finalContentUrl = this.backingWriter.getContentUrl();
+        // we don't expect a different content URL, but just to make sure
+        this.setContentUrl(finalContentUrl);
+
+        this.cleanupTemporaryContent();
     }
 
     protected void cleanupTemporaryContent()

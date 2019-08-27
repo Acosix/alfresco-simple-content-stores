@@ -1,4 +1,19 @@
 <?xml version='1.0' encoding='UTF-8'?>
+<!-- 
+ Copyright 2017 - 2019 Acosix GmbH
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
 <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="
            http://www.springframework.org/schema/beans
@@ -24,7 +39,6 @@
         class="${project.artifactId}.store.routing.SelectorPropertyContentStore" parent="${moduleId}-propertyRestrictableRoutingStore">
         <property name="constraintRegistry" ref="cm:constraintRegistry" />
     </bean>
-    <alias alias="simpleContentStoresTemplate-selectorPropertyStore" name="simpleContentStoresTemplate-selectorPropertyRoutingStore" />
 
     <bean id="simpleContentStoresTemplate-siteRoutingStore" abstract="true"
         class="${project.artifactId}.store.routing.SiteRoutingContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
@@ -66,20 +80,17 @@
         </property>
     </bean>
 
-    <alias alias="simpleContentStoresTemplate-siteAwareMultiDirectoryFileStore"
-        name="simpleContentStoresTemplate-siteRoutingFileStore" />
-
     <bean id="simpleContentStoresTemplate-deduplicatingFacadeStore" abstract="true"
         class="${project.artifactId}.store.facade.DeduplicatingContentStore" parent="${moduleId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="${project.artifactId}.store.file.FileContentStore">
-                <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
+                <property name="rootDirectory" value="\${java.io.tmpdir}/Alfresco" />
             </bean>
         </property>
     </bean>
 
-    <bean id="simpleContentStoresTemplate-standardCachingStore" class="${project.artifactId}.beans.CachingContentStoreFactoryBean"
-        scope="prototype">
+    <bean id="simpleContentStoresTemplate-standardCachingStore" abstract="true"
+        class="${project.artifactId}.beans.CachingContentStoreFactoryBean">
         <property name="cacheFactory" ref="cacheFactory" />
         <property name="scheduler" ref="schedulerFactory" />
     </bean>
@@ -91,7 +102,7 @@
         class="${project.artifactId}.store.facade.CompressingContentStore" parent="${moduleId}-commonFacadeStore">
         <property name="temporaryStore">
             <bean class="${project.artifactId}.store.file.FileContentStore">
-                <property name="rootDirectory" value="${java.io.tmpdir}/Alfresco" />
+                <property name="rootDirectory" value="\${java.io.tmpdir}/Alfresco" />
             </bean>
         </property>
     </bean>

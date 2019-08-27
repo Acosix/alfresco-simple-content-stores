@@ -82,7 +82,11 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     public ContentData getContentData()
     {
         this.ensureDelegate();
-        return this.delegate.getContentData();
+        // re-construct a ContentData object from the various getters
+        // this will account for any potential override to handle transformations without requiring override of getContentData()
+        final ContentData property = new ContentData(this.getContentUrl(), this.getMimetype(), this.getSize(), this.getEncoding(),
+                this.getLocale());
+        return property;
     }
 
     /**
