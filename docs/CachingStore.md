@@ -26,7 +26,7 @@ This store can be selected by using the store type **_standardCachingStore_**.
 | standardQuotaPanicThresholdPercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content | ``90`` | yes |
 | standardQuotaCleanThresholdPercent | value | percent of allowed max cache usage to consider for triggering asynchronous cache cleaning after writing new cache content | ``80`` | yes |
 | standardQuotaPanicThresholdPercent | value | percent of allowed max cache usage that is considered the target result of a cache cleaning process | ``70`` | yes |
-| standardQuotaTargetUsagePercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content | ``90`` | yes |
+| standardQuotaTargetUsagePercent | value | percent of allowed max cache usage to consider the "panic" threshold and trigger immediate, asynchronous cache cleaning before writing new cache content - not supported in Alfresco 4.2 | ``90`` | yes |
 | standardQuotaMaxUsageBytes | value | the allowed max cache usage in bytes - if this is exceeded, an aggressive cache cleaning is triggered | ``0`` | yes |
 | standardQuotaMaxFileSizeMebiBytes | value | the max allowed size of an individual size in the cache in mebibytes - if this is exceeded, a content file will not be cached | ``0`` | yes |
 | standardQuotaNormalCleanThresholdSeconds | value | the amount of time that should pass between two normal cache cleaning processes in seconds - aggressive cache cleaning processes will ignore this | ``0`` | yes |
