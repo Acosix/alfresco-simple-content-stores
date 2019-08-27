@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,8 +124,7 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
     @Override
     public long getSize()
     {
-        final ContentReader reader = this.getDeduplicatedContentReader();
-        final long size = reader != null ? reader.getSize() : this.temporaryWriter.getSize();
+        final long size = this.getReader().getSize();
         return size;
     }
 
@@ -135,43 +134,47 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
     @Override
     public void contentStreamClosed()
     {
-        try
+        // should never happen that we are called twice, but still good idea to protect against incorrect interface invocation
+        if (this.deduplicatedContentUrl == null)
         {
-            // try to de-duplicate
-            this.findExistingContent();
-            if (this.deduplicatedContentUrl == null)
+            try
             {
-                this.contextRestorator.withRestoredContext(new ContentStoreOperation<Void>()
+                // try to de-duplicate
+                this.findExistingContent();
+                if (this.deduplicatedContentUrl == null)
                 {
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
+                    this.contextRestorator.withRestoredContext(new ContentStoreOperation<Void>()
                     {
-                        DeduplicatingContentWriter.this.writeToBackingStore();
-                        return null;
+
+                        /**
+                         *
+                         * {@inheritDoc}
+                         */
+                        @Override
+                        public Void execute()
+                        {
+                            DeduplicatingContentWriter.this.writeToBackingStore();
+                            return null;
+                        }
+                    });
+                }
+                else if (this.backingContentStore.isWriteSupported() && this.backingContentStore.exists(this.originalContentUrl))
+                {
+                    // we did not use the writer so delete any backend remnant that may have been pre-emptively created
+                    try
+                    {
+                        this.backingContentStore.delete(this.originalContentUrl);
                     }
-                });
+                    catch (final UnsupportedOperationException uoe)
+                    {
+                        LOGGER.debug("Backing content store does not support delete", uoe);
+                    }
+                }
             }
-            else if (this.backingContentStore.isWriteSupported() && this.backingContentStore.exists(this.originalContentUrl))
+            finally
             {
-                // we did not use the writer so delete any backend remnant that may have been pre-emptively created
-                try
-                {
-                    this.backingContentStore.delete(this.originalContentUrl);
-                }
-                catch (final UnsupportedOperationException uoe)
-                {
-                    LOGGER.debug("Backing content store does not support delete", uoe);
-                }
+                this.cleanupTemporaryContent();
             }
-        }
-        finally
-        {
-            this.cleanupTemporaryContent();
         }
     }
 
@@ -249,18 +252,30 @@ public class DeduplicatingContentWriter extends AbstractContentWriter implements
 
             private final WritableByteChannel channel = DeduplicatingContentWriter.this.temporaryWriter.getWritableChannel();
 
+            /**
+             *
+             * {@inheritDoc}
+             */
             @Override
             public boolean isOpen()
             {
                 return this.channel.isOpen();
             }
 
+            /**
+             *
+             * {@inheritDoc}
+             */
             @Override
             public void close() throws IOException
             {
                 this.channel.close();
             }
 
+            /**
+             *
+             * {@inheritDoc}
+             */
             @Override
             public int write(final ByteBuffer src) throws IOException
             {

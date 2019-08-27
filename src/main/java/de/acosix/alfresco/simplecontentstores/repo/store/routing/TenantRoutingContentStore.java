@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ public class TenantRoutingContentStore extends PropertyRestrictableRoutingConten
      * {@inheritDoc}
      */
     @Override
-    protected List<ContentStore> getStores(final String contentUrl)
+    protected List<ContentStore> getAllStores()
     {
         final List<ContentStore> stores = new ArrayList<>();
         if (!TenantUtil.isCurrentDomainDefault())

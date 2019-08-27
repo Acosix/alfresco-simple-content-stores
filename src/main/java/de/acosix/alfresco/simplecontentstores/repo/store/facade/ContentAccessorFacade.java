@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,11 @@ public class ContentAccessorFacade<CA extends ContentAccessor> implements Conten
     public ContentData getContentData()
     {
         this.ensureDelegate();
-        return this.delegate.getContentData();
+        // re-construct a ContentData object from the various getters
+        // this will account for any potential override to handle transformations without requiring override of getContentData()
+        final ContentData property = new ContentData(this.getContentUrl(), this.getMimetype(), this.getSize(), this.getEncoding(),
+                this.getLocale());
+        return property;
     }
 
     /**

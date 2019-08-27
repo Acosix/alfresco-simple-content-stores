@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,13 +41,17 @@ public class DecompressingContentReader extends ContentReaderFacade
 
     protected final Collection<String> mimetypesToCompress;
 
+    protected final long properSize;
+
     protected DecompressingContentReader(final ContentReader delegate, final String compressionType,
-            final Collection<String> mimetypesToCompress)
+            final Collection<String> mimetypesToCompress, final long properSize)
     {
         super(delegate);
 
         this.compressionType = compressionType;
         this.mimetypesToCompress = mimetypesToCompress;
+
+        this.properSize = properSize;
     }
 
     /**
@@ -57,7 +61,17 @@ public class DecompressingContentReader extends ContentReaderFacade
     public ContentReader getReader() throws ContentIOException
     {
         this.ensureDelegate();
-        return new DecompressingContentReader(this.delegate.getReader(), this.compressionType, this.mimetypesToCompress);
+        return new DecompressingContentReader(this.delegate.getReader(), this.compressionType, this.mimetypesToCompress, this.properSize);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long getSize()
+    {
+        final long size = this.properSize > 0 ? this.properSize : super.getSize();
+        return size;
     }
 
     /**

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,28 +23,33 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.MutablePropertyValues;
 import org.springframework.beans.PropertyValue;
-import org.springframework.beans.factory.BeanNameAware;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.config.PropertyPlaceholderConfigurer;
 import org.springframework.beans.factory.config.RuntimeBeanReference;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.beans.factory.support.ChildBeanDefinition;
 import org.springframework.beans.factory.support.ManagedList;
 import org.springframework.beans.factory.support.ManagedMap;
+import org.springframework.util.PropertyPlaceholderHelper;
 
 /**
  * @author Axel Faust
  */
-public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionRegistryPostProcessor, BeanNameAware
+public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionRegistryPostProcessor, InitializingBean
 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SimpleContentStoresBeanDefinitionEmitter.class);
+
+    private static final String DEFAULT_CONTENT_STORE = "fileContentStore";
 
     private static final String PROP_ROOT_STORE = "simpleContentStores.rootStore";
 
@@ -53,10 +58,6 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     private static final String PROP_CUSTOM_STORE_PREFIX = "simpleContentStores.customStore";
 
     private static final String STORE_TEMPLATE_PREFIX = "simpleContentStoresTemplate-";
-
-    protected String beanName;
-
-    protected List<BeanDefinitionRegistryPostProcessor> dependsOn;
 
     protected boolean executed;
 
@@ -70,22 +71,24 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     protected String rootStoreProxyName;
 
+    protected String placeholderPrefix = PropertyPlaceholderConfigurer.DEFAULT_PLACEHOLDER_PREFIX;
+
+    protected String placeholderSuffix = PropertyPlaceholderConfigurer.DEFAULT_PLACEHOLDER_SUFFIX;
+
+    protected String valueSeparator = PropertyPlaceholderConfigurer.DEFAULT_VALUE_SEPARATOR;
+
+    protected PropertyPlaceholderHelper placeholderHelper;
+
     /**
      * {@inheritDoc}
      */
     @Override
-    public void setBeanName(final String name)
+    public void afterPropertiesSet()
     {
-        this.beanName = name;
-    }
+        PropertyCheck.mandatory(this, "propertiesSource", this.propertiesSource);
+        PropertyCheck.mandatory(this, "rootStoreProxyName", this.rootStoreProxyName);
 
-    /**
-     * @param dependsOn
-     *            the dependsOn to set
-     */
-    public void setDependsOn(final List<BeanDefinitionRegistryPostProcessor> dependsOn)
-    {
-        this.dependsOn = dependsOn;
+        this.placeholderHelper = new PropertyPlaceholderHelper(this.placeholderPrefix, this.placeholderSuffix, this.valueSeparator, true);
     }
 
     /**
@@ -134,6 +137,33 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
     }
 
     /**
+     * @param placeholderPrefix
+     *            the placeholderPrefix to set
+     */
+    public void setPlaceholderPrefix(final String placeholderPrefix)
+    {
+        this.placeholderPrefix = placeholderPrefix;
+    }
+
+    /**
+     * @param placeholderSuffix
+     *            the placeholderSuffix to set
+     */
+    public void setPlaceholderSuffix(final String placeholderSuffix)
+    {
+        this.placeholderSuffix = placeholderSuffix;
+    }
+
+    /**
+     * @param valueSeparator
+     *            the valueSeparator to set
+     */
+    public void setValueSeparator(final String valueSeparator)
+    {
+        this.valueSeparator = valueSeparator;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -151,24 +181,11 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
         if (!this.executed)
         {
             final boolean enabled = this.isEnabled();
-
             if (enabled)
             {
-                if (this.dependsOn != null)
-                {
-                    for (final BeanDefinitionRegistryPostProcessor x : this.dependsOn)
-                    {
-                        x.postProcessBeanDefinitionRegistry(registry);
-                    }
-                }
-
-                LOGGER.info("[{}] patch is being applied", this.beanName);
+                LOGGER.info("Generating simple-content-stores bean definitions");
                 this.emitCustomStoreBeanDefinitions(registry);
                 this.processRootStore(registry);
-            }
-            else
-            {
-                LOGGER.info("[{}] patch will not be applied as it has been marked as inactive", this.beanName);
             }
             this.executed = true;
         }
@@ -199,7 +216,8 @@ public class SimpleContentStoresBeanDefinitionEmitter implements BeanDefinitionR
 
     protected void processRootStore(final BeanDefinitionRegistry registry)
     {
-        final String realRootStore = this.propertiesSource.getProperty(PROP_ROOT_STORE, "fileContentStore");
+        String realRootStore = this.propertiesSource.getProperty(PROP_ROOT_STORE, DEFAULT_CONTENT_STORE);
+        realRootStore = this.placeholderHelper.replacePlaceholders(realRootStore, this.propertiesSource);
         LOGGER.info("Setting {} as root content store", realRootStore);
 
         // complete the proxy definition

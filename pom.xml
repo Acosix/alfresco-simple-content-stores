@@ -1,16 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2017 - 2019 Acosix GmbH
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
-        <artifactId>de.acosix.alfresco.maven.module.parent</artifactId>
-        <version>1.0.0.4-SNAPSHOT</version>
+        <artifactId>de.acosix.alfresco.maven.project.parent-4.2.f</artifactId>
+        <version>1.2.0</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores-42</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
-    <version>1.0.0.0-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Acosix Alfresco 4.2 Simple Content Stores - Repository Module</name>
@@ -52,9 +67,11 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <alfresco.distribution.version>4.2.f</alfresco.distribution.version>
-        <maven.compiler.source>1.7</maven.compiler.source>
-        <maven.compiler.target>1.7</maven.compiler.target>
+        <acosix.utility.version>1.0.3.1</acosix.utility.version>
+        <tukaani.version>1.8</tukaani.version>
+
+        <easymock.version>3.4</easymock.version>
+        <lorem.version>2.1</lorem.version>
     </properties>
 
     <repositories>
@@ -70,16 +87,23 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>de.acosix.alfresco.utility</groupId>
+                <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
+                <version>${acosix.utility.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.tukaani</groupId>
                 <artifactId>xz</artifactId>
-                <version>1.5</version>
+                <version>${tukaani.version}</version>
                 <scope>compile</scope>
             </dependency>
 
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
-                <version>0.9.20</version>
+                <version>${logback.version}</version>
                 <scope>test</scope>
             </dependency>
 
@@ -93,14 +117,14 @@
             <dependency>
                 <groupId>org.easymock</groupId>
                 <artifactId>easymock</artifactId>
-                <version>3.4</version>
+                <version>${easymock.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>com.thedeanda</groupId>
                 <artifactId>lorem</artifactId>
-                <version>2.1</version>
+                <version>${lorem.version}</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>
@@ -124,6 +148,11 @@
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>de.acosix.alfresco.utility</groupId>
+            <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
         </dependency>
 
         <dependency>
@@ -159,110 +188,7 @@
 
     <build>
 
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-                <excludes>
-                    <exclude>.gitkeep</exclude>
-                </excludes>
-            </resource>
-            <!-- the following are only for mapping source folders in Eclipse -->
-            <resource>
-                <directory>src/main/config</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/globalConfig</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/messages</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/webscripts</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/webapp</directory>
-                <excludes>
-                    <exclude>**/*</exclude>
-                </excludes>
-            </resource>
-        </resources>
-        <testResources>
-            <testResource>
-                <directory>src/test/resources</directory>
-                <filtering>true</filtering>
-                <excludes>
-                    <exclude>.gitkeep</exclude>
-                </excludes>
-            </testResource>
-        </testResources>
-
         <plugins>
-
-            <plugin>
-                <artifactId>maven-enforcer-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-resources-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-jar-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-javadoc-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>de.thetaphi</groupId>
-                <artifactId>forbiddenapis</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>de.acosix.alfresco.maven</groupId>
-                <artifactId>de.acosix.alfresco.maven.plugins</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.alfresco.maven.plugin</groupId>
-                <artifactId>alfresco-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>de.acosix.maven</groupId>
-                <artifactId>jshint-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>findbugs-maven-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-            </plugin>
 
         </plugins>
 

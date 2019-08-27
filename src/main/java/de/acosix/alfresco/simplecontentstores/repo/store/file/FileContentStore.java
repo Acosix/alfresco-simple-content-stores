@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -283,6 +283,36 @@ public class FileContentStore extends AbstractContentStore
      * {@inheritDoc}
      */
     @Override
+    public boolean isContentUrlSupported(final String contentUrl)
+    {
+        ParameterCheck.mandatoryString("contentUrl", contentUrl);
+
+        // improved check to avoid the implicit, more expensive getReader call performed in super implementation
+        // also trims down on logging
+        final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
+        final Pair<String, String> urlParts = this.getContentUrlParts(effectiveContentUrl);
+        final String protocol = urlParts.getFirst();
+
+        boolean contentUrlSupported;
+        if (this.protocol.equals(protocol))
+        {
+            LOGGER.debug("Content URL {} with effective protocol {} is supported by store {} with protocol {}",
+                    new Object[] { contentUrl, protocol, this, this.protocol });
+            contentUrlSupported = true;
+        }
+        else
+        {
+            LOGGER.debug("Content URL {} with effective protocol {} is not supported by store {} with protocol {}",
+                    new Object[] { contentUrl, protocol, this, this.protocol });
+            contentUrlSupported = false;
+        }
+        return contentUrlSupported;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public boolean exists(final String contentUrl)
     {
         ParameterCheck.mandatoryString("contentUrl", contentUrl);
@@ -306,6 +336,7 @@ public class FileContentStore extends AbstractContentStore
         ContentReader reader;
         try
         {
+            LOGGER.debug("Checking if {} exists as a file to construct a reader", contentUrl);
             final Path filePath = this.makeFilePath(effectiveContentUrl);
             if (Files.exists(filePath) && !Files.isDirectory(filePath))
             {
@@ -320,7 +351,7 @@ public class FileContentStore extends AbstractContentStore
                 reader = new EmptyContentReader(effectiveContentUrl);
             }
 
-            LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {]",
+            LOGGER.debug("Created content reader: \n   url: {}\n   file: {}\n   reader: {}",
                     new Object[] { effectiveContentUrl, filePath, reader });
         }
         catch (final UnsupportedContentUrlException e)
@@ -346,6 +377,7 @@ public class FileContentStore extends AbstractContentStore
         boolean deleted;
         final String effectiveContentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(contentUrl, this.protocol);
 
+        LOGGER.debug("Checking if {} exists as a file to be deleted", contentUrl);
         final Path filePath = this.makeFilePath(effectiveContentUrl);
         if (!Files.isRegularFile(filePath))
         {
@@ -372,9 +404,6 @@ public class FileContentStore extends AbstractContentStore
             this.deleteEmptyParents(filePath, this.rootDirectory);
         }
 
-        // done
-        LOGGER.debug("Delete content directly: \n   store: {}\n   url: {}", this, effectiveContentUrl);
-
         return deleted;
     }
 
@@ -385,9 +414,7 @@ public class FileContentStore extends AbstractContentStore
     @Override
     public void getUrls(final Date createdAfter, final Date createdBefore, final ContentUrlHandler handler)
     {
-        // recursively get all files within the root
         this.getUrls(this.rootDirectory, handler, createdAfter, createdBefore);
-        // done
         LOGGER.debug("Listed all content URLS: \n   store: {}", this);
     }
 
@@ -399,7 +426,7 @@ public class FileContentStore extends AbstractContentStore
     public String toString()
     {
         final StringBuilder sb = new StringBuilder(36);
-        sb.append("FileContentStore").append("[ root=").append(this.rootDirectory).append(", allowRandomAccess=")
+        sb.append(this.getClass().getSimpleName()).append("[ root=").append(this.rootDirectory).append(", allowRandomAccess=")
                 .append(this.allowRandomAccess).append(", readOnly=").append(this.readOnly).append("]");
         return sb.toString();
     }
@@ -464,6 +491,7 @@ public class FileContentStore extends AbstractContentStore
             throw new UnsupportedOperationException("This store is currently read-only: " + this);
         }
 
+        LOGGER.trace("Creating new file for {}", newContentUrl);
         final Path filePath = this.makeFilePath(newContentUrl);
 
         if (Files.exists(filePath))
@@ -472,7 +500,6 @@ public class FileContentStore extends AbstractContentStore
                     + this + "\n" + "   new URL: " + newContentUrl);
         }
 
-        LOGGER.trace("Creating content file {}", filePath);
         final Path parentPath = filePath.getParent();
         // unlikely but possible due to API definition
         if (parentPath != null)

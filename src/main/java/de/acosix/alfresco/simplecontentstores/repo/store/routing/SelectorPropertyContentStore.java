@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, 2018 Acosix GmbH
+ * Copyright 2017 - 2019 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,9 +40,6 @@ import org.alfresco.util.EqualsHelper;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
-import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext.ContentStoreOperation;
 
 /**
  * @author Axel Faust
@@ -159,49 +156,29 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
     @Override
     public void onAddAspect(final NodeRef nodeRef, final QName aspectQName)
     {
-        final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+        // aspect may be added as part of node creation, which is not really an update, but we can't properly eliminate this scenario
+        // without significant overhead
 
-        boolean moveIfChanged = false;
-        if (this.moveStoresOnChangeOptionPropertyQName != null)
+        // typically, no content data to move would exist in this case, except for the special scenario of a copy, in which case the content
+        // would only be moved if the selector value from the original is not copied as-is or modified as part of the copy behaviour
+        // callback logic, potentially resulting in a different store to be selected for the content that was copied over as well
+
+        // there will be no onUpdateProperties for properties added via addAspect or lazy aspect application as result of
+        // addProperties/setProperties
+        LOGGER.debug("Processing onAddAspect for {}", nodeRef);
+
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+        final Serializable selectorValueAfter = properties.get(this.selectorPropertyQName);
+
+        if (selectorValueAfter != null)
         {
-            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnChangeOptionPropertyQName);
-            // explicit value wins
-            if (moveStoresOnChangeOptionValue != null)
-            {
-                moveIfChanged = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
-            }
-            else
-            {
-                moveIfChanged = this.moveStoresOnChange;
-            }
+            LOGGER.debug("Selector property value changed from null to {} for {}", selectorValueAfter, nodeRef);
+            this.checkAndProcessContentPropertiesMove(nodeRef, this.moveStoresOnChange, this.moveStoresOnChangeOptionPropertyQName,
+                    selectorValueAfter);
         }
         else
         {
-            moveIfChanged = this.moveStoresOnChange;
-        }
-
-        if (moveIfChanged)
-        {
-            final Serializable selectorValue = properties.get(this.selectorPropertyQName);
-
-            // no need to move if no specific after value
-            if (selectorValue != null)
-            {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     *
-                     * @return
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, selectorValue);
-                        return null;
-                    }
-                });
-            }
+            LOGGER.debug("No change in selector property value found for {}", nodeRef);
         }
     }
 
@@ -211,50 +188,20 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
     @Override
     public void beforeRemoveAspect(final NodeRef nodeRef, final QName aspectQName)
     {
-        // strangely there will be no onUpdateProperties for properties removed via removeAspect
-        final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+        // there will be no onUpdateProperties for properties removed via removeAspect
+        LOGGER.debug("Processing onRemoveAspect for {}", nodeRef);
 
-        boolean moveIfChanged = false;
-        if (this.moveStoresOnChangeOptionPropertyQName != null)
+        final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
+        final Serializable selectorValueBefore = properties.get(this.selectorPropertyQName);
+
+        if (selectorValueBefore != null)
         {
-            final Serializable moveStoresOnChangeOptionValue = properties.get(this.moveStoresOnChangeOptionPropertyQName);
-            // explicit value wins
-            if (moveStoresOnChangeOptionValue != null)
-            {
-                moveIfChanged = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
-            }
-            else
-            {
-                moveIfChanged = this.moveStoresOnChange;
-            }
+            LOGGER.debug("Selector property value will change from {} to null for {}", selectorValueBefore, nodeRef);
+            this.checkAndProcessContentPropertiesMove(nodeRef, this.moveStoresOnChange, this.moveStoresOnChangeOptionPropertyQName, null);
         }
         else
         {
-            moveIfChanged = this.moveStoresOnChange;
-        }
-
-        if (moveIfChanged)
-        {
-            final Serializable selectorValue = properties.get(this.selectorPropertyQName);
-
-            // no need to move if no specific before value
-            if (selectorValue != null)
-            {
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        SelectorPropertyContentStore.this.processContentPropertiesMove(nodeRef, properties, null);
-                        return null;
-                    }
-                });
-            }
+            LOGGER.debug("No change in selector property value found for {}", nodeRef);
         }
     }
 
@@ -264,49 +211,24 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
     @Override
     public void onUpdateProperties(final NodeRef nodeRef, final Map<QName, Serializable> before, final Map<QName, Serializable> after)
     {
-        boolean moveIfChanged = false;
-        if (this.moveStoresOnChangeOptionPropertyQName != null)
+        // don't handle creations - here we can actually properly and efficiently eliminate the scenario (other than during onAddAspect)
+        if (!before.isEmpty())
         {
-            final Serializable moveStoresOnChangeOptionValue = after.get(this.moveStoresOnChangeOptionPropertyQName);
-            // explicit value wins
-            if (moveStoresOnChangeOptionValue != null)
-            {
-                moveIfChanged = Boolean.TRUE.equals(moveStoresOnChangeOptionValue);
-            }
-            else
-            {
-                moveIfChanged = this.moveStoresOnChange;
-            }
-        }
-        else
-        {
-            moveIfChanged = this.moveStoresOnChange;
-        }
+            LOGGER.debug("Processing onUpdateProperties for {}", nodeRef);
 
-        if (moveIfChanged)
-        {
             final Serializable selectorValueBefore = before.get(this.selectorPropertyQName);
             final Serializable selectorValueAfter = after.get(this.selectorPropertyQName);
 
             if (!EqualsHelper.nullSafeEquals(selectorValueBefore, selectorValueAfter))
             {
-                // get up-to-date properties (after may be out-of-date slightly due to policy cascading / nested calls)
-                final Map<QName, Serializable> properties = this.nodeService.getProperties(nodeRef);
-
-                ContentStoreContext.executeInNewContext(new ContentStoreOperation<Void>()
-                {
-
-                    /**
-                     *
-                     * {@inheritDoc}
-                     */
-                    @Override
-                    public Void execute()
-                    {
-                        SelectorPropertyContentStore.this.checkAndProcessContentPropertiesMove(nodeRef, properties, selectorValueAfter);
-                        return null;
-                    }
-                });
+                LOGGER.debug("Selector property value changed from {} to {} for {}",
+                        new Object[] { selectorValueBefore, selectorValueAfter, nodeRef });
+                this.checkAndProcessContentPropertiesMove(nodeRef, this.moveStoresOnChange, this.moveStoresOnChangeOptionPropertyQName,
+                        selectorValueAfter);
+            }
+            else
+            {
+                LOGGER.debug("No change in selector property value found for {}", nodeRef);
             }
         }
     }
@@ -327,11 +249,10 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
 
             LOGGER.debug("Looking up store for node {} and value {} of property {}",
                     new Object[] { nodeRef, value, this.selectorPropertyQName });
-            final ContentStore valueStore = this.storeBySelectorPropertyValue.get(value);
-            if (valueStore != null)
+            if (this.storeBySelectorPropertyValue.containsKey(value))
             {
                 LOGGER.debug("Selecting store for value {} to write {}", value, ctx);
-                writeStore = valueStore;
+                writeStore = this.storeBySelectorPropertyValue.get(value);
             }
             else
             {
@@ -356,7 +277,18 @@ public class SelectorPropertyContentStore extends PropertyRestrictableRoutingCon
     protected ContentStore selectStoreForContentDataMove(final NodeRef nodeRef, final QName propertyQName, final ContentData contentData,
             final Serializable selectorValue)
     {
-        final ContentStore targetStore = this.storeBySelectorPropertyValue.get(selectorValue);
+        ContentStore targetStore;
+        if (this.storeBySelectorPropertyValue.containsKey(selectorValue))
+        {
+            LOGGER.debug("Selecting store for value {} to move {}", selectorValue, contentData);
+            targetStore = this.storeBySelectorPropertyValue.get(selectorValue);
+        }
+        else
+        {
+            LOGGER.debug("No store registered for value {} - delegating to super.selectStoreForContentDataMove to move {}", selectorValue,
+                    contentData);
+            targetStore = super.selectStoreForContentDataMove(nodeRef, propertyQName, contentData, selectorValue);
+        }
         return targetStore;
     }
 

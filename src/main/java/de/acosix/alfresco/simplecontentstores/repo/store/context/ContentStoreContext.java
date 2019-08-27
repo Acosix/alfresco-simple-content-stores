@@ -36,9 +36,25 @@ import org.slf4j.LoggerFactory;
 public final class ContentStoreContext
 {
 
+    /**
+     * Key for accessing the {@link ContentModel#PROP_NAME short name} of the site the node used as the context in the active
+     * {@code getWriter}/{@code getReader} call, if the node is located in a site at all
+     */
     public static final String DEFAULT_ATTRIBUTE_SITE = "site";
 
+    /**
+     * Key for accessing the {@link SiteModel#PROP_SITE_PRESET preset} of the site the node used as the context in the active
+     * {@code getWriter}/{@code getReader} call, if the node is located in a site at all
+     */
     public static final String DEFAULT_ATTRIBUTE_SITE_PRESET = "sitePreset";
+
+    /**
+     * Key for accessing the current content data of the node for which a call to
+     * {@link ContentService#getReader(org.alfresco.service.cmr.repository.NodeRef, org.alfresco.service.namespace.QName) getReader}
+     * is processed via the public {@link ContentService} bean, or a call to {@link ContentStore#getWriter(ContentContext) getWriter} is
+     * provided with a {@link NodeContentContext}
+     */
+    public static final String DEFAULT_ATTRIBUTE_CONTENT_DATA = "contentData";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ContentStoreContext.class);
 
