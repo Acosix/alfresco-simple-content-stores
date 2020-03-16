@@ -16,6 +16,7 @@ Currently, this addon provides:
 - a [tenant routing file store](./docs/TenantRoutingFileStore.md) (for backwards compatibility with Alfresco default unencrypted content store)
 - a [site file store](./docs/SiteRoutingFileStore.md)
 - a [site routing store](./docs/SiteRoutingStore.md)
+- a [type routing store](./docs/TypeRoutingStore.md)
 - a [tenant routing store](./docs/TenantRoutingStore.md)
 - a [selector property-based routing store](./docs/SelectorPropertyRoutingStore.md)
 - a [compressing store](./docs/CompressingStore.md)

@@ -47,9 +47,10 @@
         class="${project.artifactId}.store.routing.TenantRoutingContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
 
     <bean id="simpleContentStoresTemplate-siteRoutingFileStore" abstract="true"
-        class="${project.artifactId}.store.file.SiteRoutingFileContentStore" parent="${moduleId}-moveCapableRoutingStore">
-        <property name="namespaceService" ref="NamespaceService" />
-    </bean>
+        class="${project.artifactId}.store.file.SiteRoutingFileContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
+
+    <bean id="simpleContentStoresTemplate-typeRoutingStore" abstract="true"
+        class="${project.artifactId}.store.routing.TypeRoutingContentStore" parent="${moduleId}-propertyRestrictableRoutingStore" />
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.file.FileContentStore" />
 

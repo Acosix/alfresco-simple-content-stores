@@ -9,14 +9,25 @@
 
     <imports>
         <import uri="http://www.alfresco.org/model/dictionary/1.0" prefix="d" />
+        <import uri="http://www.alfresco.org/model/content/1.0" prefix="cm" />
     </imports>
 
     <namespaces>
         <namespace uri="http://acosix.de/model/simpleContentStoresTest/1.0" prefix="aco6scst" />
     </namespaces>
-    
+
+    <types>
+        <type name="aco6scst:archiveDocument">
+            <parent>cm:content</parent>
+        </type>
+
+        <type name="aco6scst:invoiceDocument">
+            <parent>aco6scst:archiveDocument</parent>
+        </type>
+    </types>
+
     <aspects>
-    
+
         <aspect name="aco6scst:propertySelectorAspect">
             <properties>
                 <property name="aco6scst:selectorProperty">
@@ -27,6 +38,6 @@
                 </property>
             </properties>
         </aspect>
-    
+
     </aspects>
 </model>

@@ -761,6 +761,166 @@ public class RoutingStoresTest extends AbstractStoresTest
     }
 
     @Test
+    public void typeRoutingStore_moveEnabledStore() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsFallbackStore = listFilesInAlfData("typeRoutingFallbackFileStore1");
+        final Collection<Path> exclusionsStore1 = listFilesInAlfData("typeRoutingFileStore1");
+
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "type-routing-1",
+                "Type Routing Site 1");
+
+        // 1) test fallback routing with non-mapped type
+        NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFallbackFileStore1", exclusionsFallbackStore);
+        exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 2) test move when type is changed (sub-type of mapped type)
+        CommonNodeEntity<PermissionsInfo> nodeUpdate = new CommonNodeEntity<>();
+        nodeUpdate.setNodeType("aco6scst:invoiceDocument");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        Assert.assertFalse(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFileStore1", exclusionsStore1);
+        exclusionsStore1.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 3) test direct filing with mapped type
+        createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("aco6scst:archiveDocument");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFileStore1", exclusionsFallbackStore);
+        exclusionsStore1.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 4) test property to prevent move
+        createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFallbackFileStore1", exclusionsFallbackStore);
+        exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        nodeUpdate = new CommonNodeEntity<>();
+        nodeUpdate.setProperty("aco6scst:moveStoreOnSelectorChange", "false");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        nodeUpdate = new CommonNodeEntity<>();
+        nodeUpdate.setNodeType("aco6scst:invoiceDocument");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFileStore1", exclusionsStore1);
+
+        Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+    }
+
+    @Test
+    public void typeRoutingStore_moveDisabledStore() throws Exception
+    {
+        // need to record pre-existing files to exclude in verification
+        final Collection<Path> exclusionsFallbackStore = listFilesInAlfData("typeRoutingFallbackFileStore2");
+        final Collection<Path> exclusionsStore2 = listFilesInAlfData("typeRoutingFileStore2");
+
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "type-routing-2",
+                "Type Routing Site 2");
+
+        // 1) test fallback routing with non-mapped type
+        NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("cm:content");
+
+        NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFallbackFileStore2", exclusionsFallbackStore);
+        exclusionsFallbackStore.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 2) test non-move when type is changed
+        final CommonNodeEntity<PermissionsInfo> nodeUpdate = new CommonNodeEntity<>();
+        nodeUpdate.setNodeType("aco6scst:archiveDocument");
+        nodes.updateNode(createdNode.getId(), nodeUpdate);
+
+        Assert.assertTrue(Files.exists(lastModifiedFileInContent));
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFileStore2", exclusionsStore2);
+
+        Assert.assertNull(lastModifiedFileInContent);
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // 3) test direct filing with sub-type of mapped type
+        createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString() + ".txt");
+        createRequest.setNodeType("aco6scst:invoiceDocument");
+
+        createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+
+        contentBytes = LoremIpsum.getInstance().getParagraphs(1, 10).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("typeRoutingFileStore2", exclusionsFallbackStore);
+        exclusionsStore2.add(lastModifiedFileInContent);
+
+        Assert.assertNotNull(lastModifiedFileInContent);
+        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+    }
+
+    @Test
     public void siteRoutingStore_copyMoveBetweenSitesWithSharedFileStore() throws Exception
     {
         final Collection<Path> exclusionsFallbackStore = listFilesInAlfData("propertySelectorFallbackFileStore");
