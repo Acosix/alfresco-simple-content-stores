@@ -24,7 +24,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.alfresco.repo.content.ContentContext;
-import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.PropertyDefinition;
@@ -76,15 +75,6 @@ public abstract class PropertyRestrictableRoutingContentStore<CD> extends MoveCa
     public void setRouteContentPropertyNames(final List<String> routeContentPropertyNames)
     {
         this.routeContentPropertyNames = routeContentPropertyNames;
-    }
-
-    /**
-     * @param fallbackStore
-     *            the fallbackStore to set
-     */
-    public void setFallbackStore(final ContentStore fallbackStore)
-    {
-        this.fallbackStore = fallbackStore;
     }
 
     /**

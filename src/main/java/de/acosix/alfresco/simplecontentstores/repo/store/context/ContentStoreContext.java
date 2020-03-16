@@ -25,6 +25,8 @@ import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.site.SiteModel;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentService;
+import org.alfresco.service.cmr.repository.NodeRef;
+import org.alfresco.service.namespace.QName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +41,18 @@ import org.slf4j.LoggerFactory;
  */
 public final class ContentStoreContext
 {
+
+    /**
+     * Key for accessing the {@link NodeRef node reference} of the node used as the context in the active
+     * {@code getWriter}/{@code getReader} call
+     */
+    public static final String DEFAULT_ATTRIBUTE_NODE = "node";
+
+    /**
+     * Key for accessing the {@link QName qualified property name} of the content property used as the context in the active
+     * {@code getWriter}/{@code getReader} call
+     */
+    public static final String DEFAULT_ATTRIBUTE_PROPERTY = "property";
 
     /**
      * Key for accessing the {@link ContentModel#PROP_NAME short name} of the site the node used as the context in the active

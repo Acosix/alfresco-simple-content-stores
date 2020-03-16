@@ -54,6 +54,9 @@
 
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.file.FileContentStore" />
 
+    <bean id="simpleContentStoresTemplate-archiveFileStore" abstract="true"
+        class="${project.artifactId}.store.file.ArchiveFileContentStore" />
+
     <bean id="simpleContentStoresTemplate-defaultTenantFileStore" abstract="true"
         class="${project.artifactId}.store.file.TenantRoutingFileContentStore" parent="baseTenantRoutingContentStore" />
 

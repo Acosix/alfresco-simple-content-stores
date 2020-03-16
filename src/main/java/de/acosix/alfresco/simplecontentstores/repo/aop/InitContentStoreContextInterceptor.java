@@ -78,6 +78,7 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor, Ap
                         && ContentContext.class.isAssignableFrom(parameterTypes[0]))
                 {
                     final ContentContext context = (ContentContext) arguments[0];
+
                     for (final ContentStoreContextInitializer initializer : initializers)
                     {
                         initializer.initialize(context);

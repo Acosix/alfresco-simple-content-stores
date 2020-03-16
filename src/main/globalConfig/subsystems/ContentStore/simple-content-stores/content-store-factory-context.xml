@@ -62,6 +62,8 @@
     <bean id="${moduleId}-contentStoreCapsInterceptor" class="${project.artifactId}.aop.ContentStoreCapsEmulatingInterceptor" />
 
     <bean id="${moduleId}-initContextInterceptor" class="${project.artifactId}.aop.InitContentStoreContextInterceptor" />
+    
+    <bean class="${project.artifactId}.store.context.DefaultAttributesInitializer" />
 
     <bean class="${project.artifactId}.store.context.SiteAttributesInitializer">
         <property name="siteService" ref="SiteService" />

@@ -75,7 +75,7 @@ public class FileContentWriterImpl extends AbstractContentWriter
     }
 
     /**
-     * Constructor that explicitely sets the URL that the reader represents.
+     * Constructor that explicitly sets the URL that the reader represents.
      *
      * @param file
      *            the file for writing. This will most likely be directly
@@ -127,7 +127,7 @@ public class FileContentWriterImpl extends AbstractContentWriter
      * @param allow
      *            {@code true} if radnom access should be enabled
      */
-    protected void setAllowRandomAccess(final boolean allow)
+    public void setAllowRandomAccess(final boolean allow)
     {
         this.allowRandomAccess = allow;
     }

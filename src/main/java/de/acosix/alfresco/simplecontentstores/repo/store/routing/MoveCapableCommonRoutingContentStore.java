@@ -193,6 +193,15 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     }
 
     /**
+     * @param fallbackStore
+     *            the fallbackStore to set
+     */
+    public void setFallbackStore(final ContentStore fallbackStore)
+    {
+        this.fallbackStore = fallbackStore;
+    }
+
+    /**
      *
      * {@inheritDoc}
      */
@@ -796,8 +805,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                     throw new AlfrescoRuntimeException("Can't copy content since original content does not exist");
                 }
 
-                final NodeContentContext contentContext = new NodeContentContext(reader, firstSupportedContentUrl, nodeRef, propertyQName);
-                final ContentWriter writer = targetStore.getWriter(contentContext);
+                final ContentWriter writer = this.getWriterForContentMove(reader, targetStore, nodeRef, propertyQName,
+                        firstSupportedContentUrl);
 
                 final String newContentUrl = writer.getContentUrl();
 
@@ -824,6 +833,32 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         }
 
         return updatedContentData;
+    }
+
+    /**
+     * Retrieves a writer for a content move / copy operation from the current content (store) to a new store triggered by a change in
+     * state. This method is explicitly separate from {@link #processContentDataMove(NodeRef, QName, ContentData, Object)
+     * processContentDataMove} to allow for targeted overrides of the writer retrieval in sub-classes.
+     *
+     * @param reader
+     *            the reader providing access to the existing content to move / copy
+     * @param targetStore
+     *            the store into which the content is to be moved / copied
+     * @param nodeRef
+     *            the reference to the node affected by the move / copy
+     * @param propertyQName
+     *            the qualified name of the content property to move / copy
+     * @param firstSupportedContentUrl
+     *            the first content URL determined to be supported by the target store - this will be used to request / force an identical
+     *            content URL in the new store for the moved / copied content, unless this method is overridden
+     * @return the writer in the new content store
+     */
+    protected ContentWriter getWriterForContentMove(final ContentReader reader, final ContentStore targetStore, final NodeRef nodeRef,
+            final QName propertyQName, final String firstSupportedContentUrl)
+    {
+        final NodeContentContext contentContext = new NodeContentContext(reader, firstSupportedContentUrl, nodeRef, propertyQName);
+        final ContentWriter writer = targetStore.getWriter(contentContext);
+        return writer;
     }
 
     protected void ensureInitializersAreSet()

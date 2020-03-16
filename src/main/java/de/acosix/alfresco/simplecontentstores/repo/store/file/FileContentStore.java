@@ -438,15 +438,23 @@ public class FileContentStore extends AbstractContentStore
             }
             else
             {
-                try
+                if (filePath.toFile().canWrite())
                 {
-                    Files.delete(filePath);
-                    deleted = true;
-                    LOGGER.debug("Deleted content file {}", filePath);
+                    try
+                    {
+                        Files.delete(filePath);
+                        deleted = true;
+                        LOGGER.debug("Deleted content file {}", filePath);
+                    }
+                    catch (final IOException e)
+                    {
+                        LOGGER.warn("Error deleting content file {}", filePath, e);
+                        deleted = false;
+                    }
                 }
-                catch (final IOException e)
+                else
                 {
-                    LOGGER.warn("Error deleting content file {}", filePath, e);
+                    LOGGER.debug("Path {} is not writable - not attempting deletion", filePath);
                     deleted = false;
                 }
             }
@@ -482,7 +490,6 @@ public class FileContentStore extends AbstractContentStore
         String contentUrl = null;
         try
         {
-            File file = null;
             if (newContentUrl == null)
             {
                 contentUrl = this.createNewFileStoreUrl();
@@ -491,7 +498,8 @@ public class FileContentStore extends AbstractContentStore
             {
                 contentUrl = ContentUrlUtils.checkAndReplaceWildcardProtocol(newContentUrl, this.protocol);
             }
-            file = this.createNewFile(contentUrl);
+
+            final File file = this.createNewFile(contentUrl);
             final FileContentWriterImpl writer = new FileContentWriterImpl(file, contentUrl, existingContentReader);
 
             if (this.contentLimitProvider != null)
