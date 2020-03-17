@@ -438,23 +438,16 @@ public class FileContentStore extends AbstractContentStore
             }
             else
             {
-                if (filePath.toFile().canWrite())
+                // there is no reliable way to check for isDeleteable in advance
+                try
                 {
-                    try
-                    {
-                        Files.delete(filePath);
-                        deleted = true;
-                        LOGGER.debug("Deleted content file {}", filePath);
-                    }
-                    catch (final IOException e)
-                    {
-                        LOGGER.warn("Error deleting content file {}", filePath, e);
-                        deleted = false;
-                    }
+                    Files.delete(filePath);
+                    deleted = true;
+                    LOGGER.debug("Deleted content file {}", filePath);
                 }
-                else
+                catch (final IOException e)
                 {
-                    LOGGER.debug("Path {} is not writable - not attempting deletion", filePath);
+                    LOGGER.warn("Error deleting content file {}", filePath, e);
                     deleted = false;
                 }
             }

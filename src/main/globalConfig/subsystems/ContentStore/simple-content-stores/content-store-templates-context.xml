@@ -55,7 +55,12 @@
     <bean id="simpleContentStoresTemplate-standardFileStore" abstract="true" class="${project.artifactId}.store.file.FileContentStore" />
 
     <bean id="simpleContentStoresTemplate-archiveFileStore" abstract="true"
-        class="${project.artifactId}.store.file.ArchiveFileContentStore" />
+        class="${project.artifactId}.store.file.ArchiveFileContentStore">
+        <property name="policyComponent" ref="policyComponent" />
+        <property name="namespaceService" ref="NamespaceService" />
+        <property name="dictionaryService" ref="DictionaryService" />
+        <property name="nodeService" ref="NodeService" />
+    </bean>
 
     <bean id="simpleContentStoresTemplate-defaultTenantFileStore" abstract="true"
         class="${project.artifactId}.store.file.TenantRoutingFileContentStore" parent="baseTenantRoutingContentStore" />
