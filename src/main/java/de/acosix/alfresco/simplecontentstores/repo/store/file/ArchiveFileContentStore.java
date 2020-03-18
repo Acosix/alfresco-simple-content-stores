@@ -8,13 +8,15 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Collection;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.alfresco.repo.node.NodeServicePolicies.OnUpdatePropertiesPolicy;
@@ -231,9 +233,28 @@ public class ArchiveFileContentStore extends FileContentStore implements Transac
     public void beforeCommit(final boolean readOnly)
     {
         final List<File> files = TransactionalResourceHelper.getList(TXN_WRITTEN_FILES);
-        final Optional<File> nonReadOnlyFile = files.stream().filter(f -> !f.setReadOnly()).findFirst();
-        nonReadOnlyFile.ifPresent(f -> {
-            throw new ContentIOException("Failed to set readOnly flag on " + f);
+        files.stream().map(File::toPath).forEach(p -> {
+            try
+            {
+                final Set<PosixFilePermission> permissions = EnumSet.copyOf(Files.getPosixFilePermissions(p));
+                permissions.remove(PosixFilePermission.OWNER_WRITE);
+                permissions.remove(PosixFilePermission.GROUP_WRITE);
+                permissions.remove(PosixFilePermission.OTHERS_WRITE);
+                Files.setPosixFilePermissions(p, permissions);
+            }
+            catch (final UnsupportedOperationException ex)
+            {
+                LOGGER.debug(
+                        "File system does not support posix file attributes - unable to remove granular write permissions and falling back to legacy API to set readOnly file flag");
+                if (!p.toFile().setReadOnly())
+                {
+                    throw new ContentIOException("Failed to remove write permissions on " + p);
+                }
+            }
+            catch (final IOException ioex)
+            {
+                throw new ContentIOException("Failed to remove write permissions on " + p, ioex);
+            }
         });
     }
 

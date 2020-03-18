@@ -20,9 +20,13 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.alfresco.error.AlfrescoRuntimeException;
@@ -544,10 +548,23 @@ public class FileContentStore extends AbstractContentStore
         }
 
         final Path parentPath = filePath.getParent();
-        // unlikely but possible due to API definition
+        // unlikely to be null but possible due to API definition
         if (parentPath != null)
         {
-            Files.createDirectories(parentPath);
+            try
+            {
+                // ensure to inherit through all folder permissions from root
+                final Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(this.rootDirectory.toPath());
+                final FileAttribute<Set<PosixFilePermission>> permissionAttribute = PosixFilePermissions.asFileAttribute(permissions);
+
+                Files.createDirectories(parentPath, permissionAttribute);
+            }
+            catch (final UnsupportedOperationException ex)
+            {
+                LOGGER.debug(
+                        "File system does not support posix file attributes - unable to ensure folder path permissions are consistent with root directory");
+                Files.createDirectories(parentPath);
+            }
         }
         Files.createFile(filePath);
         LOGGER.debug("Created content file {}", filePath);
