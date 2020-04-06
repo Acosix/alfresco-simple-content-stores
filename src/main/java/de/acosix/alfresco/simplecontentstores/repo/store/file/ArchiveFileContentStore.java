@@ -352,11 +352,13 @@ public class ArchiveFileContentStore extends FileContentStore implements Transac
             writer.setDigestAlgorithm(this.digestAlgorithm);
             writer.setDigestAlgorithmProvider(this.digestAlgorithmProvider);
 
+            final NodeRef contextNodeRef = (NodeRef) ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_NODE);
+
             writer.addListener(() -> {
                 this.txnStoreHash(writer);
                 this.txnStoreFile(file);
 
-                this.checkAndSetRetention(file);
+                this.checkAndSetRetention(file, contextNodeRef);
             });
 
             LOGGER.debug("Created content writer: \n   writer: {}", writer);
@@ -397,6 +399,9 @@ public class ArchiveFileContentStore extends FileContentStore implements Transac
         final List<File> files = TransactionalResourceHelper.getList(TXN_WRITTEN_FILES);
         if (files.isEmpty())
         {
+            // may cause ConcurrentModificationException when already in beforeCommit and this priority is being processed
+            // there is no way to guard against it unfortunately
+            // reasonably, no call should be expected during DAO priority phase
             TransactionSupportUtil.bindListener(this, COMMIT_ORDER_DAO);
         }
         files.add(file);
@@ -407,13 +412,14 @@ public class ArchiveFileContentStore extends FileContentStore implements Transac
      *
      * @param file
      *            the handle of the written content file
+     * @param nodeRef
+     *            the context node referencing the written content
      */
-    protected void checkAndSetRetention(final File file)
+    protected void checkAndSetRetention(final File file, final NodeRef nodeRef)
     {
         // if we ever support more variants, OR this
         if (this.retentionViaAccessTime)
         {
-            final NodeRef nodeRef = (NodeRef) ContentStoreContext.getContextAttribute(ContentStoreContext.DEFAULT_ATTRIBUTE_NODE);
             if (nodeRef != null)
             {
                 final Date retentionTargetDate = DefaultTypeConverter.INSTANCE.convert(Date.class,
