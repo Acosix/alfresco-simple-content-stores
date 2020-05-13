@@ -479,7 +479,12 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
             triggerFactoryProperties.add("repeatCount", this.cleanerRepeatCount);
         }
         triggerFactoryWrapper.setPropertyValues(triggerFactoryProperties);
-        final Object trigger = ((FactoryBean<?>) triggerFactoryWrapper.getWrappedInstance()).getObject();
+        final FactoryBean<?> factoryBean = (FactoryBean<?>) triggerFactoryWrapper.getWrappedInstance();
+        if (factoryBean instanceof InitializingBean)
+        {
+            ((InitializingBean) factoryBean).afterPropertiesSet();
+        }
+        final Object trigger = factoryBean.getObject();
 
         if (this.beanFactory instanceof ConfigurableBeanFactory)
         {
@@ -491,7 +496,10 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
         schedulerAccessorBeanProperties.add("scheduler", this.scheduler);
 
         final ManagedList<Object> triggersList = new ManagedList<>();
-        triggersList.add(trigger);
+        if (trigger != null)
+        {
+            triggersList.add(trigger);
+        }
         schedulerAccessorBeanProperties.add("triggers", triggersList);
         schedulerAccessorBeanWrapper.setPropertyValues(schedulerAccessorBeanProperties);
 
