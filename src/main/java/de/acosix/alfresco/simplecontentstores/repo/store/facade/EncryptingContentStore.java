@@ -94,9 +94,9 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
 
     protected int masterKeySize = DEFAULT_MASTER_KEY_SIZE;
 
-    protected transient Key masterPublicKey;
+    protected Key masterPublicKey;
 
-    protected transient Key masterPrivateKey;
+    protected Key masterPrivateKey;
 
     /**
      *
@@ -250,14 +250,17 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         if (backingReader != null && backingReader.exists())
         {
             final String effectiveContentUrl = backingReader.getContentUrl();
+            LOGGER.debug("Checking if content URL {} is associated with an encryption key", effectiveContentUrl);
             final ContentUrlEntity urlEntity = this.contentDataDAO.getContentUrl(effectiveContentUrl);
             if (urlEntity == null)
             {
                 throw new ContentIOException("Missing content URL entity for " + effectiveContentUrl);
             }
+
             final ContentUrlKeyEntity urlKeyEntity = urlEntity.getContentUrlKey();
             if (urlKeyEntity != null)
             {
+                LOGGER.debug("Content URL {} has an associated encryption key", effectiveContentUrl);
                 try
                 {
                     final Key key;
@@ -292,17 +295,19 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
                 }
                 catch (final DecoderException | IOException e)
                 {
-                    LOGGER.error("Error loading symmetric content encryption key", e);
+                    LOGGER.error("Error loading symmetric content encryption key for content URL {}", effectiveContentUrl, e);
                     throw new ContentIOException("Error loading symmetric content encryption key", e);
                 }
             }
             else
             {
+                LOGGER.debug("Content URL {} has no associated encryption key", effectiveContentUrl);
                 reader = backingReader;
             }
         }
         else
         {
+            LOGGER.debug("Content for URL {} does not exist", contentUrl);
             reader = backingReader;
         }
         return reader;
@@ -313,6 +318,22 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
      */
     @Override
     public ContentWriter getWriter(final ContentContext context)
+    {
+        final ContentWriter writer;
+        if (this.isSpecialHandlingRequired(context))
+        {
+            LOGGER.debug("Creating encryption enabled writer for context {} in store {}", context, this);
+            writer = this.getWriterImpl(context);
+        }
+        else
+        {
+            LOGGER.debug("Context {} does not match configured conditions for encryption in store {}", context, this);
+            writer = super.getWriter(context);
+        }
+        return writer;
+    }
+
+    protected ContentWriter getWriterImpl(final ContentContext context)
     {
         final ContentReader existingContentReader;
 
@@ -340,9 +361,14 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         final EncryptingContentWriterFacade facadeWriter = new EncryptingContentWriterFacade(backingWriter, context, key,
                 existingContentReader);
 
+        LOGGER.debug("Created content writer for context {} with (preliminary) content URL {}", context, facadeWriter.getContentUrl());
+
         facadeWriter.addListener(() -> {
             final byte[] keyBytes = key.getEncoded();
             final ByteBuffer dkBuffer = ByteBuffer.wrap(keyBytes);
+
+            LOGGER.debug("Storing symmetric content encryption key for content URL {} after completion of write",
+                    facadeWriter.getContentUrl());
 
             EncryptedKey eKey;
             try
@@ -388,6 +414,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
             contentUrlKeyEntity.setEncryptedKey(eKey);
 
             EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(urlEntity.getId(), contentUrlKeyEntity);
+            LOGGER.debug("Associated symmetric content encryption key with content URL entity {}", urlEntity.getId());
         });
 
         return facadeWriter;
@@ -395,6 +422,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
 
     protected void loadMasterKey()
     {
+        LOGGER.debug("Loading encryption master key {} from keystore {} for store {}", this.masterKeyAlias, this.keyStorePath, this);
         try
         {
             InputStream keyStoreInput;
@@ -446,13 +474,14 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
         catch (final NoSuchAlgorithmException | NoSuchProviderException | KeyStoreException | UnrecoverableKeyException | IOException
                 | CertificateException e)
         {
-            LOGGER.error("Error loading master key from {}", this.keyStorePath, e);
+            LOGGER.error("Error loading master key {} from keystore {}", this.masterKeyAlias, this.keyStorePath, e);
             throw new AlfrescoRuntimeException("Error loading master key", e);
         }
     }
 
     protected Key createNewKey()
     {
+        LOGGER.debug("Creating new symmetric content encryption key");
         try
         {
             final KeyGenerator keygen = this.keyAlgorithmProvider != null

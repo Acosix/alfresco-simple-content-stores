@@ -26,6 +26,8 @@ import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
 import org.alfresco.util.transaction.TransactionSupportUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
@@ -35,6 +37,8 @@ import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreCon
  */
 public class CompressingContentStore extends CommonFacadingContentStore
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CompressingContentStore.class);
 
     protected ContentStore temporaryStore;
 
@@ -114,6 +118,7 @@ public class CompressingContentStore extends CommonFacadingContentStore
         final ContentReader backingReader = super.getReader(contentUrl);
         if (shouldCompress)
         {
+            LOGGER.debug("Wrapping reader for {} in decompressing wrapper in store {}", contentUrl, this);
             reader = new DecompressingContentReader(backingReader, this.compressionType, this.mimetypesToCompress, properSize);
         }
         else
@@ -130,17 +135,27 @@ public class CompressingContentStore extends CommonFacadingContentStore
     @Override
     public ContentWriter getWriter(final ContentContext context)
     {
-        final ContentWriter backingWriter = super.getWriter(context);
-
-        if (TransactionSupportUtil.isActualTransactionActive())
+        final ContentWriter writer;
+        if (this.isSpecialHandlingRequired(context))
         {
-            // this is a new URL so register for rollback handling
-            final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-            urlsToDelete.add(backingWriter.getContentUrl());
-        }
+            LOGGER.debug("Creating compression enabled writer for context {} in store {}", context, this);
+            final ContentWriter backingWriter = super.getWriter(context);
 
-        final ContentWriter writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore,
-                backingWriter, this.compressionType, this.mimetypesToCompress);
+            if (TransactionSupportUtil.isActualTransactionActive())
+            {
+                // this is a new URL so register for rollback handling
+                final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
+                urlsToDelete.add(backingWriter.getContentUrl());
+            }
+
+            writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore, backingWriter,
+                    this.compressionType, this.mimetypesToCompress);
+        }
+        else
+        {
+            LOGGER.debug("Context {} does not match configured conditions for compression in store {}", context, this);
+            writer = super.getWriter(context);
+        }
         return writer;
     }
 

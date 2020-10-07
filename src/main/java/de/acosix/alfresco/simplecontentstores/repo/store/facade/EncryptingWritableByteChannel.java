@@ -61,20 +61,19 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
 
         try
         {
-            Cipher cipher = Cipher.getInstance(key.getAlgorithm());
-            if (cipher.getBlockSize() == 0)
+            Cipher newCipher = Cipher.getInstance(key.getAlgorithm());
+            if (newCipher.getBlockSize() == 0)
             {
-                cipher.init(Cipher.ENCRYPT_MODE, key);
-                this.cipher = cipher;
+                newCipher.init(Cipher.ENCRYPT_MODE, key);
             }
             else
             {
-                cipher = Cipher.getInstance(key.getAlgorithm() + "/CBC/PKCS5Padding");
+                newCipher = Cipher.getInstance(key.getAlgorithm() + "/CBC/PKCS5Padding");
 
-                final byte[] iv = new byte[cipher.getBlockSize()];
-                cipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
-                this.cipher = cipher;
+                final byte[] iv = new byte[newCipher.getBlockSize()];
+                newCipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
             }
+            this.cipher = newCipher;
         }
         catch (final NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException e)
         {
@@ -196,7 +195,7 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
      *
      * @author Axel Faust
      */
-    public static interface EncryptionListener
+    public interface EncryptionListener
     {
 
         /**

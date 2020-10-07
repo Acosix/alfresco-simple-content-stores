@@ -70,6 +70,8 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
 
         this.addListener(() -> {
             EncryptingContentWriterFacade.this.completedWrite = true;
+            LOGGER.debug("Completed writing via content writer for URL {} with {} unencrypted bytes", getContentUrl(),
+                    this.unencryptedSize);
 
             if (EncryptingContentWriterFacade.this.guessMimetype)
             {
@@ -189,6 +191,8 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
                 return;
             }
 
+            LOGGER.debug("Running encoding detection on content writer for URL {}", getContentUrl());
+
             final ContentCharsetFinder charsetFinder = this.mimetypeService.getContentCharsetFinder();
 
             final ContentReader reader = this.getReader();
@@ -200,7 +204,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
             }
             catch (final IOException e)
             {
-                LOGGER.trace("Error closing input stream");
+                LOGGER.trace("Error closing input stream", e);
             }
 
             this.setEncoding(charset.name());
@@ -209,6 +213,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
         {
             // no point in delegating to backing writer - it can't guess from encrypted content
             this.guessEncoding = true;
+            LOGGER.debug("Marked content writer for URL {} for post-write encoding detection", getContentUrl());
         }
     }
 
@@ -227,6 +232,8 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
                 return;
             }
 
+            LOGGER.debug("Running mimetype detection on content writer for URL {} using file name {}", getContentUrl(), filename);
+
             String mimetype;
             // TODO Why do 5.1/5.2 include this special check here and not in mimetypeService?
             if (filename != null && filename.startsWith(MimetypeMap.MACOS_RESOURCE_FORK_FILE_NAME_PREFIX))
@@ -244,6 +251,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
             // no point in delegating to backing writer - it can't guess from encrypted content
             this.guessMimetype = true;
             this.guessFileName = filename;
+            LOGGER.debug("Marked content writer for URL {} for post-write mimetype detection", getContentUrl());
         }
     }
 }

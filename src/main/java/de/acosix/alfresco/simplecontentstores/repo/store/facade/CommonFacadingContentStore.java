@@ -54,7 +54,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
 
     protected List<String> handleContentPropertyNames;
 
-    protected transient Set<QName> handleContentPropertyQNames;
+    protected Set<QName> handleContentPropertyQNames;
 
     protected ContentStore backingStore;
 
@@ -165,6 +165,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     @Override
     public boolean exists(final String contentUrl)
     {
+        LOGGER.debug("Checking existence of content for URL {} from store backing {}", contentUrl, this);
         return this.backingStore.exists(contentUrl);
     }
 
@@ -175,6 +176,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     @Override
     public ContentReader getReader(final String contentUrl)
     {
+        LOGGER.debug("Retrieving reader for content URL {} from store backing {}", contentUrl, this);
         return this.backingStore.getReader(contentUrl);
     }
 
@@ -187,7 +189,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     {
         if (!this.isWriteSupported())
         {
-            LOGGER.debug("Write requests are not supported for this store:\n\tStore:   {}\n\tContext: {}", this, context);
+            LOGGER.debug("Write requests are not supported for store {}", this);
             throw new UnsupportedOperationException("Write operations are not supported by this store: " + this);
         }
 
@@ -196,16 +198,17 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
         {
             if (!this.isContentUrlSupported(contentUrl))
             {
-                LOGGER.debug("Specific writer content URL is unsupported: \n\tStore:   {}\n\tContext: {}", this, context);
+                LOGGER.debug("Store {} does not support specified content URL {}", this, contentUrl);
                 throw new UnsupportedContentUrlException(this, contentUrl);
             }
             else if (this.exists(contentUrl))
             {
-                LOGGER.debug("The content location is already used: \n\tStore:   {}\n\tContext: {}", this, context);
+                LOGGER.debug("Store {} already contains content for URL {}", this, contentUrl);
                 throw new ContentExistsException(this, contentUrl);
             }
         }
 
+        LOGGER.debug("Retrieving writer for context {} from store backing {}", context, this);
         return this.backingStore.getWriter(context);
     }
 
@@ -216,6 +219,7 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     @Override
     public boolean delete(final String contentUrl)
     {
+        LOGGER.debug("Deleting content for URL {} from store backing {}", contentUrl, this);
         return this.backingStore.delete(contentUrl);
     }
 
@@ -233,7 +237,8 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
     protected boolean isSpecialHandlingRequired(final ContentContext ctx)
     {
         final QName contentPropertyQName = ctx instanceof NodeContentContext ? ((NodeContentContext) ctx).getPropertyQName() : null;
-        final boolean result = this.handleContentPropertyQNames == null || this.handleContentPropertyQNames.contains(contentPropertyQName);
+        final boolean result = this.handleContentPropertyQNames == null
+                || (contentPropertyQName != null && this.handleContentPropertyQNames.contains(contentPropertyQName));
         return result;
     }
 
@@ -242,19 +247,21 @@ public abstract class CommonFacadingContentStore implements ContentStore, Initia
         if (this.handleContentPropertyNames != null && !this.handleContentPropertyNames.isEmpty())
         {
             this.handleContentPropertyQNames = new HashSet<>();
-            for (final String facadePropertyName : this.handleContentPropertyNames)
+            for (final String handlePropertyName : this.handleContentPropertyNames)
             {
-                final QName routePropertyQName = QName.resolveToQName(this.namespaceService, facadePropertyName);
-                ParameterCheck.mandatory("routePropertyQName", routePropertyQName);
+                final QName handldPropertyQName = QName.resolveToQName(this.namespaceService, handlePropertyName);
+                ParameterCheck.mandatory("routePropertyQName", handldPropertyQName);
 
-                final PropertyDefinition contentPropertyDefinition = this.dictionaryService.getProperty(routePropertyQName);
+                final PropertyDefinition contentPropertyDefinition = this.dictionaryService.getProperty(handldPropertyQName);
                 if (contentPropertyDefinition == null
                         || !DataTypeDefinition.CONTENT.equals(contentPropertyDefinition.getDataType().getName()))
                 {
-                    throw new IllegalStateException(facadePropertyName + " is not a valid content model property of type d:content");
+                    throw new IllegalStateException(handlePropertyName + " is not a valid content model property of type d:content");
                 }
-                this.handleContentPropertyQNames.add(routePropertyQName);
+                this.handleContentPropertyQNames.add(handldPropertyQName);
             }
+
+            LOGGER.debug("Store {} was configured to handle content properties {}", this, this.handleContentPropertyQNames);
         }
     }
 }

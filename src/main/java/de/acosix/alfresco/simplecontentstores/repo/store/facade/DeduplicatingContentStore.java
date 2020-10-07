@@ -23,6 +23,8 @@ import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.content.ContentStore;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 
@@ -31,6 +33,8 @@ import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
  */
 public class DeduplicatingContentStore extends CommonFacadingContentStore
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeduplicatingContentStore.class);
 
     protected ContentStore temporaryStore;
 
@@ -141,12 +145,14 @@ public class DeduplicatingContentStore extends CommonFacadingContentStore
         ContentWriter writer;
         if (this.isSpecialHandlingRequired(context))
         {
+            LOGGER.debug("Creating deduplication enabled writer for context {} in store {}", context, this);
             final String dummyContentUrl = this.dummyUrlPrefix + UUID.randomUUID();
             writer = new DeduplicatingContentWriter(dummyContentUrl, context, this.temporaryStore, this.backingStore, this.digestAlgorithm,
                     this.digestAlgorithmProvider, this.pathSegments, this.bytesPerPathSegment);
         }
         else
         {
+            LOGGER.debug("Context {} does not match configured conditions for deduplication in store {}", context, this);
             writer = super.getWriter(context);
         }
         return writer;
