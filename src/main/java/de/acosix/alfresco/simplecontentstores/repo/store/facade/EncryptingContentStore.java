@@ -413,7 +413,12 @@ public class EncryptingContentStore extends CommonFacadingContentStore implement
             contentUrlKeyEntity.setUnencryptedFileSize(Long.valueOf(facadeWriter.getSize()));
             contentUrlKeyEntity.setEncryptedKey(eKey);
 
-            EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(urlEntity.getId(), contentUrlKeyEntity);
+            final boolean updated = EncryptingContentStore.this.contentDataDAO.updateContentUrlKey(urlEntity.getId(), contentUrlKeyEntity);
+            if (!updated)
+            {
+                LOGGER.error("Failed to update content URL key for content URL entity {}", urlEntity);
+                throw new ContentIOException("Failed to link symmetric encryption key with content URL");
+            }
             LOGGER.debug("Associated symmetric content encryption key with content URL entity {}", urlEntity.getId());
         });
 
