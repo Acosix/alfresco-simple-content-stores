@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2020 Acosix GmbH
+ * Copyright 2017 - 2021 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package de.acosix.alfresco.simplecontentstores.repo;
+
+import com.thedeanda.lorem.Lorem;
+import com.thedeanda.lorem.LoremIpsum;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,9 +40,6 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import com.thedeanda.lorem.Lorem;
-import com.thedeanda.lorem.LoremIpsum;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.CompressingContentStore;
@@ -239,7 +239,7 @@ public class CompressingContentStoreTest
             Assert.assertNotNull("Content URL was not set after writing content", contentUrl);
 
             final ContentReader properReader = compressingContentStore.getReader(contentUrl);
-            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertNotNull("Reader was not returned for freshly written content", properReader);
             Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
 
             // reader does not know about mimetype (provided via persisted ContentData at server runtime)

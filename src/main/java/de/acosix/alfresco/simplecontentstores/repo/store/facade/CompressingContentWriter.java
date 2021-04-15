@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2020 Acosix GmbH
+ * Copyright 2017 - 2021 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
 
     protected MimetypeService mimetypeService;
 
-    protected CompressingContentWriter(final String contentUrl, final ContentContext context, final ContentStore temporaryContentStore,
+    protected CompressingContentWriter(final ContentContext context, final ContentStore temporaryContentStore,
             final ContentWriter backingWriter, final String compressionType, final Collection<String> mimetypesToCompress)
     {
         super(backingWriter.getContentUrl() != null ? backingWriter.getContentUrl() : context.getContentUrl(),
@@ -337,13 +337,10 @@ public class CompressingContentWriter extends AbstractContentWriter implements C
         boolean isMatch = false;
         for (final String mimetypeToCompress : this.mimetypesToCompress)
         {
-            if (mimetypeToCompress.endsWith("/*"))
+            if (mimetypeToCompress.endsWith("/*") && mimetype.startsWith(mimetypeToCompress.substring(0, mimetypeToCompress.length() - 1)))
             {
-                if (mimetype.startsWith(mimetypeToCompress.substring(0, mimetypeToCompress.length() - 1)))
-                {
-                    isMatch = true;
-                    break;
-                }
+                isMatch = true;
+                break;
             }
         }
         return isMatch;

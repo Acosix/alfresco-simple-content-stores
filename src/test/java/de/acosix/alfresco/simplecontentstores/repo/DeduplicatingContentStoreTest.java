@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2020 Acosix GmbH
+ * Copyright 2017 - 2021 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package de.acosix.alfresco.simplecontentstores.repo;
+
+import com.thedeanda.lorem.Lorem;
+import com.thedeanda.lorem.LoremIpsum;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,9 +44,6 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
-import com.thedeanda.lorem.Lorem;
-import com.thedeanda.lorem.LoremIpsum;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.DeduplicatingContentStore;
@@ -135,22 +135,14 @@ public class DeduplicatingContentStoreTest
                         .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
 
         final Path rootPath = backingStoreFolder.toPath();
-        final long pathCountBeforeSecondWrite = TestUtilities.walk(rootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return !path.equals(rootPath);
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long pathCountBeforeSecondWrite = TestUtilities.walkAndProcess(rootPath, stream -> stream.filter(path -> !path.equals(rootPath)).count(), FileVisitOption.FOLLOW_LINKS);
 
         final ContentWriter secondWriter = testIndividualWriteAndRead(deduplicatingContentStore, commonText);
 
         Assert.assertEquals("Content URL of second writer does not match previous writer of identical content", firstWriter.getContentUrl(),
                 secondWriter.getContentUrl());
 
-        final long pathCountAfterSecondWrite = TestUtilities.walk(rootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return !path.equals(rootPath);
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long pathCountAfterSecondWrite = TestUtilities.walkAndProcess(rootPath, stream -> stream.filter(path -> !path.equals(rootPath)).count(), FileVisitOption.FOLLOW_LINKS);
 
         Assert.assertEquals("Number of path elements in backing store should not change by writing same content twice",
                 pathCountBeforeSecondWrite, pathCountAfterSecondWrite);
@@ -163,11 +155,8 @@ public class DeduplicatingContentStoreTest
                 thirdWriter.getContentUrl()
                         .matches("^" + STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "([a-fA-F0-9]{4}/){3}[a-fA-F0-9]{128}\\.bin$"));
 
-        final long pathCountAfterThirdWrite = TestUtilities.walk(rootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return !path.equals(rootPath);
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long pathCountAfterThirdWrite = TestUtilities.walkAndProcess(rootPath,
+                stream -> stream.filter(path -> !path.equals(rootPath)).count(), FileVisitOption.FOLLOW_LINKS);
 
         Assert.assertNotEquals("Number of path elements in backing store should change by writing different content",
                 pathCountBeforeSecondWrite, pathCountAfterThirdWrite);
@@ -327,7 +316,7 @@ public class DeduplicatingContentStoreTest
                     deduplicatingContentStore.exists(contentUrl));
 
             final ContentReader properReader = deduplicatingContentStore.getReader(contentUrl);
-            Assert.assertTrue("Reader was not returned for freshly written content", properReader != null);
+            Assert.assertNotNull("Reader was not returned for freshly written content", properReader);
             Assert.assertTrue("Reader does not refer to existing file for freshly written content", properReader.exists());
 
             // reader does not know about mimetype (provided via persisted ContentData at server runtime)

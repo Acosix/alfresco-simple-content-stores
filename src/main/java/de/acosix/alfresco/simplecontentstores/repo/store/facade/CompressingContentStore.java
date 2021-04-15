@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2020 Acosix GmbH
+ * Copyright 2017 - 2021 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ public class CompressingContentStore extends CommonFacadingContentStore
                 urlsToDelete.add(backingWriter.getContentUrl());
             }
 
-            writer = new CompressingContentWriter(backingWriter.getContentUrl(), context, this.temporaryStore, backingWriter,
+            writer = new CompressingContentWriter(context, this.temporaryStore, backingWriter,
                     this.compressionType, this.mimetypesToCompress);
         }
         else

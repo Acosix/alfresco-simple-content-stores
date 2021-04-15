@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2020 Acosix GmbH
+ * Copyright 2017 - 2021 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ public class TestUtilities
     {
         try
         {
-            walk(folder.toPath(), (stream) -> {
+            walkAndConsume(folder.toPath(), stream -> {
                 stream.forEach(path -> {
                     try
                     {
@@ -69,7 +69,8 @@ public class TestUtilities
         }
     }
 
-    public static void walk(final Path path, final Consumer<Stream<Path>> consumer, final FileVisitOption... options) throws IOException
+    public static void walkAndConsume(final Path path, final Consumer<Stream<Path>> consumer, final FileVisitOption... options)
+            throws IOException
     {
         try (Stream<Path> stream = Files.walk(path, options))
         {
@@ -77,7 +78,8 @@ public class TestUtilities
         }
     }
 
-    public static <V> V walk(final Path path, final Function<Stream<Path>, V> fn, final FileVisitOption... options) throws IOException
+    public static <V> V walkAndProcess(final Path path, final Function<Stream<Path>, V> fn, final FileVisitOption... options)
+            throws IOException
     {
         try (Stream<Path> stream = Files.walk(path, options))
         {

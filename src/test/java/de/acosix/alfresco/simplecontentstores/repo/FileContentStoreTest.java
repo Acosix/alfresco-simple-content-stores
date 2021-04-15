@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2020 Acosix GmbH
+ * Copyright 2017 - 2021 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package de.acosix.alfresco.simplecontentstores.repo;
+
+import com.thedeanda.lorem.Lorem;
+import com.thedeanda.lorem.LoremIpsum;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,9 +44,6 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-
-import com.thedeanda.lorem.Lorem;
-import com.thedeanda.lorem.LoremIpsum;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
@@ -116,11 +116,9 @@ public class FileContentStoreTest
 
         Assert.assertTrue("Content should have been deleted", store.delete(contentUrl));
         final Path rootPath = this.storeFolder.toPath();
-        final long subPathCount = TestUtilities.walk(rootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return !path.equals(rootPath);
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long subPathCount = TestUtilities.walkAndProcess(rootPath, stream -> stream.filter(path -> {
+            return !path.equals(rootPath);
+        }).count(), FileVisitOption.FOLLOW_LINKS);
         Assert.assertEquals("Store path should not contain any elements after delete", 0, subPathCount);
     }
 
@@ -140,25 +138,21 @@ public class FileContentStoreTest
         final String contentUrl = writer.getContentUrl();
         Assert.assertTrue("Content should have been deleted", store.delete(contentUrl));
         final Path rootPath = this.storeFolder.toPath();
-        final long subPathCount = TestUtilities.walk(rootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return !path.equals(rootPath);
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long subPathCount = TestUtilities.walkAndProcess(rootPath, stream -> stream.filter(path -> {
+            return !path.equals(rootPath);
+        }).count(), FileVisitOption.FOLLOW_LINKS);
         Assert.assertNotEquals("Store path should contain additional elements after delete without allowing empty directory deletion", 0,
                 subPathCount);
 
-        final long filesCount = TestUtilities.walk(rootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return path.toFile().isFile();
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long filesCount = TestUtilities.walkAndProcess(rootPath, stream -> stream.filter(path -> {
+            return path.toFile().isFile();
+        }).count(), FileVisitOption.FOLLOW_LINKS);
         Assert.assertEquals("Store path should not contain any content files after deletion", 0, filesCount);
     }
 
     // TODO Don't run test on Windows systems - no support for symbolic links
     @Test
-    @Ignore
+    @Ignore("Fails to run on Windows OS")
     public void deleteEmptyParentsButNotSymbolicLinks() throws Exception
     {
         this.linkedFolder = TestUtilities.createFolder();
@@ -185,11 +179,9 @@ public class FileContentStoreTest
         Assert.assertTrue("Content should have been deleted", store.delete(contentUrl));
 
         final Path linkedRootPath = this.linkedFolder.toPath();
-        final long linkedFolderSubPaths = TestUtilities.walk(linkedRootPath, (stream) -> {
-            return stream.filter((path) -> {
-                return !path.equals(linkedRootPath);
-            }).count();
-        }, FileVisitOption.FOLLOW_LINKS);
+        final long linkedFolderSubPaths = TestUtilities.walkAndProcess(linkedRootPath, stream -> stream.filter(path -> {
+            return !path.equals(linkedRootPath);
+        }).count(), FileVisitOption.FOLLOW_LINKS);
         Assert.assertEquals("Linked folder should not contain additional elements after delete", 0, linkedFolderSubPaths);
 
         Assert.assertTrue("Link should still exist after delete", Files.exists(linkPath));
