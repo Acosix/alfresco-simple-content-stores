@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- 
+ Copyright 2017 - 2021 Acosix GmbH
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<webscript>
+    <shortname>Command Console - Simple Content Stores Commands</shortname>
+    <description>Executes supported commands of the simple-content-stores command console plugin</description>
+    <url>/ootbee/admin/command-console/simple-content-stores/help</url>
+    <url>/ootbee/admin/command-console/simple-content-stores/listEncryptionKeys</url>
+    <url>/ootbee/admin/command-console/simple-content-stores/enableEncryptionKey</url>
+    <url>/ootbee/admin/command-console/simple-content-stores/disableEncryptionKey</url>
+    <url>/ootbee/admin/command-console/simple-content-stores/countEncryptedSymmetricKeys</url>
+    <url>/ootbee/admin/command-console/simple-content-stores/listEncryptionKeysEligibleForReEncryption</url>
+    <url>/ootbee/admin/command-console/simple-content-stores/reEncryptSymmetricKeys</url>
+    <family>OOTBee Support Tools</family>
+    <format default="json">any</format>
+    <negotiate accept="application/json">json</negotiate>
+    <authentication>admin</authentication>
+    <lifecycle>internal</lifecycle>
+    <transaction bufferSize="8192" allow="readwrite">required</transaction>
+</webscript>

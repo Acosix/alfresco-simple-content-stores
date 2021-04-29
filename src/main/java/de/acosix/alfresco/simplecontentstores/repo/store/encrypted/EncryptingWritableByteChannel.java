@@ -13,37 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.acosix.alfresco.simplecontentstores.repo.store.facade;
+package de.acosix.alfresco.simplecontentstores.repo.store.encrypted;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.WritableByteChannel;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
+import java.security.GeneralSecurityException;
 import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collection;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.ShortBufferException;
-import javax.crypto.spec.IvParameterSpec;
 
 import org.alfresco.error.AlfrescoRuntimeException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author Axel Faust
  */
 public class EncryptingWritableByteChannel implements WritableByteChannel
 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(EncryptingWritableByteChannel.class);
 
     protected final WritableByteChannel delegateChannel;
 
@@ -61,23 +53,10 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
 
         try
         {
-            Cipher newCipher = Cipher.getInstance(key.getAlgorithm());
-            if (newCipher.getBlockSize() == 0)
-            {
-                newCipher.init(Cipher.ENCRYPT_MODE, key);
-            }
-            else
-            {
-                newCipher = Cipher.getInstance(key.getAlgorithm() + "/CBC/PKCS5Padding");
-
-                final byte[] iv = new byte[newCipher.getBlockSize()];
-                newCipher.init(Cipher.ENCRYPT_MODE, key, new IvParameterSpec(iv));
-            }
-            this.cipher = newCipher;
+            this.cipher = CipherUtil.getInitialisedCipher(key, true);
         }
-        catch (final NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException e)
+        catch (final GeneralSecurityException e)
         {
-            LOGGER.error("Error initializing cipher for key {}", key, e);
             throw new AlfrescoRuntimeException("Error initialising cipher", e);
         }
     }
@@ -126,7 +105,6 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
         }
         catch (final BadPaddingException | IllegalBlockSizeException | ShortBufferException e)
         {
-            LOGGER.error("Unexepted error during close of encrypting channel", e);
             throw new IOException("Unexpected encryption finalization error", e);
         }
         finally
@@ -162,7 +140,6 @@ public class EncryptingWritableByteChannel implements WritableByteChannel
         }
         catch (final ShortBufferException e)
         {
-            LOGGER.error("Unexepted error during write to encrypting channel", e);
             throw new IOException("Unexpected encryption error", e);
         }
 

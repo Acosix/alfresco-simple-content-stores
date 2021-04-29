@@ -19,6 +19,14 @@
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
+    <bean class="org.alfresco.i18n.ResourceBundleBootstrapComponent">
+        <property name="resourceBundles">
+            <list>
+                <value>alfresco.messages.${messages.packageId}.messages</value>
+            </list>
+        </property>
+    </bean>
+
     <bean id="${moduleId}-enablingBootstrap-subsystem"
         class="de.acosix.alfresco.utility.common.spring.PropertyAlteringBeanDefinitionRegistryPostProcessor">
         <property name="enabledPropertyKey" value="simpleContentStores.enabled" />
@@ -60,4 +68,61 @@
         </property>
     </bean>
 
+    <bean class="${project.artifactId}.beans.MasterKeyManagerValidatorImpl">
+        <property name="masterKeyManager">
+            <bean class="org.alfresco.repo.management.subsystems.SubsystemProxyFactory">
+                <property name="sourceApplicationContextFactory" ref="simpleContentStore" />
+                <property name="sourceBeanName" value="${moduleId}-masterKeyManager" />
+                <property name="interfaces">
+                    <list>
+                        <value>${project.artifactId}.store.encrypted.InternalMasterKeyManager</value>
+                    </list>
+                </property>
+            </bean>
+        </property>
+    </bean>
+
+    <bean id="${moduleId}-masterKeyManager" class="org.alfresco.repo.management.subsystems.SubsystemProxyFactory">
+        <property name="sourceApplicationContextFactory" ref="simpleContentStore" />
+        <property name="sourceBeanName" value="${moduleId}-masterKeyManager" />
+        <property name="interfaces">
+            <list>
+                <value>${project.artifactId}.store.encrypted.MasterKeyManager</value>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="${moduleId}-encryptingContentStoreManager" class="org.alfresco.repo.management.subsystems.SubsystemProxyFactory">
+        <property name="sourceApplicationContextFactory" ref="simpleContentStore" />
+        <property name="sourceBeanName" value="${moduleId}-encryptingContentStoreManager" />
+        <property name="interfaces">
+            <list>
+                <value>${project.artifactId}.store.encrypted.EncryptingContentStoreManager</value>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="${moduleId}-customSqlSessionFactory" parent="repoSqlSessionFactory">
+        <property name="configLocation" value="classpath:alfresco/module/${moduleId}/ibatis/sqlmap-config.xml" />
+    </bean>
+
+    <bean id="${moduleId}-customSqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg index="0" ref="${moduleId}-customSqlSessionFactory" />
+    </bean>
+
+    <bean id="${moduleId}-ContentUrlKeyDAO" class="${project.artifactId}.dao.ContentUrlKeyDAOImpl">
+        <property name="sqlSessionTemplate" ref="${moduleId}-customSqlSessionTemplate" />
+    </bean>
+
+    <bean name="${moduleId}-masterKeyCheckDataCache" factory-bean="cacheFactory" factory-method="createCache">
+        <constructor-arg value="cache.${moduleId}-masterKeyCheckDataCache" />
+    </bean>
+
+    <bean name="${moduleId}-disabledMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache">
+        <constructor-arg value="cache.${moduleId}-disabledMasterKeyCache" />
+    </bean>
+
+    <bean name="${moduleId}-blockedMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache">
+        <constructor-arg value="cache.${moduleId}-blockedMasterKeyCache" />
+    </bean>
 </beans>

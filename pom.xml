@@ -20,7 +20,7 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.project.parent-6.1.2</artifactId>
-        <version>1.3.4</version>
+        <version>1.4.0-SNAPSHOT</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
@@ -73,6 +73,7 @@
         <!-- 
         <azure.version>8.3.0</azure.version>
          -->
+        <ootbee.support-tools.version>1.1.0.0</ootbee.support-tools.version>
 
         <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
@@ -90,7 +91,6 @@
 
     <dependencyManagement>
         <dependencies>
-
             <dependency>
                 <groupId>de.acosix.alfresco.utility</groupId>
                 <artifactId>de.acosix.alfresco.utility.core.repo</artifactId>
@@ -144,6 +144,13 @@
                 <classifier>tests</classifier>
                 <scope>test</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.orderofthebee.support-tools</groupId>
+                <artifactId>support-tools-repo</artifactId>
+                <version>${ootbee.support-tools.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -191,6 +198,7 @@
             <artifactId>azure-storage</artifactId>
         </dependency>
  -->
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -241,6 +249,11 @@
             <artifactId>de.acosix.alfresco.rest.client</artifactId>
             <classifier>tests</classifier>
         </dependency>
+
+        <dependency>
+            <groupId>org.orderofthebee.support-tools</groupId>
+            <artifactId>support-tools-repo</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -274,6 +287,35 @@
                                             <volume>${project.build.directory}/docker/repository-logs:/usr/local/tomcat/logs</volume>
                                         </bind>
                                     </volumes>
+                                    <env>
+                                        <JAVA_OPTS><![CDATA[
+                                            ${docker.tests.repositoryVersionSpecificJavaOpts}
+                                            -Ddb.driver=org.postgresql.Driver
+                                            -Ddb.username=alfresco
+                                            -Ddb.password=alfresco
+                                            -Ddb.url=jdbc:postgresql://postgres:5432/alfresco
+                                            -Dsolr.host=search
+                                            -Dsolr.port=${docker.tests.internalSearchPort}
+                                            -Dsolr.secureComms=none
+                                            -Dsolr.base.url=${docker.tests.searchBaseUrl}
+                                            -Dindex.subsystem.name=${docker.tests.searchSubsystem}
+                                            -Dcsrf.filter.enabled=false
+                                            -Xms1g -Xmx1g
+                                            -XX:+UseG1GC
+                                            -XX:+ParallelRefProcEnabled
+                                            -XX:+UseStringDeduplication
+                                            -XX:+ScavengeBeforeFullGC
+                                            -XX:+DisableExplicitGC
+                                            -XX:+AlwaysPreTouch
+                                            -Duser.language=en
+                                            -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore
+                                            -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password
+                                            -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12
+                                            -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2
+                                            -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest
+                                            -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest
+                                        ]]></JAVA_OPTS>
+                                    </env>
                                 </run>
                             </image>
                         </images>

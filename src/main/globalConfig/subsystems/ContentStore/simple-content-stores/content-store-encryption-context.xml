@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- 
+ Copyright 2017 - 2021 Acosix GmbH
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <bean id="${moduleId}-subsystem-properties"
+        class="de.acosix.alfresco.utility.repo.subsystems.SubsystemEffectivePropertiesFactoryBean">
+        <property name="subsystemChildApplicationContextFactory" ref="simpleContentStore" />
+    </bean>
+
+    <bean id="${moduleId}-effective-properties" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="propertiesArray">
+            <list>
+                <!-- this is included because we want all global-properties accessible -->
+                <!-- Alfresco by default only exposes subset of global-properties in subsystems as per subsystem base *.properties -->
+                <!-- (this is insufficient since we need to support user-defined (composite) properties -->
+                <ref bean="global-properties" />
+                <ref bean="${moduleId}-subsystem-properties" />
+            </list>
+        </property>
+    </bean>
+
+    <bean id="${moduleId}-encryptingContentStoreManager"
+        class="${project.artifactId}.store.encrypted.EncryptingContentStoreManagerImpl">
+        <property name="contentDataDAO" ref="contentDataDAO" />
+        <property name="contentUrlKeyDAO" ref="${moduleId}-ContentUrlKeyDAO" />
+        <property name="transactionService" ref="TransactionService" />
+        <property name="masterKeyManager" ref="${moduleId}-masterKeyManager" />
+        <property name="defaultKeyAlgorithm" value="${simpleContentStores.encryption.defaultSymmetricKeyAlgorithm}" />
+        <property name="defaultKeySize" value="${simpleContentStores.encryption.defaultSymmetricKeySize}" />
+        <property name="reEncryptionThreadCount" value="${simpleContentStores.encryption.reencryption.threadCount}" />
+        <property name="reEncryptionBatchSize" value="${simpleContentStores.encryption.reencryption.batchSize}" />
+        <property name="reEncryptionLogInterval" value="${simpleContentStores.encryption.reencryption.logInterval}" />
+    </bean>
+
+    <bean id="${moduleId}-masterKeyManager" class="${project.artifactId}.store.encrypted.MasterKeyManagerImpl">
+        <property name="contentUrlKeyDAO" ref="${moduleId}-ContentUrlKeyDAO" />
+        <property name="transactionService" ref="TransactionService" />
+        <property name="attributeService" ref="AttributeService" />
+        <property name="masterKeyCheckDataCache" ref="${moduleId}-masterKeyCheckDataCache" />
+        <property name="disabledMasterKeyCache" ref="${moduleId}-disabledMasterKeyCache" />
+        <property name="blockedMasterKeyCache" ref="${moduleId}-blockedMasterKeyCache" />
+        <property name="properties" ref="${moduleId}-effective-properties" />
+        <property name="propertyPrefix" value="simpleContentStores.encryption.keystore." />
+        <property name="keystoreIds" value="${simpleContentStores.encryption.keystoreIds}" />
+        <property name="failMissingDatabaseKeys" value="${simpleContentStores.encryption.validation.failMissingDatabaseKeys}" />
+        <property name="failMissingClusterKeys" value="${simpleContentStores.encryption.validation.failMissingClusterKeys}" />
+        <property name="failMismatchedDatabaseKeys" value="${simpleContentStores.encryption.validation.failMismatchedDatabaseKeys}" />
+        <property name="failMismatchedClusterKeys" value="${simpleContentStores.encryption.validation.failMismatchedClusterKeys}" />
+    </bean>
+
+</beans>

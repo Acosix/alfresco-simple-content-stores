@@ -13,26 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.acosix.alfresco.simplecontentstores.repo.store.facade;
+package de.acosix.alfresco.simplecontentstores.repo.store.encrypted;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
+import java.security.GeneralSecurityException;
 import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.ShortBufferException;
-import javax.crypto.spec.IvParameterSpec;
 
-import org.alfresco.error.AlfrescoRuntimeException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.alfresco.service.cmr.repository.ContentIOException;
 
 /**
  *
@@ -40,8 +34,6 @@ import org.slf4j.LoggerFactory;
  */
 public class DecryptingReadableByteChannel implements ReadableByteChannel
 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(DecryptingReadableByteChannel.class);
 
     protected final ReadableByteChannel delegateChannel;
 
@@ -61,24 +53,11 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
 
         try
         {
-            Cipher newCipher = Cipher.getInstance(key.getAlgorithm());
-            if (newCipher.getBlockSize() == 0)
-            {
-                newCipher.init(Cipher.DECRYPT_MODE, key);
-            }
-            else
-            {
-                newCipher = Cipher.getInstance(key.getAlgorithm() + "/CBC/PKCS5Padding");
-
-                final byte[] iv = new byte[newCipher.getBlockSize()];
-                newCipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(iv));
-            }
-            this.cipher = newCipher;
+            this.cipher = CipherUtil.getInitialisedCipher(key, false);
         }
-        catch (final NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException | InvalidAlgorithmParameterException e)
+        catch (final GeneralSecurityException e)
         {
-            LOGGER.error("Error initializing cipher for key {}", key, e);
-            throw new AlfrescoRuntimeException("Error initialising cipher", e);
+            throw new ContentIOException("Error initialising cipher", e);
         }
     }
 
@@ -195,7 +174,6 @@ public class DecryptingReadableByteChannel implements ReadableByteChannel
             }
             catch (final BadPaddingException | IllegalBlockSizeException | ShortBufferException e)
             {
-                LOGGER.error("Unexepted error during read from decrypting channel", e);
                 throw new IOException("Unexpected decryption error", e);
             }
             this.decryptedInputBuffer.flip();

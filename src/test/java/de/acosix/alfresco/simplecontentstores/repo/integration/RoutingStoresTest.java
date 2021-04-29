@@ -15,6 +15,8 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.integration;
 
+import com.thedeanda.lorem.LoremIpsum;
+
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -22,12 +24,12 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.UUID;
 
+import javax.ws.rs.NotFoundException;
+
 import org.jboss.resteasy.client.jaxrs.ResteasyClient;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import com.thedeanda.lorem.LoremIpsum;
 
 import de.acosix.alfresco.rest.client.api.NodesV1;
 import de.acosix.alfresco.rest.client.api.PeopleV1;
@@ -47,9 +49,9 @@ public class RoutingStoresTest extends AbstractStoresTest
 
     private static ResteasyClient client;
 
-    private static String testUser;
+    private static final String testUser = "test";
 
-    private static String testUserPassword;
+    private static final String testUserPassword = "test";
 
     @BeforeClass
     public static void setup()
@@ -59,15 +61,20 @@ public class RoutingStoresTest extends AbstractStoresTest
         final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
         final PeopleV1 people = createAPI(client, baseUrl, PeopleV1.class, ticket);
 
-        final PersonRequestEntity personToCreate = new PersonRequestEntity();
-        testUser = UUID.randomUUID().toString();
-        personToCreate.setEmail(testUser + "@example.com");
-        personToCreate.setFirstName("Test");
-        personToCreate.setLastName("Guy");
-        personToCreate.setId(testUser);
-        testUserPassword = UUID.randomUUID().toString();
-        personToCreate.setPassword(testUserPassword);
-        people.createPerson(personToCreate);
+        try
+        {
+            people.getPerson(testUser);
+        }
+        catch (final NotFoundException nfe)
+        {
+            final PersonRequestEntity personToCreate = new PersonRequestEntity();
+            personToCreate.setEmail(testUser + "@example.com");
+            personToCreate.setFirstName("Test");
+            personToCreate.setLastName("Guy");
+            personToCreate.setId(testUser);
+            personToCreate.setPassword(testUserPassword);
+            people.createPerson(personToCreate);
+        }
     }
 
     @Test

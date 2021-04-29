@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.acosix.alfresco.simplecontentstores.repo.store.facade;
+package de.acosix.alfresco.simplecontentstores.repo.store.encrypted;
 
 import java.nio.channels.ReadableByteChannel;
 import java.security.Key;
@@ -22,6 +22,8 @@ import org.alfresco.service.cmr.repository.ContentData;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.util.ParameterCheck;
+
+import de.acosix.alfresco.simplecontentstores.repo.store.facade.ContentReaderFacade;
 
 /**
  * @author Axel Faust

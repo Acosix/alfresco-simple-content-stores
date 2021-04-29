@@ -181,18 +181,9 @@ public class ContentReaderFacade extends ContentAccessorFacade<ContentReader> im
     @Override
     public InputStream getContentInputStream() throws ContentIOException
     {
-        try
-        {
-            final ReadableByteChannel channel = this.getReadableChannel();
-            InputStream is = Channels.newInputStream(channel);
-            is = new BufferedInputStream(is);
-            return is;
-        }
-        catch (final Throwable e)
-        {
-            LOGGER.error("Failed to open stream onto channel for reader {}", this, e);
-            throw new ContentIOException("Failed to open stream onto channel: \n   accessor: " + this, e);
-        }
+        final ReadableByteChannel channel = this.getReadableChannel();
+        final InputStream is = new BufferedInputStream(Channels.newInputStream(channel));
+        return is;
     }
 
     /**

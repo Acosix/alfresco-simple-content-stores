@@ -117,7 +117,8 @@
     </bean>
 
     <bean id="simpleContentStoresTemplate-encryptingFacadeStore" abstract="true"
-        class="${project.artifactId}.store.facade.EncryptingContentStore" parent="${moduleId}-commonFacadeStore">
+        class="${project.artifactId}.store.encrypted.EncryptingContentStore" parent="${moduleId}-commonFacadeStore">
+        <property name="encryptingContentStoreManager" ref="${moduleId}-encryptingContentStoreManager" />
         <property name="contentDataDAO" ref="contentDataDAO" />
     </bean>
 </beans>

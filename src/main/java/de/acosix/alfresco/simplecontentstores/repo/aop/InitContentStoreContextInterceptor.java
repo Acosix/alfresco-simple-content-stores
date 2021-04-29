@@ -108,8 +108,12 @@ public class InitContentStoreContextInterceptor implements MethodInterceptor, Ap
             catch (final Throwable ex)
             {
                 // only log as debug, since our rethrown exception should be properly logged by the top caller (web script or other API)
-                // (Some APIs, such as Alfresco Public ReST API, do horrible jobs of logging though)
+                // (Some APIs, such as Alfresco Public ReST API, do a horrible job at logging though)
                 LOGGER.debug("Error during call on ContentStore API", ex);
+                if (ex instanceof ContentIOException)
+                {
+                    throw (ContentIOException) ex;
+                }
                 throw new ContentIOException("Error during call on ContentStore API", ex);
             }
         });

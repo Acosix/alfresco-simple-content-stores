@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 
+ Copyright 2017 - 2021 Acosix GmbH
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+<mapper namespace="contentUrlKey">
+
+    <resultMap id="result_KeyCount" type="KeyCount">
+        <result property="count" column="count" jdbcType="INTEGER" javaType="INTEGER" />
+        <association property="masterKey" javaType="MasterKeyReference">
+            <constructor>
+                <arg column="keystoreId" jdbcType="VARCHAR" javaType="java.lang.String" />
+                <arg column="alias" jdbcType="VARCHAR" javaType="java.lang.String" />
+            </constructor>
+        </association>
+    </resultMap>
+
+    <resultMap id="result_ContentUrlKey" type="ContentUrlKey">
+        <result property="id" column="id" jdbcType="BIGINT" javaType="java.lang.Long"/>
+        <result property="contentUrlId" column="content_url_id" jdbcType="BIGINT" javaType="java.lang.Long"/>
+        <result property="keySize" column="key_size" jdbcType="INTEGER" javaType="int"/>
+        <result property="encryptedKeyAsBytes" column="encrypted_key" jdbcType="BLOB" javaType="_byte[]"/>
+        <result property="algorithm" column="algorithm" jdbcType="VARCHAR" javaType="java.lang.String"/>
+        <result property="masterKeystoreId" column="master_keystore_id" jdbcType="VARCHAR" javaType="java.lang.String"/>
+        <result property="masterKeyAlias" column="master_key_alias" jdbcType="VARCHAR" javaType="java.lang.String"/>
+        <result property="unencryptedFileSize" column="unencrypted_file_size" jdbcType="BIGINT" javaType="java.lang.Long"/>
+    </resultMap>
+
+    <select id="select_CountSymmetricKeysByMasterKey" resultMap="result_KeyCount" useCache="false">
+        select
+            e.master_keystore_id as keystoreId,
+            e.master_key_alias as alias,
+            count(*) as count
+        from
+            alf_content_url_encryption e
+        group by
+            e.master_keystore_id,
+            e.master_key_alias
+    </select>
+
+    <select id="select_CountSymmetricKeysForMasterKey" parameterType="MasterKeyReference" resultType="java.lang.Integer" useCache="false">
+        select
+            count(*) as count
+        from
+            alf_content_url_encryption e
+        where
+            e.master_keystore_id = #{keystoreId}
+            AND e.master_key_alias = #{alias}
+    </select>
+
+    <!-- use "fetch first x rows" as ISO SQL:2008 pagination standard supported by most databases -->
+    <select id="select_SymmetricKeysForMasterKey" parameterType="KeyFetch" resultMap="result_ContentUrlKey" useCache="false">
+        select
+            e.id,
+            e.content_url_id,
+            e.key_size,
+            e.algorithm,
+            e.encrypted_key,
+            e.master_keystore_id,
+            e.master_key_alias,
+            e.unencrypted_file_size
+        from
+            alf_content_url_encryption e
+        where
+            e.master_keystore_id = #{masterKey.keystoreId}
+            AND e.master_key_alias = #{masterKey.alias}
+        <if test="fromId != null">
+            AND e.id &gt; #{fromId}
+        </if>
+        order by e.id asc
+        <if test="maxItems != null">
+        fetch first ${maxItems} rows only
+        </if>
+    </select>
+
+</mapper>

@@ -15,6 +15,10 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.integration;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -44,10 +48,6 @@ import org.junit.Rule;
 import org.junit.rules.ExpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import de.acosix.alfresco.rest.client.api.AuthenticationV1;
 import de.acosix.alfresco.rest.client.api.NodesV1;
@@ -145,8 +145,37 @@ public abstract class AbstractStoresTest
     {
         final ResteasyWebTarget targetServer = client.target(UriBuilder.fromPath(baseUrl));
 
-        final ClientRequestFilter rqAuthFilter = (requestContext) -> {
-            final String base64Token = Base64.encodeBase64String(ticket.getBytes(StandardCharsets.UTF_8));
+        final String base64Token = Base64.encodeBase64String(ticket.getBytes(StandardCharsets.UTF_8));
+        final ClientRequestFilter rqAuthFilter = requestContext -> {
+            requestContext.getHeaders().add("Authorization", "Basic " + base64Token);
+        };
+        targetServer.register(rqAuthFilter);
+
+        return targetServer.proxy(api);
+    }
+
+    /**
+     * Initialised a simple Java facade for calls to a particular Alfresco Public ReST API interface.
+     *
+     * @param client
+     *            the client to use for making ReST API calls
+     * @param baseUrl
+     *            the base URL of the Alfresco instance
+     * @param api
+     *            the API interface to facade
+     * @param userName
+     *            the userName to use for calls to the API
+     * @param password
+     *            the password to use for calls to the API
+     * @return the Java facade of the API
+     */
+    protected static <T> T createAPI(final ResteasyClient client, final String baseUrl, final Class<T> api, final String userName,
+            final String password)
+    {
+        final ResteasyWebTarget targetServer = client.target(UriBuilder.fromPath(baseUrl));
+
+        final String base64Token = Base64.encodeBase64String((userName + ":" + password).getBytes(StandardCharsets.UTF_8));
+        final ClientRequestFilter rqAuthFilter = requestContext -> {
             requestContext.getHeaders().add("Authorization", "Basic " + base64Token);
         };
         targetServer.register(rqAuthFilter);

@@ -75,13 +75,7 @@
         <dependencySet>
             <outputDirectory>WEB-INF/lib</outputDirectory>
             <includes>
-                <include>org.tukaani:xz:*</include>
-            </includes>
-            <scope>compile</scope>
-        </dependencySet>
-        <dependencySet>
-            <outputDirectory>WEB-INF/lib</outputDirectory>
-            <includes>
+                <include>org.orderofthebee.support-tools:*</include>
                 <include>de.acosix.alfresco.utility:de.acosix.alfresco.utility.common:*</include>
                 <include>de.acosix.alfresco.utility:de.acosix.alfresco.utility.core.repo.quartz1:*</include>
                 <include>de.acosix.alfresco.utility:de.acosix.alfresco.utility.core.repo.quartz2:*</include>

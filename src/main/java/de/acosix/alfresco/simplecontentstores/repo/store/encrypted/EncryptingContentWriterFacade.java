@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package de.acosix.alfresco.simplecontentstores.repo.store.facade;
+package de.acosix.alfresco.simplecontentstores.repo.store.encrypted;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +33,8 @@ import org.alfresco.service.cmr.repository.MimetypeService;
 import org.alfresco.util.ParameterCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import de.acosix.alfresco.simplecontentstores.repo.store.facade.ContentWriterFacade;
 
 /**
  * @author Axel Faust
@@ -70,7 +72,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
 
         this.addListener(() -> {
             EncryptingContentWriterFacade.this.completedWrite = true;
-            LOGGER.debug("Completed writing via content writer for URL {} with {} unencrypted bytes", getContentUrl(),
+            LOGGER.debug("Completed writing via content writer for URL {} with {} unencrypted bytes", this.getContentUrl(),
                     this.unencryptedSize);
 
             if (EncryptingContentWriterFacade.this.guessMimetype)
@@ -117,6 +119,16 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
         }
 
         return size;
+    }
+
+    public long getUnencryptedSize()
+    {
+        return this.unencryptedSize;
+    }
+
+    public long getEncryptedSize()
+    {
+        return this.encryptedSize;
     }
 
     /**
@@ -191,7 +203,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
                 return;
             }
 
-            LOGGER.debug("Running encoding detection on content writer for URL {}", getContentUrl());
+            LOGGER.debug("Running encoding detection on content writer for URL {}", this.getContentUrl());
 
             final ContentCharsetFinder charsetFinder = this.mimetypeService.getContentCharsetFinder();
 
@@ -213,7 +225,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
         {
             // no point in delegating to backing writer - it can't guess from encrypted content
             this.guessEncoding = true;
-            LOGGER.debug("Marked content writer for URL {} for post-write encoding detection", getContentUrl());
+            LOGGER.debug("Marked content writer for URL {} for post-write encoding detection", this.getContentUrl());
         }
     }
 
@@ -232,10 +244,10 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
                 return;
             }
 
-            LOGGER.debug("Running mimetype detection on content writer for URL {} using file name {}", getContentUrl(), filename);
+            LOGGER.debug("Running mimetype detection on content writer for URL {} using file name {}", this.getContentUrl(), filename);
 
             String mimetype;
-            // TODO Why do 5.1/5.2 include this special check here and not in mimetypeService?
+            // TODO Why does Alfresco include this special check in AbstractContentWriter#doGuessMimetype and not in mimetypeService?
             if (filename != null && filename.startsWith(MimetypeMap.MACOS_RESOURCE_FORK_FILE_NAME_PREFIX))
             {
                 mimetype = MimetypeMap.MIMETYPE_APPLEFILE;
@@ -251,7 +263,7 @@ public class EncryptingContentWriterFacade extends ContentWriterFacade
             // no point in delegating to backing writer - it can't guess from encrypted content
             this.guessMimetype = true;
             this.guessFileName = filename;
-            LOGGER.debug("Marked content writer for URL {} for post-write mimetype detection", getContentUrl());
+            LOGGER.debug("Marked content writer for URL {} for post-write mimetype detection", this.getContentUrl());
         }
     }
 }
