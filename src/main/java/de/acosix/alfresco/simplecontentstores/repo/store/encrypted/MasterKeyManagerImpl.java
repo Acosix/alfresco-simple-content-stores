@@ -648,7 +648,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                             throw new IllegalStateException("Missing encryption master keys compared to other cluster servers found");
                         }
                         LOGGER.warn(
-                                "Encryption master keys available on other cluster servers were not configured / made available - the following keys will not be used: {}",
+                                "Encryption master keys available on other cluster servers were not configured / made available - the following keys will be marked as blocked: {}",
                                 missingClusterKeys);
                     }
 
@@ -656,17 +656,17 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                     if (!extraneousKeys.isEmpty())
                     {
                         LOGGER.warn(
-                                "More encryption master keys were configured / made available than on other servers in the same cluster - the following keys will not be used: {}",
+                                "More encryption master keys were configured / made available than on other servers in the same cluster - the following keys will be marked as blocked: {}",
                                 extraneousKeys);
                     }
+
+                    this.makeKeyInformationAvailableInCluster();
 
                     final Collection<MasterKeyReference> activeKeys = this.getActiveKeys();
                     if (activeKeys.isEmpty())
                     {
                         throw new IllegalStateException("No usable encryption master keys are available");
                     }
-
-                    this.makeKeyInformationAvailableInCluster();
                 }
             }
             finally
@@ -1004,7 +1004,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                 // block missing + extraneous keys
                 this.masterKeyCheckDataCache.getKeys().stream().filter(key -> !this.checkValues.containsKey(key))
                         .forEach(key -> this.blockedMasterKeyCache.put(key, Boolean.TRUE));
-                this.checkValues.keySet().stream().filter(key -> this.masterKeyCheckDataCache.contains(key))
+                this.checkValues.keySet().stream().filter(key -> !this.masterKeyCheckDataCache.contains(key))
                         .forEach(key -> this.blockedMasterKeyCache.put(key, Boolean.TRUE));
             }
         }

@@ -36,7 +36,7 @@ keytool -genkey -alias &lt;alias for identification&gt; -keyalg RSA -keystore &l
 This will generate both private and public keys for the asymmetric encryption of symmetric keys in the keystore. Alternatively, a sufficiently secure symmetric encryption key may also be used. E.g. a new AES key can be generated using the following command:
 
 ```text
-keytool -genkey -alias &lt;alias for identification&gt; -keyalg AES -keystore &lt;master keystore path&gt; -keysize 128
+keytool -genseckey -alias &lt;alias for identification&gt; -keyalg AES -keystore &lt;master keystore path&gt; -keysize 128
 ```
 
 The alias of the generated key can be any value, as long as it is not longer than 15 characters - a limit imposed by the Alfresco database schema. Multiple keys can be contained in a single keystore, and multiple keystores may be used to easily rotate in/out groups of keys when necessary.
@@ -84,6 +84,17 @@ The following information / data about master keys is stored in a persistent for
 
 - **disabled master keys**: Alfresco's `AttributeService` is used to store disabled master keys using the keys `acosix/alfresco-simple-content-stores/disabledEncryptionMasterKeys`, `<keystoreId>`, `<alias>` - a master key disabled once will remain disabled until re-enabled or the attribute entry is otherwise deleted (while ACS is not active)
 - **master key check values**: whenever a master key is first randomly picked to encrypt a symmetric encryption key, its "check value" is stored via Alfresco's `AttributeService` for future key validation on startup, using the keys `acosix/alfresco-simple-content-stores/encryptionMasterKeyCheckValues`, `<keystoreId>`, `<alias>` - the "check value" is essentially just a string in the form of `<keyAlgorithm>#<encodedKeyHashCode>`, so that the persistent form does not contain any sensitive information but can still be used to check if keys in the keystore match keys that have been previously used to have early detection of mismatching keys
+
+### Validation
+
+Whenever an ACS instance with this module starts up, a Spring appplication listener will trigger a key validation / startup handling using the `onBootstrap` lifecycle method of the `AbstractLifecycleBean` class. This will:
+
+- check signatures / check values of master keys against signatures / check values stored in the database (see persistence section)
+- check signatures / check values of master keys against signatures / check values stored in Alfresco caches (at this point, the current ACS instance has not yet pushed any signatures / check values of its own keys, so this is only ever relevant in a clustered scenario
+- check master keys against keys stored in the database, specifically check if any keys referenced in the `alf_content_url_encryption` table are missing / have not been defined via the combination of configured key stores and specified aliases
+- check master keys against keys stored in Alfresco caches, specifically check if any keys provided by other ACS instances in the same cluster are missing / have not been defined via the combination of configured key stores and specified aliases
+- check master keys against keys stored in Alfresco caches, specifically check if any keys provided this ACS instances have **not** been provided by other ACS instances in the same cluster  - this will emit a warning message in logs and put the extraneous keys into a shared cache of blocked master keys (note: there is currently no process to *unblock* a key at runtime, even if all instances have been restarted in a round-robin fashion and now provide the specific key, except for a full cluster reinitialisation or forcefully clearing the cache via the OOTBee Support Tools addon's Caches tool)
+- check that at least one master key exists which can be used for encrypting new content, i.e. that has not been explicitly disabled or is disqualified from use because it is not available on other ACS instances in the same cluster
 
 ### OOTBee Support Tools Command Console Plugin
 
