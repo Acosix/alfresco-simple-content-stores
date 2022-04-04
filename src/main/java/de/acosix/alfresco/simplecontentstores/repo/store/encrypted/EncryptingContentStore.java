@@ -23,12 +23,14 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.alfresco.repo.content.ContentContext;
 import org.alfresco.repo.domain.contentdata.ContentDataDAO;
+import org.alfresco.repo.domain.contentdata.ContentUrlEntity;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.util.PropertyCheck;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.CommonFacadingContentStore;
 
 /**
@@ -66,7 +68,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore
 
     /**
      * @param encryptingContentStoreManager
-     *            the encryptingContentStoreManager to set
+     *     the encryptingContentStoreManager to set
      */
     public void setEncryptingContentStoreManager(final InternalEncryptingContentStoreManager encryptingContentStoreManager)
     {
@@ -75,7 +77,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore
 
     /**
      * @param contentDataDAO
-     *            the contentDataDAO to set
+     *     the contentDataDAO to set
      */
     public void setContentDataDAO(final ContentDataDAO contentDataDAO)
     {
@@ -84,7 +86,7 @@ public class EncryptingContentStore extends CommonFacadingContentStore
 
     /**
      * @param keyAlgorithm
-     *            the keyAlgorithm to set
+     *     the keyAlgorithm to set
      */
     public void setKeyAlgorithm(final String keyAlgorithm)
     {
@@ -93,11 +95,35 @@ public class EncryptingContentStore extends CommonFacadingContentStore
 
     /**
      * @param keySize
-     *            the keySize to set
+     *     the keySize to set
      */
     public void setKeySize(final int keySize)
     {
         this.keySize = keySize;
+    }
+
+    /**
+     *
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean exists(final String contentUrl)
+    {
+        boolean exists = super.exists(contentUrl);
+        if (exists && contentUrl.startsWith(StoreConstants.WILDCARD_PROTOCOL))
+        {
+            final ContentReader backingReader = super.getReader(contentUrl);
+            exists = backingReader != null;
+            if (exists)
+            {
+                // check if backing URL entity actually exists
+                // cannot be an existing encrypted content without entity required for associated key
+                final String effectiveContentUrl = backingReader.getContentUrl();
+                final ContentUrlEntity contentUrlEntity = this.contentDataDAO.getContentUrl(effectiveContentUrl);
+                exists = contentUrlEntity != null;
+            }
+        }
+        return exists;
     }
 
     /**
@@ -111,7 +137,28 @@ public class EncryptingContentStore extends CommonFacadingContentStore
         if (backingReader != null && backingReader.exists())
         {
             final String effectiveContentUrl = backingReader.getContentUrl();
-            final Optional<SecretKeySpec> decryiptionKey = this.encryptingContentStoreManager.getDecryiptionKey(effectiveContentUrl);
+            final Optional<SecretKeySpec> decryiptionKey;
+            boolean validReader = true;
+            if (contentUrl.startsWith(StoreConstants.WILDCARD_PROTOCOL))
+            {
+                // check if backing URL entity actually exists
+                // cannot be an existing encrypted content without entity required for associated key
+                final ContentUrlEntity contentUrlEntity = this.contentDataDAO.getContentUrl(effectiveContentUrl);
+                if (contentUrlEntity != null)
+                {
+                    decryiptionKey = this.encryptingContentStoreManager.getDecryiptionKey(effectiveContentUrl);
+                }
+                else
+                {
+                    decryiptionKey = Optional.empty();
+                    validReader = false;
+                }
+            }
+            else
+            {
+                decryiptionKey = this.encryptingContentStoreManager.getDecryiptionKey(effectiveContentUrl);
+            }
+
             if (decryiptionKey.isPresent())
             {
                 LOGGER.debug("Returning decrypting reader for content URL {}", effectiveContentUrl);
@@ -123,10 +170,15 @@ public class EncryptingContentStore extends CommonFacadingContentStore
                 final Long fileSize = this.contentDataDAO.getContentUrl(effectiveContentUrl).getContentUrlKey().getUnencryptedFileSize();
                 reader = new DecryptingContentReaderFacade(backingReader, decryiptionKey.get(), fileSize);
             }
-            else
+            else if (validReader)
             {
                 LOGGER.debug("Content URL {} has no associated encryption key", effectiveContentUrl);
                 reader = backingReader;
+            }
+            else
+            {
+                LOGGER.debug("Content URL {} has no associated URL entity", effectiveContentUrl);
+                reader = null;
             }
         }
         else

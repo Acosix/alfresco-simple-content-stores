@@ -41,9 +41,9 @@ import org.alfresco.repo.content.ContentStore;
 import org.alfresco.repo.content.EmptyContentReader;
 import org.alfresco.repo.content.NodeContentContext;
 import org.alfresco.repo.content.UnsupportedContentUrlException;
+import org.alfresco.repo.content.cleanup.EagerContentStoreCleaner;
 import org.alfresco.repo.content.filestore.FileContentStore;
 import org.alfresco.repo.policy.PolicyComponent;
-import org.alfresco.repo.transaction.TransactionalResourceHelper;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
 import org.alfresco.service.cmr.dictionary.DictionaryService;
 import org.alfresco.service.cmr.repository.ContentData;
@@ -99,6 +99,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     protected NodeService nodeService;
 
+    protected EagerContentStoreCleaner contentStoreCleaner;
+
     protected SimpleCache<Pair<String, String>, ContentStore> storesByContentUrl;
 
     protected final ReadLock storesCacheReadLock;
@@ -130,6 +132,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
         PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
         PropertyCheck.mandatory(this, "nodeService", this.nodeService);
+        PropertyCheck.mandatory(this, "contentStoreCleaner", this.contentStoreCleaner);
 
         PropertyCheck.mandatory(this, "storesByContentUrl", this.storesByContentUrl);
         PropertyCheck.mandatory(this, "fallbackStore", this.fallbackStore);
@@ -156,7 +159,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     /**
      * @param policyComponent
-     *            the policyComponent to set
+     *     the policyComponent to set
      */
     public void setPolicyComponent(final PolicyComponent policyComponent)
     {
@@ -165,7 +168,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     /**
      * @param dictionaryService
-     *            the dictionaryService to set
+     *     the dictionaryService to set
      */
     public void setDictionaryService(final DictionaryService dictionaryService)
     {
@@ -174,7 +177,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     /**
      * @param nodeService
-     *            the nodeService to set
+     *     the nodeService to set
      */
     public void setNodeService(final NodeService nodeService)
     {
@@ -182,10 +185,19 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     }
 
     /**
+     * @param contentStoreCleaner
+     *     the contentStoreCleaner to set
+     */
+    public void setContentStoreCleaner(final EagerContentStoreCleaner contentStoreCleaner)
+    {
+        this.contentStoreCleaner = contentStoreCleaner;
+    }
+
+    /**
      * Sets the store cache for avoiding repeated content store lookups.
      *
      * @param storesCache
-     *            cache of stores used to access URLs
+     *     cache of stores used to access URLs
      */
     public void setStoresCache(final SimpleCache<Pair<String, String>, ContentStore> storesCache)
     {
@@ -194,7 +206,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     /**
      * @param fallbackStore
-     *            the fallbackStore to set
+     *     the fallbackStore to set
      */
     public void setFallbackStore(final ContentStore fallbackStore)
     {
@@ -424,7 +436,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * Checks the cache for the store and ensures that the URL is in the store.
      *
      * @param contentUrl
-     *            the content URL to search for
+     *     the content URL to search for
      * @return the store matching the content URL
      */
     protected ContentStore selectReadStore(final String contentUrl)
@@ -448,7 +460,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * Retrieves the (sub-)list of stores that may be relevant to handle a specific content URL
      *
      * @param contentUrl
-     *            the content URL to handle
+     *     the content URL to handle
      * @return the (sub-)liust of stores
      */
     protected List<ContentStore> getStores(final String contentUrl)
@@ -551,9 +563,9 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * to make a decision.
      *
      * @param ctx
-     *            the context to use to make the choice
+     *     the context to use to make the choice
      * @return the store most appropriate for the given context and
-     *         <b>never <tt>null</tt></b>
+     * <b>never <tt>null</tt></b>
      */
     protected ContentStore selectWriteStore(final ContentContext ctx)
     {
@@ -815,11 +827,18 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                 // ensure content cleanup on rollback (only if a new, unique URL was created
                 if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
                 {
-                    final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(StoreConstants.KEY_POST_ROLLBACK_DELETION_URLS);
-                    urlsToDelete.add(newContentUrl);
+                    this.contentStoreCleaner.registerNewContentUrl(newContentUrl);
                 }
 
                 writer.putContent(reader);
+
+                // some store may only have determined URL at write-time
+                final String actualNewContentUrl = writer.getContentUrl();
+                if (!EqualsHelper.nullSafeEquals(currentContentUrl, actualNewContentUrl)
+                        && !EqualsHelper.nullSafeEquals(newContentUrl, actualNewContentUrl))
+                {
+                    this.contentStoreCleaner.registerNewContentUrl(actualNewContentUrl);
+                }
 
                 // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
                 // transformations, i.e. compression)
@@ -841,16 +860,16 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * processContentDataMove} to allow for targeted overrides of the writer retrieval in sub-classes.
      *
      * @param reader
-     *            the reader providing access to the existing content to move / copy
+     *     the reader providing access to the existing content to move / copy
      * @param targetStore
-     *            the store into which the content is to be moved / copied
+     *     the store into which the content is to be moved / copied
      * @param nodeRef
-     *            the reference to the node affected by the move / copy
+     *     the reference to the node affected by the move / copy
      * @param propertyQName
-     *            the qualified name of the content property to move / copy
+     *     the qualified name of the content property to move / copy
      * @param firstSupportedContentUrl
-     *            the first content URL determined to be supported by the target store - this will be used to request / force an identical
-     *            content URL in the new store for the moved / copied content, unless this method is overridden
+     *     the first content URL determined to be supported by the target store - this will be used to request / force an identical
+     *     content URL in the new store for the moved / copied content, unless this method is overridden
      * @return the writer in the new content store
      */
     protected ContentWriter getWriterForContentMove(final ContentReader reader, final ContentStore targetStore, final NodeRef nodeRef,
@@ -891,10 +910,10 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
      * Splits the content URL into its component parts as separated by {@link ContentStore#PROTOCOL_DELIMITER protocol delimiter}.
      *
      * @param contentUrl
-     *            the content URL to split
+     *     the content URL to split
      * @return the protocol and identifier portions of the content URL, both of which will not be <tt>null</tt>
      * @throws UnsupportedContentUrlException
-     *             if the content URL is invalid
+     *     if the content URL is invalid
      */
     protected Pair<String, String> getContentUrlParts(final String contentUrl)
     {

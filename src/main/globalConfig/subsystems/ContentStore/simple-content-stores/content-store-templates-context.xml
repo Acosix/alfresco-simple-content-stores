@@ -23,6 +23,7 @@
         <property name="policyComponent" ref="policyComponent" />
         <property name="dictionaryService" ref="DictionaryService" />
         <property name="nodeService" ref="NodeService" />
+        <property name="contentStoreCleaner" ref="eagerContentStoreCleaner"/>
         <property name="storesCache" ref="routingContentStoreCache" />
     </bean>
 
