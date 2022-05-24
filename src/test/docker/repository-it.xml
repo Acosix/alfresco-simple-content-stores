@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!-- 
- Copyright 2017 - 2021 Acosix GmbH
+ Copyright 2017 - 2022 Acosix GmbH
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@
         <dependencySet>
             <outputDirectory>WEB-INF/lib</outputDirectory>
             <includes>
+                <include>org.apache.activemq:activemq-broker</include>
                 <include>org.orderofthebee.support-tools:*</include>
                 <include>de.acosix.alfresco.utility:de.acosix.alfresco.utility.common:*</include>
                 <include>de.acosix.alfresco.utility:de.acosix.alfresco.utility.core.repo.quartz1:*</include>

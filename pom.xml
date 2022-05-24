@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 
- Copyright 2017 - 2021 Acosix GmbH
+ Copyright 2017 - 2022 Acosix GmbH
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@
         <moduleId>acosix-simple-content-stores</moduleId>
 
         <acosix.utility.version>1.1.0</acosix.utility.version>
-        <acosix.alfresco.client.version>0.1.0</acosix.alfresco.client.version>
+        <acosix.alfresco.client.version>0.2.0</acosix.alfresco.client.version>
         <!-- Not used yet  -->
         <!-- 
         <azure.version>8.3.0</azure.version>
@@ -77,6 +77,14 @@
 
         <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
+
+        <docker.tests.repositoryBaseImage>alfresco/alfresco-content-repository-community:7.2.0.1</docker.tests.repositoryBaseImage>
+        <docker.tests.repositoryWebappPath>/usr/local/tomcat/webapps/alfresco</docker.tests.repositoryWebappPath>
+        <!-- different debugger address for Java 11 -->
+        <!-- need ACS keystore config -->
+        <!-- do not require ActiveMQ instance for integration tests (requires projects to include the activemq-broker JAR via repository-it.xml) -->
+        <docker.tests.repositoryVersionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repositoryDebugPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede -Dmessaging.broker.url=vm://localhost?broker.persistent=false]]></docker.tests.repositoryVersionSpecificJavaOpts>
+        <activemq.version>5.16.1</activemq.version>
     </properties>
 
     <repositories>
@@ -150,6 +158,21 @@
                 <artifactId>support-tools-repo</artifactId>
                 <version>${ootbee.support-tools.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <!-- relevant to support vm: transport for non-AMQ-Docker setup -->
+            <!-- transitive dependencies are already part of ACS -->
+            <dependency>
+                <groupId>org.apache.activemq</groupId>
+                <artifactId>activemq-broker</artifactId>
+                <version>${activemq.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -254,6 +277,11 @@
             <groupId>org.orderofthebee.support-tools</groupId>
             <artifactId>support-tools-repo</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.activemq</groupId>
+            <artifactId>activemq-broker</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -288,33 +316,7 @@
                                         </bind>
                                     </volumes>
                                     <env>
-                                        <JAVA_OPTS><![CDATA[
-                                            ${docker.tests.repositoryVersionSpecificJavaOpts}
-                                            -Ddb.driver=org.postgresql.Driver
-                                            -Ddb.username=alfresco
-                                            -Ddb.password=alfresco
-                                            -Ddb.url=jdbc:postgresql://postgres:5432/alfresco
-                                            -Dsolr.host=search
-                                            -Dsolr.port=${docker.tests.internalSearchPort}
-                                            -Dsolr.secureComms=none
-                                            -Dsolr.base.url=${docker.tests.searchBaseUrl}
-                                            -Dindex.subsystem.name=${docker.tests.searchSubsystem}
-                                            -Dcsrf.filter.enabled=false
-                                            -Xms1g -Xmx1g
-                                            -XX:+UseG1GC
-                                            -XX:+ParallelRefProcEnabled
-                                            -XX:+UseStringDeduplication
-                                            -XX:+ScavengeBeforeFullGC
-                                            -XX:+DisableExplicitGC
-                                            -XX:+AlwaysPreTouch
-                                            -Duser.language=en
-                                            -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore
-                                            -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password
-                                            -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12
-                                            -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2
-                                            -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest
-                                            -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest
-                                        ]]></JAVA_OPTS>
+                                        <JAVA_OPTS><![CDATA[${docker.tests.repositoryVersionSpecificJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.secureComms=none -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Xms1g -Xmx1g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -Duser.language=en -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest]]></JAVA_OPTS>
                                     </env>
                                 </run>
                             </image>
