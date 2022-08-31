@@ -64,6 +64,24 @@ import org.springframework.util.ResourceUtils;
 import de.acosix.alfresco.simplecontentstores.repo.dao.ContentUrlKeyDAO;
 
 /**
+ * This key manager implementation handles encryption master keys in both single instance and clustered Alfresco installations. Instances of
+ * this class are initialised in the following way:
+ * <ol>
+ * <li>afterPropertiesSet: load any master keys previously disabled at runtime from the data structures of {@link AttributeService} using
+ * {@link #ATTR_KEY_DISABLED_MASTER_KEYS the base key for disabled master keys}</li>
+ * <li>activate (called indirectly from afterPropertiesSet in an enabled {@link EncryptingContentStore}): {@link #initKeys() loaded
+ * encryption master keys} configured for this Alfresco instance</li>
+ * <li>onStartup (only if instance has been {@link #activate() activated}: first validate master keys configured for this instance against
+ * metadata for master keys loaded from DB (historical usage) and provided from any other active Alfresco cluster instance (if any), then
+ * make details about locally configured master keys available in the cluster</li>
+ * </ol>
+ *
+ * Instances of this class make locally configured master key metadata available in the cluster in two forms:
+ * <ul>
+ * <li>if local instance is first in the cluster: expose metadata of all locally defined master keys</li>
+ * <li>otherwise: mark any master keys as blocked from usage in the entire cluster which are either defined by the first instance in the
+ * cluster and not available locally, or are available locally but not defined by the first instance in the cluster</li>
+ * </ul>
  *
  * @author Axel Faust
  */
@@ -132,7 +150,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param contentUrlKeyDAO
-     *            the contentUrlKeyDAO to set
+     *     the contentUrlKeyDAO to set
      */
     public void setContentUrlKeyDAO(final ContentUrlKeyDAO contentUrlKeyDAO)
     {
@@ -141,7 +159,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param transactionService
-     *            the transactionService to set
+     *     the transactionService to set
      */
     public void setTransactionService(final TransactionService transactionService)
     {
@@ -150,7 +168,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param attributeService
-     *            the attributeService to set
+     *     the attributeService to set
      */
     public void setAttributeService(final AttributeService attributeService)
     {
@@ -159,7 +177,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param masterKeyCheckDataCache
-     *            the masterKeyCheckDataCache to set
+     *     the masterKeyCheckDataCache to set
      */
     public void setMasterKeyCheckDataCache(final SimpleCache<MasterKeyReference, String> masterKeyCheckDataCache)
     {
@@ -168,7 +186,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param disabledMasterKeyCache
-     *            the disabledMasterKeyCache to set
+     *     the disabledMasterKeyCache to set
      */
     public void setDisabledMasterKeyCache(final SimpleCache<MasterKeyReference, Boolean> disabledMasterKeyCache)
     {
@@ -177,7 +195,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param blockedMasterKeyCache
-     *            the blockedMasterKeyCache to set
+     *     the blockedMasterKeyCache to set
      */
     public void setBlockedMasterKeyCache(final SimpleCache<MasterKeyReference, Boolean> blockedMasterKeyCache)
     {
@@ -186,7 +204,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param properties
-     *            the properties to set
+     *     the properties to set
      */
     public void setProperties(final Properties properties)
     {
@@ -195,7 +213,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param propertyPrefix
-     *            the propertyPrefix to set
+     *     the propertyPrefix to set
      */
     public void setPropertyPrefix(final String propertyPrefix)
     {
@@ -204,7 +222,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param keystoreIds
-     *            the keystoreIds to set
+     *     the keystoreIds to set
      */
     public void setKeystoreIds(final String keystoreIds)
     {
@@ -213,7 +231,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param failMissingDatabaseKeys
-     *            the failMissingDatabaseKeys to set
+     *     the failMissingDatabaseKeys to set
      */
     public void setFailMissingDatabaseKeys(final boolean failMissingDatabaseKeys)
     {
@@ -222,7 +240,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param failMissingClusterKeys
-     *            the failMissingClusterKeys to set
+     *     the failMissingClusterKeys to set
      */
     public void setFailMissingClusterKeys(final boolean failMissingClusterKeys)
     {
@@ -231,7 +249,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param failMismatchedDatabaseKeys
-     *            the failMismatchedDatabaseKeys to set
+     *     the failMismatchedDatabaseKeys to set
      */
     public void setFailMismatchedDatabaseKeys(final boolean failMismatchedDatabaseKeys)
     {
@@ -240,7 +258,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
     /**
      * @param failMismatchedClusterKeys
-     *            the failMismatchedClusterKeys to set
+     *     the failMismatchedClusterKeys to set
      */
     public void setFailMismatchedClusterKeys(final boolean failMismatchedClusterKeys)
     {
@@ -652,6 +670,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                                 missingClusterKeys);
                     }
 
+                    this.makeKeyInformationAvailableInCluster();
+
                     final Collection<MasterKeyReference> extraneousKeys = this.getExtraneousKeys();
                     if (!extraneousKeys.isEmpty())
                     {
@@ -659,8 +679,6 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                                 "More encryption master keys were configured / made available than on other servers in the same cluster - the following keys will be marked as blocked: {}",
                                 extraneousKeys);
                     }
-
-                    this.makeKeyInformationAvailableInCluster();
 
                     final Collection<MasterKeyReference> activeKeys = this.getActiveKeys();
                     if (activeKeys.isEmpty())
@@ -830,11 +848,11 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
      * Loads an individual key from a master keystore. This operation must be called within {@link #stateLock an active write lock}.
      *
      * @param keystoreId
-     *            the ID of the keystore
+     *     the ID of the keystore
      * @param keystore
-     *            the master keystore
+     *     the master keystore
      * @param alias
-     *            the alias of the key to load
+     *     the alias of the key to load
      */
     protected void loadKey(final String keystoreId, final KeyStore keystore, final String alias)
     {
