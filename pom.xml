@@ -67,7 +67,7 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <acosix.utility.version>1.1.0</acosix.utility.version>
+        <acosix.utility.version>1.3.1</acosix.utility.version>
         <acosix.alfresco.client.version>0.2.0</acosix.alfresco.client.version>
         <!-- Not used yet  -->
         <!-- 
@@ -84,6 +84,10 @@
         <!-- need ACS keystore config -->
         <!-- do not require ActiveMQ instance for integration tests (requires projects to include the activemq-broker JAR via repository-it.xml) -->
         <docker.tests.repositoryVersionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repositoryDebugPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede -Dmessaging.broker.url=vm://localhost?broker.persistent=false]]></docker.tests.repositoryVersionSpecificJavaOpts>
+
+        <docker.tests.repositoryImageBuilder.preRun>USER root</docker.tests.repositoryImageBuilder.preRun>
+        <docker.tests.repositoryImageBuilder.postRun>USER alfresco</docker.tests.repositoryImageBuilder.postRun>
+
         <activemq.version>5.16.1</activemq.version>
     </properties>
 
@@ -316,7 +320,7 @@
                                         </bind>
                                     </volumes>
                                     <env>
-                                        <JAVA_OPTS><![CDATA[${docker.tests.repositoryVersionSpecificJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.secureComms=none -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Xms1g -Xmx1g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -Duser.language=en -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest]]></JAVA_OPTS>
+                                        <JAVA_OPTS><![CDATA[-Xms1g -Xmx1g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch ${docker.tests.repositoryVersionSpecificJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.secureComms=https -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Duser.language=en -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest]]></JAVA_OPTS>
                                     </env>
                                 </run>
                             </image>
