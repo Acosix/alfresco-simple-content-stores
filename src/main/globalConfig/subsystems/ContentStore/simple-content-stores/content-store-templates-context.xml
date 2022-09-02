@@ -22,6 +22,10 @@
     <bean id="${moduleId}-moveCapableRoutingStore" abstract="true">
         <property name="policyComponent" ref="policyComponent" />
         <property name="dictionaryService" ref="DictionaryService" />
+        <!-- have to use internal nodeService due to ContentPropertyRestrictionInterceptor -->
+        <!-- alternative would be to force all users to either disable interceptor globally or configure extensive lists of whitelisted classes -->
+        <!-- interceptor in general is an excessive "solution" to a subjectively perceived "issue" -->
+        <property name="internalNodeService" ref="nodeService" />
         <property name="nodeService" ref="NodeService" />
         <property name="contentStoreCleaner" ref="eagerContentStoreCleaner"/>
         <property name="storesCache" ref="routingContentStoreCache" />

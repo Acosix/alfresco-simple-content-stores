@@ -110,7 +110,8 @@ public abstract class PropertyRestrictableRoutingContentStore<CD> extends MoveCa
 
         if (!updates.isEmpty())
         {
-            this.nodeService.addProperties(nodeRef, updates);
+            // need to use internalNodeService due to ContentPropertyRestrictionInterceptor
+            this.internalNodeService.addProperties(nodeRef, updates);
         }
     }
 

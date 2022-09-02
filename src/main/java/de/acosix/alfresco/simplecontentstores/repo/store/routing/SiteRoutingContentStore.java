@@ -443,6 +443,7 @@ public class SiteRoutingContentStore extends PropertyRestrictableRoutingContentS
         {
             PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
             PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
+            PropertyCheck.mandatory(this, "internalNodeService", this.internalNodeService);
             PropertyCheck.mandatory(this, "nodeService", this.nodeService);
 
             this.policyComponent.bindClassBehaviour(OnCopyCompletePolicy.QNAME, ContentModel.TYPE_BASE,

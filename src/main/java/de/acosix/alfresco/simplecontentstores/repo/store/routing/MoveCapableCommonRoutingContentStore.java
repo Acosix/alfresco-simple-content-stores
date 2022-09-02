@@ -97,6 +97,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     protected DictionaryService dictionaryService;
 
+    protected NodeService internalNodeService;
+
     protected NodeService nodeService;
 
     protected EagerContentStoreCleaner contentStoreCleaner;
@@ -131,6 +133,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
         PropertyCheck.mandatory(this, "policyComponent", this.policyComponent);
         PropertyCheck.mandatory(this, "dictionaryService", this.dictionaryService);
+        PropertyCheck.mandatory(this, "internalNodeService", this.internalNodeService);
         PropertyCheck.mandatory(this, "nodeService", this.nodeService);
         PropertyCheck.mandatory(this, "contentStoreCleaner", this.contentStoreCleaner);
 
@@ -173,6 +176,15 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     public void setDictionaryService(final DictionaryService dictionaryService)
     {
         this.dictionaryService = dictionaryService;
+    }
+
+    /**
+     * @param internalNodeService
+     *     the internalNodeService to set
+     */
+    public void setInternalNodeService(final NodeService internalNodeService)
+    {
+        this.internalNodeService = internalNodeService;
     }
 
     /**
@@ -692,7 +704,8 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
         if (!updates.isEmpty())
         {
-            this.nodeService.addProperties(nodeRef, updates);
+            // need to use internalNodeService due to ContentPropertyRestrictionInterceptor
+            this.internalNodeService.addProperties(nodeRef, updates);
         }
     }
 
