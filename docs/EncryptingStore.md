@@ -107,15 +107,15 @@ In order to expose the runtime-administration capabilities to enable / disable /
 - `listEncryptionKeysEligibleForReEncryption`
 - `reEncryptSymmetricKeys <masterKey>`
 
-This plugin allows you to rotate a master key in case the key has leaked, or is unsafe for any reason. The following steps are an example of how a key rotation can be done. We refer to the key that we want to disable as `old-key`. The new key we will use will be called `new-key`. Each of the keys are in a separate truststore e.g. `old-keystore` and `new-keystore`. The also have an alias in their truststore e.g. `old-alias` and `new-alias`. These are the steps:
+This plugin allows you to rotate a master key in case the key has leaked or is unsafe for any other reason. The following steps are an example of how a key rotation can be performed. We refer to the key that we want to disable as `old-key`, and the new key as `new-key`. Each of these keys are in separate keystores e.g. `old-keystore` and `new-keystore`. They also have distinct aliases in their keystore e.g. `old-alias` and `new-alias`. These are the steps:
 
 1. Configure the new keystore `simpleContentStores.encryption.keystoreIds=old-keystore,new-keystore` and add the rest of the configuration for `new-keystore`.
-2. Restart ACS, the new keystore should be picked up.
-3. Go to OOTBee Support tools Command Console and activate the `simple-content-stores` plugin.
-4. Check if the new encriptionkey is active with `listEncryptionKeys active`.
-5. Disable the old key `disableEncryptionKey old-keystore:old-alias`. This will make sure this key is no longer used for new encryptions. Content encrypted with this key is will still be decrypted.
+2. Restart ACS - the new keystore should be picked up.
+3. Go to OOTBee Support Tools Command Console and activate the `simple-content-stores` plugin.
+4. Check if the new encryption key is active with `listEncryptionKeys active`.
+5. Disable the old key `disableEncryptionKey old-keystore:old-alias` - this will make sure this key is no longer used for new content encryptions. Existing content encrypted with this key will still be decrypted during read operations.
 6. Re-encrypt the symmetric keys for the old key `reEncryptSymmetricKeys old-keystore:old-alias`.
-7. Once the operation is done, the old key is no longer in use and can be removed from the configuration.
+7. Once this operation is done, the old key is no longer in use and can be removed from the configuration.
 
 ## Configuration Properties
 
