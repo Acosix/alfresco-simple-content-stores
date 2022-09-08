@@ -297,6 +297,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                 {
                     final String keystoreId = DefaultTypeConverter.INSTANCE.convert(String.class, keys[1]);
                     final String alias = DefaultTypeConverter.INSTANCE.convert(String.class, keys[2]);
+                    LOGGER.debug("Marking key with alias {} from key store {} as disabled", alias, keystoreId);
                     this.disabledMasterKeyCache.put(new MasterKeyReference(keystoreId, alias), Boolean.TRUE);
                 }
                 return true;
@@ -455,6 +456,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
     {
         ParameterCheck.mandatory("masterKey", masterKey);
 
+        LOGGER.info("Explicit call to enabled key with alias {} from key store {}", masterKey.getAlias(), masterKey.getKeystoreId());
+
         this.stateLock.readLock().lock();
         try
         {
@@ -468,6 +471,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                 throw new IllegalArgumentException("Master key is not disabled: " + masterKey);
             }
 
+            LOGGER.debug("Removing disablement marker for key with alias {} from key store {} as disabled", masterKey.getAlias(),
+                    masterKey.getKeystoreId());
             this.attributeService.removeAttribute(ATTR_KEY_DISABLED_MASTER_KEYS, masterKey.getKeystoreId(), masterKey.getAlias());
             this.disabledMasterKeyCache.remove(masterKey);
         }
@@ -484,6 +489,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
     public void disable(final MasterKeyReference masterKey)
     {
         ParameterCheck.mandatory("masterKey", masterKey);
+
+        LOGGER.info("Explicit call to disable key with alias {} from key store {}", masterKey.getAlias(), masterKey.getKeystoreId());
 
         this.stateLock.readLock().lock();
         try
@@ -504,6 +511,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
                 throw new IllegalStateException("Cannot disable last remaining active encryption key");
             }
 
+            LOGGER.debug("Marking key with alias {} from key store {} as disabled", masterKey.getAlias(), masterKey.getKeystoreId());
             this.attributeService.setAttribute(ATTR_KEY_DISABLED_MASTER_KEYS, masterKey.getKeystoreId(), masterKey.getAlias(),
                     Boolean.TRUE);
             this.disabledMasterKeyCache.put(masterKey, Boolean.TRUE);
@@ -710,6 +718,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
             }
             final MasterKeyReference selectedKey = activeKeys.get(RNG.nextInt(activeKeys.size()));
 
+            LOGGER.debug("Randomly picked key with alias {} from key store {}", selectedKey.getAlias(), selectedKey.getKeystoreId());
+
             this.transactionService.getRetryingTransactionHelper().doInTransaction(() -> {
                 final Serializable usedMasterKeyCheckValue = this.attributeService.getAttribute(ATTR_KEY_MASTER_KEY_CHECK_VALUES,
                         selectedKey.getKeystoreId(), selectedKey.getAlias());
@@ -856,6 +866,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
      */
     protected void loadKey(final String keystoreId, final KeyStore keystore, final String alias)
     {
+        LOGGER.debug("Loading key with alias {} from key store {}", alias, keystoreId);
+
         final String keystoreBaseProperty = this.propertyPrefix + keystoreId;
         final String keyPassword = this.getPassword(keystoreBaseProperty + "." + alias + ".password");
 

@@ -19,21 +19,9 @@
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <bean id="${moduleId}-subsystem-properties"
+    <bean id="${moduleId}-effective-properties"
         class="de.acosix.alfresco.utility.repo.subsystems.SubsystemEffectivePropertiesFactoryBean">
         <property name="subsystemChildApplicationContextFactory" ref="simpleContentStore" />
-    </bean>
-
-    <bean id="${moduleId}-effective-properties" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
-        <property name="propertiesArray">
-            <list>
-                <!-- this is included because we want all global-properties accessible -->
-                <!-- Alfresco by default only exposes subset of global-properties in subsystems as per subsystem base *.properties -->
-                <!-- (this is insufficient since we need to support user-defined (composite) properties -->
-                <ref bean="global-properties" />
-                <ref bean="${moduleId}-subsystem-properties" />
-            </list>
-        </property>
     </bean>
 
     <bean class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">

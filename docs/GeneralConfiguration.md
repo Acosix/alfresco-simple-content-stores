@@ -12,9 +12,11 @@ via the _alfresco-global.properties_ configuration file.
 
 The default configuration of the new subsystem variant will create and configure a single file-based content store nearly identical to the default file-based content store.
 
+Note: The separate branch to support Alfresco 4.2 is no longer maintained / kept up-to-date with changes on the master branch. Should a backport of features be required by someone still using Alfresco 4.2, this could be done as part of a small consulting project.
+
 ## Custom Stores
 
-This addon can be configured to create and configure additional content stores by using custom properties in either _alfresco-global.properties_, or a custom _\*.properties_ file inside the path _alfresco/extension/subsystems/ContentStore/simple-content-stores/simple-content-stores/_. The use of _alfresco-global.properties_ may be the most familiar to any Alfresco administrator as it is most often documented, but the alternative is considered the intended correct approach (any keys in _\*.properties_ files here have - by design of Alfresco subsystems - the final override over _alfresco-global.properites_ as far as the subsystem is concerned). Only for the Alfresco 4.2 specific branch of this addon is the _alfresco-global.properties_ file the only option, since that version does not use the subsystem approach for handling content stores.
+This addon can be configured to create and configure additional content stores by using custom properties in either _alfresco-global.properties_, a custom _\*.properties_ file inside the path _alfresco/extension/subsystems/ContentStore/simple-content-stores/simple-content-stores/_ , or by using Java system properties via _JAVA_OPTS_ using `-D` flags. Only for the Alfresco 4.2 specific branch of this addon is the _alfresco-global.properties_ file the only option, since that version does not use the subsystem approach for handling content stores.
 
 Content store configuration can be split into the following primary aspects:
 

@@ -273,7 +273,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
                 "Encrypting File Facade Site");
 
-        this.createRandomContents(30, nodes, documentLibraryNodeId);
+        this.createRandomContents(100, nodes, documentLibraryNodeId);
 
         // master key usage is random, but with three configured keys and 30 contents created, each key should be used at least once
         final List<String> updatedCounts = commandConsolePlugin.countEncryptedSymmetricKeys(CommandConsolePluginRequest.from())
@@ -290,7 +290,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
             keys.add(key);
         }
 
-        Assert.assertEquals(30, combinedCount);
+        Assert.assertEquals(100, combinedCount);
         Assert.assertTrue(keys.contains("scs-effs:effs"));
         Assert.assertTrue(keys.contains("scs-aesks:effs-aes"));
         Assert.assertTrue(keys.contains("scs-aesks:effs-aes2"));

@@ -67,7 +67,7 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <acosix.utility.version>1.3.1</acosix.utility.version>
+        <acosix.utility.version>1.3.2-SNAPSHOT</acosix.utility.version>
         <acosix.alfresco.client.version>0.2.0</acosix.alfresco.client.version>
         <!-- Not used yet  -->
         <!-- 
@@ -320,7 +320,7 @@
                                         </bind>
                                     </volumes>
                                     <env>
-                                        <JAVA_OPTS><![CDATA[-Xms1g -Xmx1g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch ${docker.tests.repositoryVersionSpecificJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.secureComms=https -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Duser.language=en -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest]]></JAVA_OPTS>
+                                        <JAVA_OPTS><![CDATA[-Xms1g -Xmx1g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch ${docker.tests.repositoryVersionSpecificJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.secureComms=https -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Duser.language=en -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest -DsimpleContentStores.customStore.globalSiteRoutingStore.type=siteRoutingStore]]></JAVA_OPTS>
                                     </env>
                                 </run>
                             </image>

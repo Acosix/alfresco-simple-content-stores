@@ -238,7 +238,7 @@ public class EncryptingContentStoreManagerImpl implements InternalEncryptingCont
 
         final int effKeySize = keySize <= 0 ? this.defaultKeySize : keySize;
 
-        LOGGER.debug("Creating new symmetric content encryption key using {} and size of {}", algorithm, keySize);
+        LOGGER.debug("Creating new symmetric content encryption key using {} and size of {}", algorithm, effKeySize);
         try
         {
             final KeyGenerator keygen = KeyGenerator.getInstance(algorithm);
