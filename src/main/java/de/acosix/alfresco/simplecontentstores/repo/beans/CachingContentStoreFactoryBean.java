@@ -92,7 +92,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
 
     protected int standardQuotaTargetUsagePercent = 70;
 
-    protected int standardQuotaMaxUsageBytes = 0;
+    protected long standardQuotaMaxUsageBytes = 0;
 
     protected int standardQuotaMaxFileSizeMebiBytes = 0;
 
@@ -266,7 +266,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
      * @param standardQuotaMaxUsageBytes
      *            the standardQuotaMaxUsageBytes to set
      */
-    public void setStandardQuotaMaxUsageBytes(final int standardQuotaMaxUsageBytes)
+    public void setStandardQuotaMaxUsageBytes(final long standardQuotaMaxUsageBytes)
     {
         this.standardQuotaMaxUsageBytes = standardQuotaMaxUsageBytes;
     }
