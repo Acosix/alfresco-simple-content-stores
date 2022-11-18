@@ -96,7 +96,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
 
     protected int standardQuotaMaxFileSizeMebiBytes = 0;
 
-    protected int standardQuotaNormalCleanThresholdSeconds = 0;
+    protected long standardQuotaNormalCleanThresholdSeconds = 0;
 
     protected long cleanerMinFileAgeMillis = 0;
 
@@ -284,7 +284,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
      * @param standardQuotaNormalCleanThresholdSeconds
      *            the standardQuotaNormalCleanThresholdSeconds to set
      */
-    public void setStandardQuotaNormalCleanThresholdSeconds(final int standardQuotaNormalCleanThresholdSeconds)
+    public void setStandardQuotaNormalCleanThresholdSeconds(final long standardQuotaNormalCleanThresholdSeconds)
     {
         this.standardQuotaNormalCleanThresholdSeconds = standardQuotaNormalCleanThresholdSeconds;
     }
@@ -435,7 +435,7 @@ public class CachingContentStoreFactoryBean implements FactoryBean<CachingConten
         return cachedContentCleaner;
     }
 
-    protected void setupCleanerJob(final CachedContentCleaner cachedContentCleaner) throws Exception, SchedulerException
+    protected void setupCleanerJob(final CachedContentCleaner cachedContentCleaner) throws Exception
     {
         // due to incompatible Quartz API between Alfresco 5.x / 6.x, we have to deal with Quartz via Spring reflection utils
 
