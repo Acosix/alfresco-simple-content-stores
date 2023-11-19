@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+    postgres:
+        image: postgres:16.1
+        environment:
+            POSTGRES_DB: alfresco
+            POSTGRES_USER: alfresco
+            POSTGRES_PASSWORD: alfresco
+            POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+            POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+        command: postgres -c max_connections=300 -c log_min_messages=LOG
+        volumes:
+          - ${project.artifactId}-db:/var/lib/postgresql/data
+
+    repository:
+        image: ${project.artifactId}-repository:test
+        depends_on:
+          - postgres
+        build:
+            context: ${project.build.directory}
+            dockerfile: docker/Repository-Dockerfile-2
+        volumes:
+          - ${project.artifactId}-content:/usr/local/tomcat/alf_data
+          - ${project.artifactId}-logs:/usr/local/tomcat/logs
+        environment:
+            JAVA_OPTS: "${docker.tests.repositoryGcJavaOpts} ${docker.tests.repositoryVersionSpecificJavaOpts} ${docker.tests.repositoryProjectJavaOpts} ${docker.tests.repositorySolrCommsJavaOpts} ${docker.tests.repositoryTransformJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Duser.language=en"
+        ports:
+          - ${docker.tests.repositoryPort}:8080
+          - ${docker.tests.repositoryDebugPort}:${docker.tests.repositoryDebugPort}
+
+volumes:
+    ${project.artifactId}-db:
+    ${project.artifactId}-content:
+    ${project.artifactId}-logs:

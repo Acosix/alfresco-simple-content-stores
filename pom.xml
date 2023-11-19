@@ -20,7 +20,7 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.project.parent-6.1.2</artifactId>
-        <version>1.4.1</version>
+        <version>1.5.0-SNAPSHOT</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
@@ -73,7 +73,7 @@
         <!-- 
         <azure.version>8.3.0</azure.version>
          -->
-        <ootbee.support-tools.version>1.1.0.0</ootbee.support-tools.version>
+        <ootbee.support-tools.version>1.2.1.0</ootbee.support-tools.version>
 
         <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
@@ -83,12 +83,14 @@
         <!-- different debugger address for Java 11 -->
         <!-- need ACS keystore config -->
         <!-- do not require ActiveMQ instance for integration tests (requires projects to include the activemq-broker JAR via repository-it.xml) -->
+        <docker.tests.repositoryGcJavaOpts>-Xms2g -Xmx2g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch</docker.tests.repositoryGcJavaOpts>
         <docker.tests.repositoryVersionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repositoryDebugPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede -Dmessaging.broker.url=vm://localhost?broker.persistent=false]]></docker.tests.repositoryVersionSpecificJavaOpts>
+        <docker.tests.repositoryTransformJavaOpts>-Dlocal.transform.service.enabled=false</docker.tests.repositoryTransformJavaOpts>
+        <docker.tests.repositoryProjectJavaOpts>-DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest -DsimpleContentStores.customStore.globalSiteRoutingStore.type=siteRoutingStore</docker.tests.repositoryProjectJavaOpts>
+        <docker.tests.repositorySolrCommsJavaOpts>-Dsolr.secureComms=https</docker.tests.repositorySolrCommsJavaOpts>
 
         <docker.tests.repositoryImageBuilder.preRun>USER root</docker.tests.repositoryImageBuilder.preRun>
         <docker.tests.repositoryImageBuilder.postRun>USER alfresco</docker.tests.repositoryImageBuilder.postRun>
-
-        <activemq.version>5.16.1</activemq.version>
     </properties>
 
     <repositories>
@@ -291,6 +293,35 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>collect-test-dependencies-via-groupIds</id>
+                            <phase>pre-integration-test</phase>
+                            <goals>
+                                <goal>copy-dependencies</goal>
+                            </goals>
+                            <configuration>
+                                <includeScope>test</includeScope>
+                                <outputDirectory>${project.build.directory}/collectedTestDependencies</outputDirectory>
+                                <includeGroupIds>de.acosix.alfresco.utility,org.orderofthebee.support-tools</includeGroupIds>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>collect-test-dependencies-via-artifactIds</id>
+                            <phase>pre-integration-test</phase>
+                            <goals>
+                                <goal>copy-dependencies</goal>
+                            </goals>
+                            <configuration>
+                                <includeScope>test</includeScope>
+                                <outputDirectory>${project.build.directory}/collectedTestDependencies</outputDirectory>
+                                <includeArtifactIds>activemq-broker,time4j-core,time4j-i18n,cron-utils,javassist,javax.el</includeArtifactIds>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
 
                 <!-- some image customisations -->
                 <!-- Maven + docker-maven-plugin result in somewhat weird inheritance handling -->
@@ -328,17 +359,251 @@
                     </configuration>
                 </plugin>
 
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.1.1</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
         <plugins>
 
             <!-- Docker use inherited from parent POM is optional - this enables it explicitly  -->
+            <!-- old approach has become more unstable over time with unexplained Docker socket issues -->
+            <!-- disabled for now in favor of developing a new approach --> 
+            <!--
             <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
             </plugin>
+            -->
 
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
+    
+    <profiles>
+        <profile>
+            <id>composev1</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>exec-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Build Docker containers</id>
+                                    <phase>pre-integration-test</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>docker-compose</executable>
+                                        <workingDirectory>${project.build.directory}/docker</workingDirectory>
+                                        <arguments>
+                                            <argument>build</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Start Docker services</id>
+                                    <phase>pre-integration-test</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>docker-compose</executable>
+                                        <workingDirectory>${project.build.directory}/docker</workingDirectory>
+                                        <arguments>
+                                            <argument>up</argument>
+                                            <argument>-d</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Stop Docker services</id>
+                                    <phase>post-integration-test</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>docker-compose</executable>
+                                        <workingDirectory>${project.build.directory}/docker</workingDirectory>
+                                        <arguments>
+                                            <argument>down</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>composev2</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>exec-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Build Docker containers</id>
+                                    <phase>pre-integration-test</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>docker</executable>
+                                        <workingDirectory>${project.build.directory}/docker</workingDirectory>
+                                        <arguments>
+                                            <argument>compose</argument>
+                                            <argument>build</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Start Docker services</id>
+                                    <phase>pre-integration-test</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>docker</executable>
+                                        <workingDirectory>${project.build.directory}/docker</workingDirectory>
+                                        <arguments>
+                                            <argument>compose</argument>
+                                            <argument>up</argument>
+                                            <argument>-d</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Stop Docker services</id>
+                                    <phase>post-integration-test</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <executable>docker</executable>
+                                        <workingDirectory>${project.build.directory}/docker</workingDirectory>
+                                        <arguments>
+                                            <argument>compose</argument>
+                                            <argument>down</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+
+        <profile>
+            <id>purge</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.codehaus.mojo</groupId>
+                            <artifactId>exec-maven-plugin</artifactId>
+                            <executions>
+                                <execution>
+                                    <id>Stop any Docker containers if still active</id>
+                                    <phase>clean</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <successCodes>
+                                            <successCode>0</successCode>
+                                            <successCode>1</successCode>
+                                        </successCodes>
+                                        <executable>docker</executable>
+                                        <arguments>
+                                            <argument>stop</argument>
+                                            <argument>docker-repository-1</argument>
+                                            <argument>docker-postgres-1</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Remove any Docker containers if still active</id>
+                                    <phase>clean</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <successCodes>
+                                            <successCode>0</successCode>
+                                            <successCode>1</successCode>
+                                        </successCodes>
+                                        <executable>docker</executable>
+                                        <arguments>
+                                            <argument>rm</argument>
+                                            <argument>-v</argument>
+                                            <argument>docker-repository-1</argument>
+                                            <argument>docker-postgres-1</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Remove Docker image(s)</id>
+                                    <phase>clean</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <successCodes>
+                                            <successCode>0</successCode>
+                                            <successCode>1</successCode>
+                                        </successCodes>
+                                        <executable>docker</executable>
+                                        <arguments>
+                                            <argument>rmi</argument>
+                                            <argument>${project.artifactId}-repository:test</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                                <execution>
+                                    <id>Purge Docker volumes</id>
+                                    <phase>clean</phase>
+                                    <goals>
+                                        <goal>exec</goal>
+                                    </goals>
+                                    <configuration>
+                                        <successCodes>
+                                            <successCode>0</successCode>
+                                            <successCode>1</successCode>
+                                        </successCodes>
+                                        <executable>docker</executable>
+                                        <arguments>
+                                            <argument>volume</argument>
+                                            <argument>rm</argument>
+                                            <argument>docker_${project.artifactId}-db</argument>
+                                            <argument>docker_${project.artifactId}-logs</argument>
+                                            <argument>docker_${project.artifactId}-content</argument>
+                                        </arguments>
+                                    </configuration>
+                                </execution>
+                            </executions>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
+    </profiles>
 </project>
