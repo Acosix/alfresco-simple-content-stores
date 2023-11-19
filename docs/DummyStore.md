@@ -2,7 +2,7 @@
 
 The store type **_dummyFallbackStore_** implemented by the class _de.acosix.alfresco.simplecontentstores.repo.store.file.DummyFallbackContentStore_ is primarily intended to be used in test or development environments that need to use a replica of the production database e.g. to reproduce an issue or test content model migrations. Typically the actual content of documents is not necessarily relevant for these tests and in some cases it may be prohibited to copy the entire content store or have access to it due to the existence of sensitive content therein. In such cases it would be preferable to be able to "fake" content to be able to test with metadata only but still avoid issues due to missing content. The dummy store "fakes" content in the following ways:
 
-* provide a mimetype-specific dummy file if provided in specific lookup paths (&lt;tomcat&gt;/webapps/alfresco/classes/alfresco/module/\*/dummyFallbackContentStore/dummy.&lt;file-extension&gt; or &lt;tomcat&gt;/shared/classes/alfresco/extension/dummyFallbackContentStore/dummy.&lt;file-extension&gt;)
+* provide a mimetype-specific dummy file if provided in specific lookup paths (<tomcat>/webapps/alfresco/classes/alfresco/module/\*/dummyFallbackContentStore/dummy.<file-extension> or <tomcat>/shared/classes/alfresco/extension/dummyFallbackContentStore/dummy.<file-extension>)
 * provide a mimetype-specific test file included in Alfresco for performing transformation tests (e.g. via [OOTBee Support Tools addon](https://github.com/OrderOfTheBee/ootbee-support-tools/wiki/Test%20Transform#test-transform))
 * provide a file via transformation of a dummy file provided in specific lookup paths (e.g. create a PDF from text file)
 
@@ -12,7 +12,7 @@ The following content items must always be copied from a production system to a 
 * models in data dictionary
 * process definitions in data dictionary
 * Repository license / version descriptor (attached to nodes in the system://system store)
-* dashboard / component configurations (stored below /app:company_home/st:sites/cm:surf-config/... and /app:company_home/st:sites/cm:&lt;siteShortName&gt;/cm:surf-config/...)
+* dashboard / component configurations (stored below /app:company_home/st:sites/cm:surf-config/... and /app:company_home/st:sites/cm:<siteShortName>/cm:surf-config/...)
 * user preferences
 * tag scope caches
 

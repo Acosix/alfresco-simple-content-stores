@@ -21,7 +21,7 @@ This store can be selected by using the store type **_deduplicatingFacadeStore_*
 | pathSegments | value | how many path segments (in the content URL) should be used to structure content | ``3`` | yes |
 | bytesPerPathSegment | value | how many bytes of the hash / message digest of a content should be used per path segment | ``2`` | yes |
 
-Using the default configuration will result in content URLs of the form ``&lt;protocolOfBackingStore&gt;://e3b0/c442/98fc/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``, where the first 12 byte of the content hash / digest are used to build a path tree (which may result in corresponding directories to be created when stored via a file-based store), and the full hash / digest is used as the name of the content file itself.
+Using the default configuration will result in content URLs of the form ``<protocolOfBackingStore>://e3b0/c442/98fc/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``, where the first 12 byte of the content hash / digest are used to build a path tree (which may result in corresponding directories to be created when stored via a file-based store), and the full hash / digest is used as the name of the content file itself.
 
 ## Configuration example
 

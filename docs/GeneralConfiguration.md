@@ -56,10 +56,10 @@ simpleContentStores.customStore.mySiteFileStore.value.useSiteFolderInGenericDire
 
 The documentation pages for the individual content store types specify all the supported configuration properties for the individual types. This addon uses a set of naming conventions for determining the full name of a configuration property. The following name patterns are in use:
 
-* simple values: _simpleContentStores.customStores.**&lt;storeId&gt;**.value.**&lt;propertyName&gt;**=**&lt;value&gt;**_
-* bean references: _simpleContentStores.customStores.**&lt;storeId&gt;**.ref.**&lt;propertyName&gt;**=**&lt;springBeanId&gt;**_
-* map of values: _simpleContentStores.customStores.**&lt;storeId&gt;**.map.**&lt;propertyName&gt;**.value.**&lt;mapKey&gt;**=**&lt;value&gt;**_
-* map of bean references: _simpleContentStores.customStores.**&lt;storeId&gt;**.map.**&lt;propertyName&gt;**.ref.**&lt;mapKey&gt;**=**&lt;springBeanId&gt;**_
+* simple values: _simpleContentStores.customStores.**<storeId>**.value.**<propertyName>**=**<value>**_
+* bean references: _simpleContentStores.customStores.**<storeId>**.ref.**<propertyName>**=**<springBeanId>**_
+* map of values: _simpleContentStores.customStores.**<storeId>**.map.**<propertyName>**.value.**<mapKey>**=**<value>**_
+* map of bean references: _simpleContentStores.customStores.**<storeId>**.map.**<propertyName>**.ref.**<mapKey>**=**<springBeanId>**_
 
 **Note**: The Spring bean ID for custom stores is the same as the content store ID defined via _simpleContentStores.customStores_.
 Any Spring bean from either the _simple-content-stores_ subsystem or the global application context can be referenced with this configuration approach. This allows developers / administrators to integrate the stores created by the addon with components of their own design, e.g. quota policies / strategies or custom content stores defined externally to _simple-content-stores_.

@@ -30,13 +30,13 @@ Additionally, since version 1.4.0, every ACS instance which has at least one enc
 A new asymmetric master key can be generated using the Java _keytool_ binary, using the following command:
 
 ```text
-keytool -genkey -alias &lt;alias for identification&gt; -keyalg RSA -keystore &lt;master keystore path&gt; -keysize &lt;desired key length&gt;
+keytool -genkey -alias <alias for identification> -keyalg RSA -keystore <master keystore path> -keysize <desired key length>
 ```
 
 This will generate both private and public keys for the asymmetric encryption of symmetric keys in the keystore. Alternatively, a sufficiently secure symmetric encryption key may also be used. E.g. a new AES key can be generated using the following command:
 
 ```text
-keytool -genseckey -alias &lt;alias for identification&gt; -keyalg AES -keystore &lt;master keystore path&gt; -keysize 128
+keytool -genseckey -alias <alias for identification> -keyalg AES -keystore <master keystore path> -keysize 128
 ```
 
 The alias of the generated key can be any value, as long as it is not longer than 15 characters - a limit imposed by the Alfresco database schema. Multiple keys can be contained in a single keystore, and multiple keystores may be used to easily rotate in/out groups of keys when necessary.
@@ -55,14 +55,14 @@ All keystore-related configuration properties use the common prefix `simpleConte
 
 | Suffix | Description |
 | :-- | :--- |
-| keystore.&lt;keystoreId&gt;.location | the path to the keystore file - **must** be set |
-| keystore.&lt;keystoreId&gt;.password | the password to access the keystore |
-| keystore.&lt;keystoreId&gt;.password.location | the path to a mounted secret / file containing the password to access the keystore |
-| keystore.&lt;keystoreId&gt;.type | the type of the keystore - **must** be set |
-| keystore.&lt;keystoreId&gt;.provider | the name of the provider for the keystore type implementation |
-| keystore.&lt;keystoreId&gt;.aliases | the comma-separated list of aliases for keys to load from the keystore - **must** be set |
-| keystore.&lt;keystoreId&gt;.&lt;alias&gt;.password | the password to access the key |
-| keystore.&lt;keystoreId&gt;.&lt;alias&gt;.password.location | the path to a mounted secret / file containing the password to access the key |
+| keystore.<keystoreId>.location | the path to the keystore file - **must** be set |
+| keystore.<keystoreId>.password | the password to access the keystore |
+| keystore.<keystoreId>.password.location | the path to a mounted secret / file containing the password to access the keystore |
+| keystore.<keystoreId>.type | the type of the keystore - **must** be set |
+| keystore.<keystoreId>.provider | the name of the provider for the keystore type implementation |
+| keystore.<keystoreId>.aliases | the comma-separated list of aliases for keys to load from the keystore - **must** be set |
+| keystore.<keystoreId>.<alias>.password | the password to access the key |
+| keystore.<keystoreId>.<alias>.password.location | the path to a mounted secret / file containing the password to access the key |
 
 ### Other Centralised Configuration
 
