@@ -25,7 +25,7 @@
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.2</version>
     <packaging>jar</packaging>
 
     <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
