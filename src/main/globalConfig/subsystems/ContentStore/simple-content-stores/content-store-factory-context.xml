@@ -19,11 +19,6 @@
            http://www.springframework.org/schema/beans
            http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
 
-    <bean id="${moduleId}-effective-properties"
-        class="de.acosix.alfresco.utility.repo.subsystems.SubsystemEffectivePropertiesFactoryBean">
-        <property name="subsystemChildApplicationContextFactory" ref="simpleContentStore" />
-    </bean>
-
     <bean class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">
         <property name="propertiesSource" ref="${moduleId}-effective-properties" />
         <property name="rootStoreProxyName" value="fileContentStore" />
