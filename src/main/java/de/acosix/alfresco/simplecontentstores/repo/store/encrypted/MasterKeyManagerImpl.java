@@ -355,7 +355,6 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
             return keys;
         }
         finally
-
         {
             this.stateLock.readLock().unlock();
         }
@@ -456,7 +455,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
     {
         ParameterCheck.mandatory("masterKey", masterKey);
 
-        LOGGER.info("Explicit call to enabled key with alias {} from key store {}", masterKey.getAlias(), masterKey.getKeystoreId());
+        LOGGER.info("Explicit call to enable key with alias {} from key store {}", masterKey.getAlias(), masterKey.getKeystoreId());
 
         this.stateLock.readLock().lock();
         try
@@ -831,7 +830,7 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
 
             for (final String alias : keystoreAliases.trim().split("\\s*,\\s*"))
             {
-                this.loadKey(keystoreId, keyStore, alias);
+                this.loadKey(keystoreId, keyStore, alias, storePassword);
             }
         }
         catch (final IOException | NoSuchAlgorithmException | NoSuchProviderException | CertificateException | KeyStoreException e)
@@ -863,8 +862,10 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
      *     the master keystore
      * @param alias
      *     the alias of the key to load
+     * @param storePassword
+     *     the password for the master keystore, used as a fallback when no keyPassword is specified
      */
-    protected void loadKey(final String keystoreId, final KeyStore keystore, final String alias)
+    protected void loadKey(final String keystoreId, final KeyStore keystore, final String alias, final String storePassword)
     {
         LOGGER.debug("Loading key with alias {} from key store {}", alias, keystoreId);
 
@@ -875,7 +876,8 @@ public class MasterKeyManagerImpl implements InternalMasterKeyManager, Applicati
         {
             final MasterKeyReference keyRef = new MasterKeyReference(keystoreId, alias);
             final Certificate cert = keystore.getCertificate(alias);
-            final Key key = keystore.getKey(alias, keyPassword != null ? keyPassword.toCharArray() : null);
+            final String password = keyPassword != null ? keyPassword : storePassword;
+            final Key key = keystore.getKey(alias, password != null ? password.toCharArray() : null);
 
             if (cert == null)
             {
