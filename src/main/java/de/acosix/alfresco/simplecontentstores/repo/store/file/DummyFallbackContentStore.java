@@ -30,14 +30,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.alfresco.repo.content.AbstractContentStore;
-import org.alfresco.repo.content.transform.ContentTransformer;
 import org.alfresco.repo.content.transform.TransformerDebug;
 import org.alfresco.service.cmr.repository.ContentIOException;
 import org.alfresco.service.cmr.repository.ContentReader;
 import org.alfresco.service.cmr.repository.ContentService;
 import org.alfresco.service.cmr.repository.ContentWriter;
 import org.alfresco.service.cmr.repository.MimetypeService;
-import org.alfresco.service.cmr.repository.TransformationOptions;
 import org.alfresco.util.PropertyCheck;
 import org.alfresco.util.TempFileProvider;
 import org.apache.commons.io.IOUtils;
@@ -51,6 +49,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.ContentReaderFacade;
+import de.acosix.alfresco.utility.core.repo.acs6.ContentServiceTransformerUtility;
 
 /**
  * This implementation of a content store is capable of providing "dummy" (generic) documents for read-access to content URLs. This can be
@@ -67,6 +66,21 @@ import de.acosix.alfresco.simplecontentstores.repo.store.facade.ContentReaderFac
  */
 public class DummyFallbackContentStore extends AbstractContentStore implements ApplicationContextAware, InitializingBean
 {
+
+    private static final boolean CONTENT_SERVICE_TRANSFORMER_CHECK_AVAILABLE;
+    static
+    {
+        boolean ctcAvailable = false;
+        try
+        {
+            ctcAvailable = ContentServiceTransformerUtility.isAvailable();
+        }
+        catch (final Exception ignore)
+        {
+            // ignored
+        }
+        CONTENT_SERVICE_TRANSFORMER_CHECK_AVAILABLE = ctcAvailable;
+    }
 
     private static final long LONG_LIFE_DURATOIN = 24 * 3600L * 1000L;
 
@@ -108,7 +122,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
     /**
      * @param mimetypeService
-     *            the mimetypeService to set
+     *     the mimetypeService to set
      */
     public void setMimetypeService(final MimetypeService mimetypeService)
     {
@@ -117,7 +131,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
     /**
      * @param dummyFilePaths
-     *            the dummyFilePaths to set
+     *     the dummyFilePaths to set
      */
     public void setDummyFilePaths(final List<String> dummyFilePaths)
     {
@@ -126,7 +140,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
     /**
      * @param transformationCandidateSourceMimetypes
-     *            the transformationCandidateSourceMimetypes to set
+     *     the transformationCandidateSourceMimetypes to set
      */
     public void setTransformationCandidateSourceMimetypes(final List<String> transformationCandidateSourceMimetypes)
     {
@@ -218,11 +232,10 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
             for (final String sourceMimetype : this.transformationCandidateSourceMimetypes)
             {
-                if (this.isDummyFileAvailable(sourceMimetype))
+                if (this.isDummyFileAvailable(sourceMimetype) && CONTENT_SERVICE_TRANSFORMER_CHECK_AVAILABLE)
                 {
-                    final ContentTransformer transformer = this.contentService.getTransformer(sourceMimetype, mimetype);
-                    lazyTransformationAvailable = transformer != null;
-
+                    lazyTransformationAvailable = ContentServiceTransformerUtility.hasTransformer(this.applicationContext, sourceMimetype,
+                            mimetype);
                     if (lazyTransformationAvailable)
                     {
                         LOGGER.trace("Found transformation from {} to {}", sourceMimetype, mimetype);
@@ -519,10 +532,11 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
                         final ContentReader reader = new FileContentReaderImpl(sourceDummyTempFile);
                         final ContentWriter writer = new FileContentWriterImpl(temporaryFile);
-                        final TransformationOptions options = new TransformationOptions();
-                        if (DummyFallbackContentStore.this.contentService.isTransformable(reader, writer, options))
+                        if (CONTENT_SERVICE_TRANSFORMER_CHECK_AVAILABLE
+                                && ContentServiceTransformerUtility.isTransformable(DummyFallbackContentStore.this.applicationContext,
+                                        reader, writer))
                         {
-                            DummyFallbackContentStore.this.contentService.transform(reader, writer, options);
+                            ContentServiceTransformerUtility.transform(DummyFallbackContentStore.this.applicationContext, reader, writer);
                         }
                         else
                         {
@@ -531,8 +545,7 @@ public class DummyFallbackContentStore extends AbstractContentStore implements A
 
                         if (writer.getSize() > 0)
                         {
-                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype,
-                                    mimetype);
+                            LOGGER.debug("Lazily transformed dummy for mimetype {} to requested mimetype {}", sourceMimetype, mimetype);
                             break;
                         }
                         else
