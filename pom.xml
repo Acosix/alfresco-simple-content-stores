@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 
- Copyright 2017 - 2022 Acosix GmbH
+ Copyright 2017 - 2024 Acosix GmbH
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@
         <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
 
-        <docker.tests.repositoryBaseImage>alfresco/alfresco-content-repository-community:7.2.0.1</docker.tests.repositoryBaseImage>
+        <docker.tests.repositoryBaseImage>alfresco/alfresco-content-repository-community:23.1.0</docker.tests.repositoryBaseImage>
         <docker.tests.repositoryWebappPath>/usr/local/tomcat/webapps/alfresco</docker.tests.repositoryWebappPath>
         <!-- different debugger address for Java 11 -->
         <!-- need ACS keystore config -->
@@ -323,42 +323,6 @@
                     </executions>
                 </plugin>
 
-                <!-- some image customisations -->
-                <!-- Maven + docker-maven-plugin result in somewhat weird inheritance handling -->
-                <!-- (relying on positional order of images for overrides) -->
-                <plugin>
-                    <groupId>io.fabric8</groupId>
-                    <artifactId>docker-maven-plugin</artifactId>
-                    <configuration>
-                        <images>
-                            <image>
-                                <!-- no change to postgres image (first image in parent POM) -->
-                            </image>
-                            <image>
-                                <!-- customise repository image (second image in parent POM) -->
-                                <build>
-                                    <!-- add Dockerfile to repository image for post-assembly customisation  -->
-                                    <dockerFile>Repository-Dockerfile</dockerFile>
-                                </build>
-                                <run>
-                                    <!-- add log directory mount to just the contentstore -->
-                                    <!-- (cannot be done in parent POM due to hard requirement on specific project structure -->
-                                    <!-- for tests to easily check contentstore files, we also mount alf_data locally, not in a volume -->
-                                    <volumes>
-                                        <bind>
-                                            <volume>${project.build.directory}/docker/alf_data:/usr/local/tomcat/alf_data</volume>
-                                            <volume>${project.build.directory}/docker/repository-logs:/usr/local/tomcat/logs</volume>
-                                        </bind>
-                                    </volumes>
-                                    <env>
-                                        <JAVA_OPTS><![CDATA[-Xms1g -Xmx1g -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC -XX:+DisableExplicitGC -XX:+AlwaysPreTouch ${docker.tests.repositoryVersionSpecificJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.secureComms=https -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Duser.language=en -DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest -DsimpleContentStores.customStore.globalSiteRoutingStore.type=siteRoutingStore]]></JAVA_OPTS>
-                                    </env>
-                                </run>
-                            </image>
-                        </images>
-                    </configuration>
-                </plugin>
-
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
@@ -369,17 +333,6 @@
         </pluginManagement>
 
         <plugins>
-
-            <!-- Docker use inherited from parent POM is optional - this enables it explicitly  -->
-            <!-- old approach has become more unstable over time with unexplained Docker socket issues -->
-            <!-- disabled for now in favor of developing a new approach --> 
-            <!--
-            <plugin>
-                <groupId>io.fabric8</groupId>
-                <artifactId>docker-maven-plugin</artifactId>
-            </plugin>
-            -->
-
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -390,9 +343,6 @@
     <profiles>
         <profile>
             <id>composev1</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
             <build>
                 <pluginManagement>
                     <plugins>
@@ -452,6 +402,9 @@
 
         <profile>
             <id>composev2</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <build>
                 <pluginManagement>
                     <plugins>
@@ -514,6 +467,9 @@
 
         <profile>
             <id>purge</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
             <build>
                 <pluginManagement>
                     <plugins>

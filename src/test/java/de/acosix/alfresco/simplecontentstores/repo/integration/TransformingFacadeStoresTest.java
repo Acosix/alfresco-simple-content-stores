@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 - 2022 Acosix GmbH
+ * Copyright 2017 - 2024 Acosix GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,9 +245,10 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final List<String> inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(3, activeKeyList.size());
+        Assert.assertEquals(4, activeKeyList.size());
         Assert.assertEquals(1, inactiveKeyList.size());
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
         Assert.assertTrue(inactiveKeyList.contains("No keys found"));
@@ -273,12 +274,12 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
                 "Encrypting File Facade Site");
 
-        this.createRandomContents(100, nodes, documentLibraryNodeId);
+        this.createRandomContents(200, nodes, documentLibraryNodeId);
 
-        // master key usage is random, but with three configured keys and 30 contents created, each key should be used at least once
+        // master key usage is random, but with four configured keys and 200 contents created, each key should be used at least once
         final List<String> updatedCounts = commandConsolePlugin.countEncryptedSymmetricKeys(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
-        Assert.assertEquals(3, updatedCounts.size());
+        Assert.assertEquals(4, updatedCounts.size());
 
         int combinedCount = 0;
         final List<String> keys = new ArrayList<>(3);
@@ -292,6 +293,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
 
         Assert.assertEquals(100, combinedCount);
         Assert.assertTrue(keys.contains("scs-effs:effs"));
+        Assert.assertTrue(keys.contains("scs-aesjks:firstkey"));
         Assert.assertTrue(keys.contains("scs-aesks:effs-aes"));
         Assert.assertTrue(keys.contains("scs-aesks:effs-aes2"));
     }
@@ -363,9 +365,10 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         List<String> inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(3, activeKeyList.size());
+        Assert.assertEquals(4, activeKeyList.size());
         Assert.assertEquals(1, inactiveKeyList.size());
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
         Assert.assertTrue(inactiveKeyList.contains("No keys found"));
@@ -387,9 +390,10 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(2, activeKeyList.size());
+        Assert.assertEquals(3, activeKeyList.size());
         Assert.assertEquals(1, inactiveKeyList.size());
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
         Assert.assertFalse(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
         Assert.assertTrue(inactiveKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
@@ -409,9 +413,10 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(3, activeKeyList.size());
+        Assert.assertEquals(4, activeKeyList.size());
         Assert.assertEquals(1, inactiveKeyList.size());
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
         Assert.assertTrue(inactiveKeyList.contains("No keys found"));
@@ -444,10 +449,11 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         List<String> eligibleKeyList = commandConsolePlugin.listEncryptionKeysEligibleForReEncryption(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(3, activeKeyList.size());
+        Assert.assertEquals(4, activeKeyList.size());
         Assert.assertEquals(1, inactiveKeyList.size());
         Assert.assertEquals(1, eligibleKeyList.size());
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
         Assert.assertTrue(inactiveKeyList.contains("No keys found"));
@@ -471,10 +477,11 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         eligibleKeyList = commandConsolePlugin.listEncryptionKeysEligibleForReEncryption(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(2, activeKeyList.size());
+        Assert.assertEquals(3, activeKeyList.size());
         Assert.assertEquals(1, inactiveKeyList.size());
         Assert.assertEquals(1, eligibleKeyList.size());
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs ")));
+        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
         Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
         Assert.assertFalse(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
         Assert.assertTrue(inactiveKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));

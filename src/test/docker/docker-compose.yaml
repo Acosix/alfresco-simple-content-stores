@@ -19,7 +19,7 @@ services:
           - postgres
         build:
             context: ${project.build.directory}
-            dockerfile: docker/Repository-Dockerfile-2
+            dockerfile: docker/Repository-Dockerfile
         volumes:
           - ${project.artifactId}-content:/usr/local/tomcat/alf_data
           - ${project.artifactId}-logs:/usr/local/tomcat/logs
@@ -32,4 +32,14 @@ services:
 volumes:
     ${project.artifactId}-db:
     ${project.artifactId}-content:
+      driver: local
+      driver_opts:
+        o: bind
+        type: none
+        device: ${project.build.directory}/docker/alf_data
     ${project.artifactId}-logs:
+      driver: local
+      driver_opts:
+        o: bind
+        type: none
+        device: ${project.build.directory}/docker/repository-logs
