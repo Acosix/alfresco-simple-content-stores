@@ -20,12 +20,12 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.project.parent-6.1.2</artifactId>
-        <version>1.5.0-SNAPSHOT</version>
+        <version>1.5.0</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
-    <version>1.2.3-SNAPSHOT</version>
+    <version>1.2.3</version>
     <packaging>jar</packaging>
 
     <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
