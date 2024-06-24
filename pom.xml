@@ -25,7 +25,7 @@
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
     <packaging>jar</packaging>
 
     <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
@@ -67,7 +67,7 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <acosix.utility.version>1.4.0-SNAPSHOT</acosix.utility.version>
+        <acosix.utility.version>1.4.0</acosix.utility.version>
         <acosix.alfresco.client.version>0.2.0</acosix.alfresco.client.version>
         <!-- Not used yet  -->
         <!-- 
