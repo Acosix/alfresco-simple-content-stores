@@ -412,6 +412,19 @@ public class EncryptingContentStoreManagerImpl implements InternalEncryptingCont
         }
 
         /**
+         * Get an estimate of the total number of objects that will be provided by this instance.
+         * Instances can provide accurate answers on each call, but only if the answer can be
+         * provided quickly and efficiently; usually it is enough to to cache the result after
+         * providing an initial estimate.
+         *
+         * @return a total work size estimate
+         */
+        public long getTotalEstimatedWorkSizeLong()
+        {
+            return this.getTotalEstimatedWorkSize();
+        }
+
+        /**
          *
          * {@inheritDoc}
          */
