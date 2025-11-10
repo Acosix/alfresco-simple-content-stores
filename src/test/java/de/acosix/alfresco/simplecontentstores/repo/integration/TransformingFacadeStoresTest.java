@@ -15,6 +15,13 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.integration;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import com.thedeanda.lorem.LoremIpsum;
 
 import java.io.ByteArrayInputStream;
@@ -22,8 +29,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,12 +39,9 @@ import javax.ws.rs.NotFoundException;
 
 import org.apache.commons.io.IOUtils;
 import org.jboss.resteasy.client.jaxrs.ResteasyClient;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runners.MethodSorters;
 
 import de.acosix.alfresco.rest.client.api.NodesV1;
@@ -63,9 +65,6 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
     private static final String testUser = "test";
 
     private static final String testUserPassword = "test";
-
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
 
     @BeforeClass
     public static void setup()
@@ -95,7 +94,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
     public void compressingFacadeStore() throws IOException
     {
         // need to record pre-existing files to exclude in verification
-        final Collection<Path> exclusions = listFilesInAlfData("compressingFileFacadeStore");
+        final Collection<ContentFile> knownFiles = listFilesInAlfData("compressingFileFacadeStore");
 
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
@@ -113,11 +112,12 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", exclusions);
+        ContentFile lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertTrue(contentBytes.length > Files.size(lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        assertNotNull(lastModifiedFileInContent);
+        knownFiles.add(lastModifiedFileInContent);
+        assertTrue(contentBytes.length > lastModifiedFileInContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // tests/verifies generic text/* pattern for compressible mimetypes
         createRequest.setName(UUID.randomUUID().toString());
@@ -127,12 +127,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         contentBytes = LoremIpsum.getInstance().getHtmlParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/html");
 
-        exclusions.add(lastModifiedFileInContent);
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", exclusions);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertTrue(contentBytes.length > Files.size(lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        assertNotNull(lastModifiedFileInContent);
+        knownFiles.add(lastModifiedFileInContent);
+        assertTrue(contentBytes.length > lastModifiedFileInContent.getSizeInContainer());
+        assertFalse(contentMatches(contentBytes, lastModifiedFileInContent));
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // tests explicit application/json pattern for compressible mimetypes
         createRequest.setName(UUID.randomUUID().toString());
@@ -147,12 +148,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         }
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "application/json");
 
-        exclusions.add(lastModifiedFileInContent);
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", exclusions);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertTrue(contentBytes.length > Files.size(lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        assertNotNull(lastModifiedFileInContent);
+        knownFiles.add(lastModifiedFileInContent);
+        assertTrue(contentBytes.length > lastModifiedFileInContent.getSizeInContainer());
+        assertFalse(contentMatches(contentBytes, lastModifiedFileInContent));
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
 
         // test non-compressible file type
         createRequest.setName(UUID.randomUUID().toString());
@@ -167,20 +169,19 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         }
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "application/pdf");
 
-        exclusions.add(lastModifiedFileInContent);
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", exclusions);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("compressingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+        assertNotNull(lastModifiedFileInContent);
+        assertEquals(contentBytes.length, lastModifiedFileInContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     @Test
     public void deduplicatingFacadeStore() throws IOException
     {
         // need to record pre-existing files to exclude in verification
-        final Collection<Path> exclusions = listFilesInAlfData("deduplicatingFileFacadeStore");
+        final Collection<ContentFile> knownFiles = listFilesInAlfData("deduplicatingFileFacadeStore");
 
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
@@ -202,33 +203,33 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode1.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        Path lastModifiedFileInContent = findLastModifiedFileInAlfData("deduplicatingFileFacadeStore", exclusions);
+        ContentFile lastModifiedFileInContent = findLastModifiedFileInAlfData("deduplicatingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode1.getId())));
+        assertNotNull(lastModifiedFileInContent);
+        knownFiles.add(lastModifiedFileInContent);
+        assertEquals(contentBytes.length, lastModifiedFileInContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode1.getId())));
 
         // test no new content file is created when exact same content is stored for another node
         nodes.setContent(createdNode2.getId(), new ByteArrayInputStream(contentBytes), "text/html");
 
-        exclusions.add(lastModifiedFileInContent);
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("deduplicatingFileFacadeStore", exclusions);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("deduplicatingFileFacadeStore", knownFiles);
 
-        Assert.assertNull(lastModifiedFileInContent);
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode2.getId())));
+        assertNull(lastModifiedFileInContent);
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode2.getId())));
 
         // test new content file is written for a minimal change in content
         final int idxToChange = new SecureRandom().nextInt(contentBytes.length);
         contentBytes[idxToChange] = (byte) (contentBytes[idxToChange] + 1);
         nodes.setContent(createdNode2.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        lastModifiedFileInContent = findLastModifiedFileInAlfData("deduplicatingFileFacadeStore", exclusions);
+        lastModifiedFileInContent = findLastModifiedFileInAlfData("deduplicatingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent);
-        Assert.assertEquals(contentBytes.length, Files.size(lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode2.getId())));
+        assertNotNull(lastModifiedFileInContent);
+        assertEquals(contentBytes.length, lastModifiedFileInContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode2.getId())));
     }
 
     @Test
@@ -245,13 +246,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final List<String> inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(4, activeKeyList.size());
-        Assert.assertEquals(1, inactiveKeyList.size());
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
-        Assert.assertTrue(inactiveKeyList.contains("No keys found"));
+        assertEquals(4, activeKeyList.size());
+        assertEquals(1, inactiveKeyList.size());
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
+        assertTrue(inactiveKeyList.contains("No keys found"));
     }
 
     @Test
@@ -268,18 +269,19 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         // there should not be any encrypted data yet
         final List<String> initialCounts = commandConsolePlugin.countEncryptedSymmetricKeys(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
-        Assert.assertEquals(1, initialCounts.size());
-        Assert.assertTrue(initialCounts.contains("No symmetric keys found"));
+        assertEquals(1, initialCounts.size());
+        assertTrue(initialCounts.contains("No symmetric keys found"));
 
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
                 "Encrypting File Facade Site");
 
-        this.createRandomContents(200, nodes, documentLibraryNodeId);
+        int contentCount = 200;
+        this.createRandomContents(contentCount, nodes, documentLibraryNodeId);
 
         // master key usage is random, but with four configured keys and 200 contents created, each key should be used at least once
         final List<String> updatedCounts = commandConsolePlugin.countEncryptedSymmetricKeys(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
-        Assert.assertEquals(4, updatedCounts.size());
+        assertEquals(4, updatedCounts.size());
 
         int combinedCount = 0;
         final List<String> keys = new ArrayList<>(3);
@@ -291,11 +293,11 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
             keys.add(key);
         }
 
-        Assert.assertEquals(100, combinedCount);
-        Assert.assertTrue(keys.contains("scs-effs:effs"));
-        Assert.assertTrue(keys.contains("scs-aesjks:firstkey"));
-        Assert.assertTrue(keys.contains("scs-aesks:effs-aes"));
-        Assert.assertTrue(keys.contains("scs-aesks:effs-aes2"));
+        assertEquals(contentCount, combinedCount);
+        assertTrue(keys.contains("scs-effs:effs"));
+        assertTrue(keys.contains("scs-aesjks:firstkey"));
+        assertTrue(keys.contains("scs-aesks:effs-aes"));
+        assertTrue(keys.contains("scs-aesks:effs-aes2"));
     }
 
     @Test
@@ -305,7 +307,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
     public void encryption2WithDifferentSymmetricKeys() throws IOException
     {
         // need to record pre-existing files to exclude in verification
-        final Collection<Path> exclusions = listFilesInAlfData("encryptingFileFacadeStore");
+        final Collection<ContentFile> knownFiles = listFilesInAlfData("encryptingFileFacadeStore");
 
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
@@ -327,26 +329,26 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode1.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        final Path lastModifiedFileInContent1 = findLastModifiedFileInAlfData("encryptingFileFacadeStore", exclusions);
+        final ContentFile lastModifiedFileInContent1 = findLastModifiedFileInAlfData("encryptingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent1);
-        Assert.assertNotEquals(contentBytes.length, Files.size(lastModifiedFileInContent1));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode1.getId())));
+        assertNotNull(lastModifiedFileInContent1);
+        knownFiles.add(lastModifiedFileInContent1);
+        assertNotEquals(contentBytes.length, lastModifiedFileInContent1.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode1.getId())));
 
         // test new content file with different encryption result (due to different symmetric key per content) is created when exact same
         // content is stored for another node
         nodes.setContent(createdNode2.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        exclusions.add(lastModifiedFileInContent1);
-        final Path lastModifiedFileInContent2 = findLastModifiedFileInAlfData("encryptingFileFacadeStore", exclusions);
+        final ContentFile lastModifiedFileInContent2 = findLastModifiedFileInAlfData("encryptingFileFacadeStore", knownFiles);
 
-        Assert.assertNotNull(lastModifiedFileInContent2);
-        Assert.assertNotEquals(contentBytes.length, Files.size(lastModifiedFileInContent2));
-        Assert.assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode2.getId())));
+        assertNotNull(lastModifiedFileInContent2);
+        assertNotEquals(contentBytes.length, lastModifiedFileInContent2.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode2.getId())));
 
-        Assert.assertFalse(contentMatches(lastModifiedFileInContent1, lastModifiedFileInContent2));
+        assertFalse(contentMatches(lastModifiedFileInContent1, lastModifiedFileInContent2));
         // overall length after encrypting must still be the same due to same algorithm / block size
-        Assert.assertEquals(Files.size(lastModifiedFileInContent1), Files.size(lastModifiedFileInContent2));
+        assertEquals(lastModifiedFileInContent1.getSizeInContainer(), lastModifiedFileInContent2.getSizeInContainer());
     }
 
     @Test
@@ -365,13 +367,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         List<String> inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(4, activeKeyList.size());
-        Assert.assertEquals(1, inactiveKeyList.size());
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
-        Assert.assertTrue(inactiveKeyList.contains("No keys found"));
+        assertEquals(4, activeKeyList.size());
+        assertEquals(1, inactiveKeyList.size());
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
+        assertTrue(inactiveKeyList.contains("No keys found"));
 
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
                 "Encrypting File Facade Site");
@@ -381,7 +383,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final List<String> referenceCounts = commandConsolePlugin
                 .countEncryptedSymmetricKeys(CommandConsolePluginRequest.from("scs-aesks:effs-aes2")).getPreformattedOutputLines();
         final String referenceCountLine = referenceCounts.get(0);
-        Assert.assertNotEquals("No symmetric keys found", referenceCountLine);
+        assertNotEquals("No symmetric keys found", referenceCountLine);
         final int referenceCount = Integer.parseInt(referenceCountLine.substring(0, referenceCountLine.indexOf(' ')));
 
         commandConsolePlugin.disableEncryptionKey(CommandConsolePluginRequest.from("scs-aesks:effs-aes2"));
@@ -390,13 +392,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(3, activeKeyList.size());
-        Assert.assertEquals(1, inactiveKeyList.size());
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
-        Assert.assertFalse(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
-        Assert.assertTrue(inactiveKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
+        assertEquals(3, activeKeyList.size());
+        assertEquals(1, inactiveKeyList.size());
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
+        assertFalse(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
+        assertTrue(inactiveKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
 
         this.createRandomContents(30, nodes, documentLibraryNodeId);
 
@@ -405,7 +407,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String updatedCountLine = updatedCounts.get(0);
         final int updatedCount = Integer.parseInt(updatedCountLine.substring(0, updatedCountLine.indexOf(' ')));
 
-        Assert.assertEquals(referenceCount, updatedCount);
+        assertEquals(referenceCount, updatedCount);
 
         commandConsolePlugin.enableEncryptionKey(CommandConsolePluginRequest.from("scs-aesks:effs-aes2"));
 
@@ -413,13 +415,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         inactiveKeyList = commandConsolePlugin.listEncryptionKeys(CommandConsolePluginRequest.from("inactive"))
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(4, activeKeyList.size());
-        Assert.assertEquals(1, inactiveKeyList.size());
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
-        Assert.assertTrue(inactiveKeyList.contains("No keys found"));
+        assertEquals(4, activeKeyList.size());
+        assertEquals(1, inactiveKeyList.size());
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
+        assertTrue(inactiveKeyList.contains("No keys found"));
 
         this.createRandomContents(30, nodes, documentLibraryNodeId);
 
@@ -428,7 +430,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String finalCountLine = finalCounts.get(0);
         final int finalCount = Integer.parseInt(finalCountLine.substring(0, finalCountLine.indexOf(' ')));
 
-        Assert.assertNotEquals(referenceCount, finalCount);
+        assertNotEquals(referenceCount, finalCount);
     }
 
     @Test
@@ -449,15 +451,15 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         List<String> eligibleKeyList = commandConsolePlugin.listEncryptionKeysEligibleForReEncryption(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(4, activeKeyList.size());
-        Assert.assertEquals(1, inactiveKeyList.size());
-        Assert.assertEquals(1, eligibleKeyList.size());
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
-        Assert.assertTrue(inactiveKeyList.contains("No keys found"));
-        Assert.assertTrue(eligibleKeyList.contains("No keys found"));
+        assertEquals(4, activeKeyList.size());
+        assertEquals(1, inactiveKeyList.size());
+        assertEquals(1, eligibleKeyList.size());
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
+        assertTrue(inactiveKeyList.contains("No keys found"));
+        assertTrue(eligibleKeyList.contains("No keys found"));
 
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
                 "Encrypting File Facade Site");
@@ -467,7 +469,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final List<String> referenceCounts = commandConsolePlugin
                 .countEncryptedSymmetricKeys(CommandConsolePluginRequest.from("scs-aesks:effs-aes2")).getPreformattedOutputLines();
         final String referenceCountLine = referenceCounts.get(0);
-        Assert.assertNotEquals("No symmetric keys found", referenceCountLine);
+        assertNotEquals("No symmetric keys found", referenceCountLine);
 
         commandConsolePlugin.disableEncryptionKey(CommandConsolePluginRequest.from("scs-aesks:effs-aes2"));
 
@@ -477,22 +479,22 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         eligibleKeyList = commandConsolePlugin.listEncryptionKeysEligibleForReEncryption(CommandConsolePluginRequest.from())
                 .getPreformattedOutputLines();
 
-        Assert.assertEquals(3, activeKeyList.size());
-        Assert.assertEquals(1, inactiveKeyList.size());
-        Assert.assertEquals(1, eligibleKeyList.size());
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs ")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
-        Assert.assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
-        Assert.assertFalse(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
-        Assert.assertTrue(inactiveKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
-        Assert.assertTrue(eligibleKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
+        assertEquals(3, activeKeyList.size());
+        assertEquals(1, inactiveKeyList.size());
+        assertEquals(1, eligibleKeyList.size());
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-effs:effs ")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesjks:firstkey")));
+        assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes ")));
+        assertFalse(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
+        assertTrue(inactiveKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
+        assertTrue(eligibleKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2 ")));
 
         commandConsolePlugin.reEncryptSymmetricKeys(CommandConsolePluginRequest.from("scs-aesks:effs-aes2"));
 
         final List<String> updatedCounts = commandConsolePlugin
                 .countEncryptedSymmetricKeys(CommandConsolePluginRequest.from("scs-aesks:effs-aes2")).getPreformattedOutputLines();
         final String updatedCountLine = updatedCounts.get(0);
-        Assert.assertEquals("No symmetric keys found", updatedCountLine);
+        assertEquals("No symmetric keys found", updatedCountLine);
     }
 
     protected void createRandomContents(final int maxCount, final NodesV1 nodes, final String documentLibraryNodeId)

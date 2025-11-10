@@ -15,19 +15,39 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.integration;
 
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
+
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
+import com.github.dockerjava.api.model.Frame;
+import com.github.dockerjava.api.model.StreamType;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
+import com.github.dockerjava.core.DockerClientConfig;
+import com.github.dockerjava.core.DockerClientImpl;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import com.github.dockerjava.transport.DockerHttpClient;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.function.Predicate;
 
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.client.ClientRequestFilter;
@@ -36,7 +56,7 @@ import javax.ws.rs.core.UriBuilder;
 
 import org.alfresco.service.cmr.site.SiteService;
 import org.apache.commons.codec.binary.Base64;
-import org.bouncycastle.util.Arrays;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.jboss.resteasy.client.jaxrs.ResteasyClient;
 import org.jboss.resteasy.client.jaxrs.ResteasyWebTarget;
 import org.jboss.resteasy.client.jaxrs.internal.LocalResteasyProviderFactory;
@@ -44,8 +64,6 @@ import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 import org.jboss.resteasy.core.providerfactory.ResteasyProviderFactoryImpl;
 import org.jboss.resteasy.plugins.providers.RegisterBuiltin;
 import org.jboss.resteasy.plugins.providers.jackson.ResteasyJackson2Provider;
-import org.junit.Rule;
-import org.junit.rules.ExpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,12 +88,122 @@ import de.acosix.alfresco.rest.client.resteasy.MultiValuedParamConverterProvider
 public abstract class AbstractStoresTest
 {
 
+    protected static class ContentFile
+    {
+
+        private final String pathInContainer;
+
+        private final long sizeInContainer;
+
+        private final LocalDateTime modifiedTimeInContainer;
+
+        private ContentFile(final String path, final long size, final LocalDateTime modifiedTime)
+        {
+            this.pathInContainer = path;
+            this.sizeInContainer = size;
+            this.modifiedTimeInContainer = modifiedTime;
+        }
+
+        /**
+         * @return the pathInContainer
+         */
+        public String getPathInContainer()
+        {
+            return this.pathInContainer;
+        }
+
+        /**
+         * @return the sizeInContainer
+         */
+        public long getSizeInContainer()
+        {
+            return this.sizeInContainer;
+        }
+
+        /**
+         * @return the modifiedTimeInContainer
+         */
+        public LocalDateTime getModifiedTimeInContainer()
+        {
+            return this.modifiedTimeInContainer;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString()
+        {
+            final StringBuilder builder = new StringBuilder();
+            builder.append("ContentFile [pathInContainer=");
+            builder.append(this.pathInContainer);
+            builder.append(", sizeInContainer=");
+            builder.append(this.sizeInContainer);
+            builder.append(", modifiedTimeInContainer=");
+            builder.append(this.modifiedTimeInContainer);
+            builder.append("]");
+            return builder.toString();
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(this.modifiedTimeInContainer, this.pathInContainer, this.sizeInContainer);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean equals(final Object obj)
+        {
+            if (this == obj)
+            {
+                return true;
+            }
+            if (obj == null)
+            {
+                return false;
+            }
+            if (this.getClass() != obj.getClass())
+            {
+                return false;
+            }
+            final ContentFile other = (ContentFile) obj;
+            return Objects.equals(this.modifiedTimeInContainer, other.modifiedTimeInContainer)
+                    && Objects.equals(this.pathInContainer, other.pathInContainer) && this.sizeInContainer == other.sizeInContainer;
+        }
+
+    }
+
+    private static final String DOCKER_REPOSITORY_CONTAINER_NAME = "docker-acosix-simple-content-stores-repository-1";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractStoresTest.class);
 
-    protected static final String baseUrl = "http://localhost:8082/alfresco";
+    private static final DockerClient DOCKER_CLIENT;
 
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
+    private static final DateTimeFormatter FIND_PRINTF_TIME_FORMATTER;
+
+    private static final String NO_SUCH_FILE_OR_DIRECTORY = " No such file or directory\n";
+
+    static
+    {
+        final DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
+        final DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder().dockerHost(config.getDockerHost())
+                .sslConfig(config.getSSLConfig()).maxConnections(10).connectionTimeout(Duration.ofSeconds(5))
+                .responseTimeout(Duration.ofSeconds(10)).build();
+        DOCKER_CLIENT = DockerClientImpl.getInstance(config, httpClient);
+
+        FIND_PRINTF_TIME_FORMATTER = new DateTimeFormatterBuilder().parseCaseInsensitive().append(DateTimeFormatter.ISO_LOCAL_DATE)
+                .appendLiteral('+').appendValue(HOUR_OF_DAY, 2).appendLiteral(':').appendValue(MINUTE_OF_HOUR, 2).optionalStart()
+                .appendLiteral(':').appendValue(SECOND_OF_MINUTE, 2).appendFraction(NANO_OF_SECOND, 0, 9, true).appendLiteral('0')
+                .toFormatter(Locale.ENGLISH);
+    }
+
+    protected static final String baseUrl = "http://localhost:8082/alfresco";
 
     /**
      * Configures and constructs a Resteasy client to use for calling the Alfresco Public ReST API in the dockerised deployment.
@@ -107,13 +235,13 @@ public abstract class AbstractStoresTest
      * Obtains an authentication ticket from an Alfresco system via the Public ReST API.
      *
      * @param client
-     *            the client to use for making the ReST API call
+     *     the client to use for making the ReST API call
      * @param baseUrl
-     *            the base URL of the Alfresco instance
+     *     the base URL of the Alfresco instance
      * @param user
-     *            the user for which to obtain the ticket
+     *     the user for which to obtain the ticket
      * @param password
-     *            the password of the user
+     *     the password of the user
      * @return the issued authentication ticket
      */
     protected static String obtainTicket(final ResteasyClient client, final String baseUrl, final String user, final String password)
@@ -132,13 +260,13 @@ public abstract class AbstractStoresTest
      * Initialised a simple Java facade for calls to a particular Alfresco Public ReST API interface.
      *
      * @param client
-     *            the client to use for making ReST API calls
+     *     the client to use for making ReST API calls
      * @param baseUrl
-     *            the base URL of the Alfresco instance
+     *     the base URL of the Alfresco instance
      * @param api
-     *            the API interface to facade
+     *     the API interface to facade
      * @param ticket
-     *            the authentication ticket to use for calls to the API
+     *     the authentication ticket to use for calls to the API
      * @return the Java facade of the API
      */
     protected static <T> T createAPI(final ResteasyClient client, final String baseUrl, final Class<T> api, final String ticket)
@@ -158,15 +286,15 @@ public abstract class AbstractStoresTest
      * Initialised a simple Java facade for calls to a particular Alfresco Public ReST API interface.
      *
      * @param client
-     *            the client to use for making ReST API calls
+     *     the client to use for making ReST API calls
      * @param baseUrl
-     *            the base URL of the Alfresco instance
+     *     the base URL of the Alfresco instance
      * @param api
-     *            the API interface to facade
+     *     the API interface to facade
      * @param userName
-     *            the userName to use for calls to the API
+     *     the userName to use for calls to the API
      * @param password
-     *            the password to use for calls to the API
+     *     the password to use for calls to the API
      * @return the Java facade of the API
      */
     protected static <T> T createAPI(final ResteasyClient client, final String baseUrl, final Class<T> api, final String userName,
@@ -187,15 +315,15 @@ public abstract class AbstractStoresTest
      * Retrieves the node ID of the document library of a particular site, creating the site, if it does not exist.
      *
      * @param client
-     *            the client to use for making ReST API calls
+     *     the client to use for making ReST API calls
      * @param baseUrl
-     *            the base URL of the Alfresco instance
+     *     the base URL of the Alfresco instance
      * @param ticket
-     *            the authentication ticket to use for calls to the ResT APIs
+     *     the authentication ticket to use for calls to the ResT APIs
      * @param siteId
-     *            the ID of the site to retrieve / create
+     *     the ID of the site to retrieve / create
      * @param siteTitle
-     *            the title of the site to use if this operation cannot find an existing site and creates one lazily
+     *     the title of the site to use if this operation cannot find an existing site and creates one lazily
      * @return the node ID of the document library
      */
     protected static String getOrCreateSiteAndDocumentLibrary(final ResteasyClient client, final String baseUrl, final String ticket,
@@ -232,85 +360,116 @@ public abstract class AbstractStoresTest
      * Looks up the most recently modified file in a particular path of the Docker-mounted {@code alf_data} folder.
      *
      * @param subPath
-     *            the relative path within {@code alf_data} to use as the context for the lookup
-     * @param exclusions
-     *            the list of paths to exclude from consideration of most recently modified file
+     *     the relative path within {@code alf_data} to use as the context for the lookup
+     * @param knownFiles
+     *     the list of paths to exclude from consideration of most recently modified file
      * @return the path of the most recently modified file, according to file system attributes
      * @throws IOException
-     *             if an error occurs walking the file tree of the specified path
+     *     if an error occurs walking the file tree of the specified path
      */
-    protected static Path findLastModifiedFileInAlfData(final String subPath, final Collection<Path> exclusions) throws IOException
+    protected static ContentFile findLastModifiedFileInAlfData(final String subPath, final Collection<ContentFile> knownFiles)
+            throws IOException
     {
-        final LastModifiedFileFinder lastModifiedFileFinder = new LastModifiedFileFinder(exclusions);
-
-        final Path alfData = Paths.get("target", "docker", "alf_data");
-
-        final Path startingPoint = subPath != null && !subPath.isEmpty() ? alfData.resolve(subPath) : alfData;
-        final Path lastModifiedFile;
-        if (Files.exists(startingPoint))
+        // account for txn writes happening after response is committed
+        // Public ReST API is funny like that
+        try
         {
-            Files.walkFileTree(startingPoint, lastModifiedFileFinder);
+            Thread.sleep(250);
+        }
+        catch (InterruptedException e)
+        {
+            throw new RuntimeException("Interrupted looking for last modified file", e);
+        }
 
-            lastModifiedFile = lastModifiedFileFinder.getLastModifiedFile();
+        ContentFile referenceFile = null;
+        if (!knownFiles.isEmpty())
+        {
+            final List<ContentFile> knownFilesSorted = new ArrayList<>(knownFiles);
+            Collections.sort(knownFilesSorted, (a, b) -> a.getModifiedTimeInContainer().compareTo(b.getModifiedTimeInContainer()));
+            referenceFile = knownFilesSorted.get(knownFilesSorted.size() - 1);
+        }
 
-            LOGGER.debug("Last modified file in alf_data/{} is {}", subPath, lastModifiedFile);
+        final String pathPrefix = "/usr/local/tomcat/alf_data";
+        final String findBasePath = pathPrefix + '/' + subPath + '/';
+        String[] cmd;
+        if (referenceFile != null)
+        {
+            cmd = new String[] { "find", findBasePath, "-type", "f", "-printf", "%T+ %s %p\\n", "-newer",
+                    referenceFile.getPathInContainer() };
         }
         else
         {
-            lastModifiedFile = null;
+            cmd = new String[] { "find", findBasePath, "-type", "f", "-printf", "%T+ %s %p\\n" };
+        }
+
+        final List<ContentFile> contentFiles = runFindInContainer(cmd);
+        // -newer does report files with exact same age - even the reference file
+        // so we remove explicitly from result list
+        contentFiles.removeAll(knownFiles);
+
+        ContentFile lastModifiedFile = null;
+        if (!contentFiles.isEmpty())
+        {
+            Collections.sort(contentFiles, (a, b) -> a.getModifiedTimeInContainer().compareTo(b.getModifiedTimeInContainer()));
+            lastModifiedFile = contentFiles.get(contentFiles.size() - 1);
         }
 
         return lastModifiedFile;
     }
 
     /**
-     * Lists the files in a particular path of the Docker-mounted {@code alf_data} folder.
+     * Lists the files in a particular path of the container-internal {@code alf_data} folder.
      *
      * @param subPath
-     *            the relative path within {@code alf_data} to use as the context for the lookup
-     * @return the list of paths for existing files in the specified path
+     *     the relative path within {@code alf_data} to use as the context for the lookup
+     * @return the list of files in the specified path
      * @throws IOException
-     *             if an error occurs walking the file tree of the specified path
+     *     if an error occurs walking the file tree of the specified path
      */
-    protected static Collection<Path> listFilesInAlfData(final String subPath) throws IOException
+    protected static Collection<ContentFile> listFilesInAlfData(final String subPath)
     {
-        final FileCollectingFinder collectingFinder = new FileCollectingFinder();
+        final String pathPrefix = "/usr/local/tomcat/alf_data";
+        return runFindInContainer("find", pathPrefix + '/' + subPath, "-type", "f", "-printf", "%T+ %s %p\\n");
+    }
 
-        final Path alfData = Paths.get("target", "docker", "alf_data");
-
-        final Path startingPoint = subPath != null && !subPath.isEmpty() ? alfData.resolve(subPath) : alfData;
-        final List<Path> files;
-        if (Files.exists(startingPoint))
+    protected static boolean exists(final ContentFile file)
+    {
+        // account for txn deletes happening after response is committed
+        // Public ReST API is funny like that
+        try
         {
-            Files.walkFileTree(startingPoint, collectingFinder);
-
-            files = collectingFinder.getCollectedFiles();
+            Thread.sleep(250);
         }
-        else
+        catch (InterruptedException e)
         {
-            files = new ArrayList<>();
+            throw new RuntimeException("Interrupted waiting for txn deletes", e);
         }
-
-        return files;
+        
+        final String output = runInContainer(s -> !s.contains(NO_SUCH_FILE_OR_DIRECTORY), "stat", file.getPathInContainer());
+        return !output.startsWith("stat: cannot stat ");
     }
 
     /**
      * Checks whether the content in a file matches the content as specified by a provided array of bytes.
      *
      * @param contentBytes
-     *            the expected content
+     *     the expected content
      * @param file
-     *            the file to check
+     *     the file to check
      * @return {@code true} if the file matches the expected content, {@code false} otherwise
      */
-    protected static boolean contentMatches(final byte[] contentBytes, final Path file) throws IOException
+    protected static boolean contentMatches(final byte[] contentBytes, final ContentFile file)
     {
-        boolean matches;
+        final String output = runInContainer("sha256sum", file.getPathInContainer());
 
-        try (InputStream is = Files.newInputStream(file))
+        boolean matches = false;
+        if (!output.isEmpty() && output.contains(file.getPathInContainer()) && !output.contains(NO_SUCH_FILE_OR_DIRECTORY))
         {
-            matches = contentMatches(contentBytes, is);
+            final String sha256InContainer = output.substring(0, output.indexOf(' '));
+            final String sha256Target = DigestUtils.sha256Hex(contentBytes);
+            matches = sha256Target.equalsIgnoreCase(sha256InContainer);
         }
+
         return matches;
     }
 
@@ -318,62 +477,15 @@ public abstract class AbstractStoresTest
      * Checks whether the content in two files matches.
      *
      * @param fileA
-     *            the first of the two files
+     *     the first of the two files
      * @param fileB
-     *            the second of the two files
+     *     the second of the two files
      * @return {@code true} if the files match, {@code false} otherwise
      */
-    protected static boolean contentMatches(final Path fileA, final Path fileB) throws IOException
+    protected static boolean contentMatches(final ContentFile fileA, final ContentFile fileB)
     {
-        boolean matches;
-
-        try (InputStream isA = Files.newInputStream(fileA))
-        {
-            try (InputStream isB = Files.newInputStream(fileB))
-            {
-                final byte[] buffA = new byte[4096];
-                final byte[] buffB = new byte[4096];
-                int offset = 0;
-
-                matches = true;
-                while (matches)
-                {
-                    final int bytesReadA = isA.read(buffA);
-                    final int bytesReadB = isB.read(buffB);
-
-                    if (bytesReadA != bytesReadB)
-                    {
-                        matches = false;
-                        if (!matches)
-                        {
-                            LOGGER.debug(
-                                    "contentMatches failed due to difference in length - read {} expected vs {} bytes in slice starting at position {}",
-                                    bytesReadA, bytesReadB, offset);
-                        }
-                    }
-                    else if (bytesReadA != -1)
-                    {
-                        // note: don't have to care about equals check including bytes between bytesRead and length
-                        // (any left over bytes from previous read would be identical in both buffers)
-                        matches = Arrays.areEqual(buffA, buffB);
-
-                        if (!matches)
-                        {
-                            LOGGER.debug(
-                                    "contentMatches failed due to difference in content slice starting at position {} and with a length of {}",
-                                    offset, bytesReadA);
-                        }
-
-                        offset += bytesReadA;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-        return matches;
+        final String output = runInContainer("diff", "-q", fileA.getPathInContainer(), fileB.getPathInContainer());
+        return !output.matches(".+ differ[\\s]*$");
     }
 
     /**
@@ -381,9 +493,9 @@ public abstract class AbstractStoresTest
      * content as specified by a provided array of bytes.
      *
      * @param contentBytes
-     *            the expected content
+     *     the expected content
      * @param response
-     *            the response to check
+     *     the response to check
      * @return {@code true} if the response matches the expected content, {@code false} otherwise
      */
     protected static boolean contentMatches(final byte[] contentBytes, final Response response) throws IOException
@@ -405,9 +517,9 @@ public abstract class AbstractStoresTest
      * Checks whether the content in a stream matches the content as specified by a provided array of bytes.
      *
      * @param contentBytes
-     *            the expected content
+     *     the expected content
      * @param is
-     *            the input stream for accessing the content to check
+     *     the input stream for accessing the content to check
      * @return {@code true} if the stream matches the expected content, {@code false} otherwise
      */
     protected static boolean contentMatches(final byte[] contentBytes, final InputStream is) throws IOException
@@ -454,5 +566,125 @@ public abstract class AbstractStoresTest
             }
         }
         return matches;
+    }
+
+    private static String runInContainer(final String... cmd)
+    {
+        return runInContainer(s -> true, cmd);
+    }
+
+    private static String runInContainer(final Predicate<String> isRealErrorTester, final String... cmd)
+    {
+        final ExecCreateCmdResponse execResponse = DOCKER_CLIENT.execCreateCmd(DOCKER_REPOSITORY_CONTAINER_NAME)
+                .withAttachStdout(Boolean.TRUE).withAttachStderr(Boolean.TRUE).withCmd(cmd).exec();
+
+        final StringBuilder buffer = new StringBuilder();
+        try
+        {
+            DOCKER_CLIENT.execStartCmd(execResponse.getId()).exec(new ResultCallback.Adapter<Frame>()
+            {
+
+                @Override
+                public void onNext(final Frame frame)
+                {
+                    final String payload = new String(frame.getPayload(), StandardCharsets.UTF_8);
+                    if (frame.getStreamType() == StreamType.STDOUT)
+                    {
+                        LOGGER.trace("Got {} command output: {}", cmd[0], payload);
+                        buffer.append(payload);
+                    }
+                    else if (isRealErrorTester.test(payload))
+                    {
+                        LOGGER.error("Error output from {} command: {}", cmd[0], payload);
+                    }
+                    else
+                    {
+                        LOGGER.debug("Got {} command output (via stderr): {}", cmd[0], payload);
+                        buffer.append(payload);
+                    }
+                }
+            }).awaitCompletion();
+        }
+        catch (final InterruptedException iex)
+        {
+            throw new RuntimeException("Interrupted waiting for docker exec to complete", iex);
+        }
+        return buffer.toString();
+    }
+
+    private static List<ContentFile> runFindInContainer(final String... findCmd)
+    {
+        final ExecCreateCmdResponse execResponse = DOCKER_CLIENT.execCreateCmd(DOCKER_REPOSITORY_CONTAINER_NAME)
+                .withAttachStdout(Boolean.TRUE).withAttachStderr(Boolean.TRUE).withCmd(findCmd).exec();
+
+        final List<ContentFile> contentFiles = new ArrayList<>();
+        final StringBuilder buffer = new StringBuilder();
+        try
+        {
+            DOCKER_CLIENT.execStartCmd(execResponse.getId()).exec(new ResultCallback.Adapter<Frame>()
+            {
+
+                @Override
+                public void onNext(final Frame frame)
+                {
+                    final String payload = new String(frame.getPayload(), StandardCharsets.UTF_8);
+                    if (frame.getStreamType() == StreamType.STDOUT)
+                    {
+                        LOGGER.trace("Got find command output: {}", payload);
+                        buffer.append(payload);
+
+                        int newLineIdx = -1;
+                        while ((newLineIdx = buffer.indexOf("\n")) != -1)
+                        {
+                            if (newLineIdx == 0)
+                            {
+                                buffer.deleteCharAt(newLineIdx);
+                            }
+                            else
+                            {
+                                final String line = buffer.substring(0, newLineIdx);
+                                buffer.delete(0, newLineIdx + 1);
+
+                                final String[] lineFragments = line.split(" ");
+                                if (lineFragments.length == 3)
+                                {
+                                    final LocalDateTime modified = LocalDateTime.from(FIND_PRINTF_TIME_FORMATTER.parse(lineFragments[0]));
+                                    final long size = Long.parseLong(lineFragments[1]);
+                                    contentFiles.add(new ContentFile(lineFragments[2], size, modified));
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (payload.contains(NO_SUCH_FILE_OR_DIRECTORY))
+                        {
+                            LOGGER.info("Path {} does not exist", findCmd[1]);
+                        }
+                        else
+                        {
+                            LOGGER.error("Error output from find command: {}", payload);
+                        }
+                    }
+                }
+            }).awaitCompletion();
+        }
+        catch (final InterruptedException iex)
+        {
+            throw new RuntimeException("Interrupted waiting for docker exec to complete", iex);
+        }
+
+        if (buffer.length() > 0)
+        {
+            final String line = buffer.toString().trim();
+            final String[] lineFragments = line.split(" ");
+            if (lineFragments.length == 3)
+            {
+                final LocalDateTime modified = LocalDateTime.from(FIND_PRINTF_TIME_FORMATTER.parse(lineFragments[0]));
+                final long size = Long.parseLong(lineFragments[1]);
+                contentFiles.add(new ContentFile(lineFragments[2], size, modified));
+            }
+        }
+        return contentFiles;
     }
 }

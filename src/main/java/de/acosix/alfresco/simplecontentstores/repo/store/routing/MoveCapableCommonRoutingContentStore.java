@@ -420,15 +420,28 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
          * {@link ContentStore#exists(String)} contract.
          * Still need to apply the isContentUrlSupported guard though.
          */
+        int deletedCount = 0;
         for (final ContentStore store : stores)
         {
             if (store.isContentUrlSupported(contentUrl) && store.isWriteSupported())
             {
-                deleted &= store.delete(contentUrl);
+                if (store.delete(contentUrl))
+                {
+                    deletedCount++;
+                }
+                else
+                {
+                    deleted = false;
+                }
             }
         }
 
-        LOGGER.debug("Deleted content URL from stores: \n\tStores:  {}\n\tDeleted: {}", stores.size(), deleted);
+        if (deleted && deletedCount == 0)
+        {
+            deleted = false;   
+        }
+
+        LOGGER.debug("Deleted content URL from stores: \n\tStores:  {}\n\tDeleted: {}", deletedCount, deleted);
 
         return deleted;
     }

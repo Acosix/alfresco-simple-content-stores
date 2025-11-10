@@ -1,45 +1,61 @@
 version: '3.8'
 
 services:
-    postgres:
-        image: postgres:16.1
+
+    ${moduleId}-postgres:
+        image: ${docker.tests.postgresql.image}
+        networks:
+          ${moduleId}-network:
+            aliases:
+              - postgres
+        restart: unless-stopped
+        command: postgres -c max_connections=300
+        volumes:
+          - ${moduleId}-alf_psql:/srv/postgresql
         environment:
+            PGDATA: /srv/postgresql/data
             POSTGRES_DB: alfresco
             POSTGRES_USER: alfresco
             POSTGRES_PASSWORD: alfresco
-            POSTGRES_HOST_AUTH_METHOD: scram-sha-256
-            POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-        command: postgres -c max_connections=300 -c log_min_messages=LOG
-        volumes:
-          - ${project.artifactId}-db:/var/lib/postgresql/data
 
-    repository:
-        image: ${project.artifactId}-repository:test
-        depends_on:
-          - postgres
+    ${moduleId}-repository:
+        image: ${moduleId}-repository:latest
         build:
-            context: ${project.build.directory}
-            dockerfile: docker/Repository-Dockerfile
+            context: ./repository
+            dockerfile: Dockerfile
+        networks:
+          ${moduleId}-network:
+            aliases:
+              - repository 
+        restart: unless-stopped
+        depends_on:
+          ${moduleId}-postgres:
+            condition: service_started
         volumes:
-          - ${project.artifactId}-content:/usr/local/tomcat/alf_data
-          - ${project.artifactId}-logs:/usr/local/tomcat/logs
-        environment:
-            JAVA_OPTS: "${docker.tests.repositoryGcJavaOpts} ${docker.tests.repositoryVersionSpecificJavaOpts} ${docker.tests.repositoryProjectJavaOpts} ${docker.tests.repositorySolrCommsJavaOpts} ${docker.tests.repositoryTransformJavaOpts} -Ddb.driver=org.postgresql.Driver -Ddb.username=alfresco -Ddb.password=alfresco -Ddb.url=jdbc:postgresql://postgres:5432/alfresco -Dsolr.host=search -Dsolr.port=${docker.tests.internalSearchPort} -Dsolr.base.url=${docker.tests.searchBaseUrl} -Dindex.subsystem.name=${docker.tests.searchSubsystem} -Dcsrf.filter.enabled=false -Duser.language=en"
+          - ${moduleId}-contentstore:${docker.tests.repository.dataPath}
+          - ${moduleId}-repo_logs:${docker.tests.repository.tomcatPath}/logs
         ports:
-          - ${docker.tests.repositoryPort}:8080
-          - ${docker.tests.repositoryDebugPort}:${docker.tests.repositoryDebugPort}
+          - ${docker.tests.repository.port}:8080
+          - ${docker.tests.repository.debugPort}:8888
+        environment:
+            JAVA_OPTS: >-
+              -Xms1536m -Xmx1536m -XX:+UseG1GC -XX:+ParallelRefProcEnabled
+              -XX:+UseStringDeduplication -XX:+ScavengeBeforeFullGC
+              -XX:+DisableExplicitGC -XX:+AlwaysPreTouch
+              ${docker.tests.repository.versionSpecificJavaOpts}
+              -Dfile.encoding=UTF-8
+              -Djava.net.preferIPv4Stack=true
+              ${docker.tests.repository.project.javaOpts}
+        healthcheck:
+            test: curl -f localhost:8080/alfresco/
+            interval: 15s
+            timeout: 15s
+            retries: 6
+
+networks:
+    ${moduleId}-network:
 
 volumes:
-    ${project.artifactId}-db:
-    ${project.artifactId}-content:
-      driver: local
-      driver_opts:
-        o: bind
-        type: none
-        device: ${project.build.directory}/docker/alf_data
-    ${project.artifactId}-logs:
-      driver: local
-      driver_opts:
-        o: bind
-        type: none
-        device: ${project.build.directory}/docker/repository-logs
+    ${moduleId}-alf_psql:
+    ${moduleId}-contentstore:
+    ${moduleId}-repo_logs:
