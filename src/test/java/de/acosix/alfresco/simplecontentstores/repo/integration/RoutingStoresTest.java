@@ -618,10 +618,9 @@ public class RoutingStoresTest extends AbstractStoresTest
         nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
         ContentFile lastModifiedFileInContent = findLastModifiedFileInAlfData("propertySelectorFallbackFileStore", knownFilesFallbackStore);
-        // not adding to exclusions as we later will move it back, resulting in the same file
-        // exclusionsFallbackStore.add(lastModifiedFileInContent);
 
         assertNotNull(lastModifiedFileInContent);
+        knownFilesFallbackStore.add(lastModifiedFileInContent);
         assertEquals(contentBytes.length, lastModifiedFileInContent.getSizeInContainer());
         assertTrue(contentMatches(contentBytes, lastModifiedFileInContent));
         assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));

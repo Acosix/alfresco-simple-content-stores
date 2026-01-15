@@ -187,7 +187,7 @@ public abstract class AbstractStoresTest
 
     private static final DateTimeFormatter FIND_PRINTF_TIME_FORMATTER;
 
-    private static final String NO_SUCH_FILE_OR_DIRECTORY = " No such file or directory\n";
+    private static final String NO_SUCH_FILE_OR_DIRECTORY = "No such file or directory";
 
     static
     {
@@ -446,7 +446,7 @@ public abstract class AbstractStoresTest
         }
         
         final String output = runInContainer(s -> !s.contains(NO_SUCH_FILE_OR_DIRECTORY), "stat", file.getPathInContainer());
-        return !output.startsWith("stat: cannot stat ");
+        return !output.startsWith("stat:");
     }
 
     /**
@@ -579,6 +579,7 @@ public abstract class AbstractStoresTest
                 .withAttachStdout(Boolean.TRUE).withAttachStderr(Boolean.TRUE).withCmd(cmd).exec();
 
         final StringBuilder buffer = new StringBuilder();
+        final StringBuilder errorBuffer = new StringBuilder();
         try
         {
             DOCKER_CLIENT.execStartCmd(execResponse.getId()).exec(new ResultCallback.Adapter<Frame>()
@@ -591,16 +592,12 @@ public abstract class AbstractStoresTest
                     if (frame.getStreamType() == StreamType.STDOUT)
                     {
                         LOGGER.trace("Got {} command output: {}", cmd[0], payload);
-                        buffer.append(payload);
-                    }
-                    else if (isRealErrorTester.test(payload))
-                    {
-                        LOGGER.error("Error output from {} command: {}", cmd[0], payload);
+                        buffer.append(payload).append('\n');
                     }
                     else
                     {
-                        LOGGER.debug("Got {} command output (via stderr): {}", cmd[0], payload);
-                        buffer.append(payload);
+                        LOGGER.trace("Got {} command stderr output: {}", cmd[0], payload);
+                        errorBuffer.append(payload).append('\n');
                     }
                 }
             }).awaitCompletion();
@@ -609,7 +606,41 @@ public abstract class AbstractStoresTest
         {
             throw new RuntimeException("Interrupted waiting for docker exec to complete", iex);
         }
+
+        if (buffer.length() > 0)
+        {
+            trimBuffer(buffer);
+            LOGGER.debug("Standard output from {} command: {}", cmd[0], buffer);
+        }
+
+        if (errorBuffer.length() > 0)
+        {
+            trimBuffer(errorBuffer);
+            if (isRealErrorTester.test(errorBuffer.toString()))
+            {
+                LOGGER.error("Error output from {} command: {}", cmd[0], errorBuffer);
+            }
+            else
+            {
+                LOGGER.debug("Error output from {} command: {}", cmd[0], errorBuffer);
+                if (buffer.length() == 0)
+                {
+                    buffer.append(errorBuffer);
+                }
+            }
+        }
+
         return buffer.toString();
+    }
+    
+    private static void trimBuffer(StringBuilder buffer)
+    {
+        char lastChar = buffer.charAt(buffer.length() - 1);
+        while (lastChar == '\n' || lastChar == '\r' || lastChar == '\t')
+        {
+            buffer.deleteCharAt(buffer.length() - 1);
+            lastChar = buffer.charAt(buffer.length() - 1);
+        }
     }
 
     private static List<ContentFile> runFindInContainer(final String... findCmd)
