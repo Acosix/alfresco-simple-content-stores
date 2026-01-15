@@ -815,7 +815,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                         final String targetStoreContentUrl = reader.getContentUrl();
                         if (!EqualsHelper.nullSafeEquals(currentContentUrl, targetStoreContentUrl))
                         {
-                            LOGGER.debug("Content already exists in target store with identified by content URL {} - updating content data",
+                            LOGGER.debug("Content already exists in target store identified by content URL {} - updating content data",
                                     targetStoreContentUrl);
 
                             reader.setMimetype(contentData.getMimetype());

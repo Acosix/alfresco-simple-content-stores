@@ -33,6 +33,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import javax.ws.rs.NotFoundException;
@@ -272,8 +273,8 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         assertEquals(1, initialCounts.size());
         assertTrue(initialCounts.contains("No symmetric keys found"));
 
-        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
-                "Encrypting File Facade Site");
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
+                "Encrypting File AES Facade Site");
 
         int contentCount = 200;
         this.createRandomContents(contentCount, nodes, documentLibraryNodeId);
@@ -307,13 +308,13 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
     public void encryption2WithDifferentSymmetricKeys() throws IOException
     {
         // need to record pre-existing files to exclude in verification
-        final Collection<ContentFile> knownFiles = listFilesInAlfData("encryptingFileFacadeStore");
+        final Collection<ContentFile> knownFiles = listFilesInAlfData("encryptingFileAESFacadeStore");
 
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
-        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
-                "Encrypting File Facade Site");
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
+                "Encrypting File AES Facade Site");
 
         final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
         createRequest.setName(UUID.randomUUID().toString());
@@ -329,7 +330,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
         nodes.setContent(createdNode1.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        final ContentFile lastModifiedFileInContent1 = findLastModifiedFileInAlfData("encryptingFileFacadeStore", knownFiles);
+        final ContentFile lastModifiedFileInContent1 = findLastModifiedFileInAlfData("encryptingFileAESFacadeStore", knownFiles);
 
         assertNotNull(lastModifiedFileInContent1);
         knownFiles.add(lastModifiedFileInContent1);
@@ -340,7 +341,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         // content is stored for another node
         nodes.setContent(createdNode2.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
 
-        final ContentFile lastModifiedFileInContent2 = findLastModifiedFileInAlfData("encryptingFileFacadeStore", knownFiles);
+        final ContentFile lastModifiedFileInContent2 = findLastModifiedFileInAlfData("encryptingFileAESFacadeStore", knownFiles);
 
         assertNotNull(lastModifiedFileInContent2);
         assertNotEquals(contentBytes.length, lastModifiedFileInContent2.getSizeInContainer());
@@ -375,8 +376,8 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         assertTrue(activeKeyList.stream().anyMatch(line -> line.startsWith("scs-aesks:effs-aes2")));
         assertTrue(inactiveKeyList.contains("No keys found"));
 
-        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
-                "Encrypting File Facade Site");
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
+                "Encrypting File AES Facade Site");
 
         this.createRandomContents(30, nodes, documentLibraryNodeId);
 
@@ -461,8 +462,8 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         assertTrue(inactiveKeyList.contains("No keys found"));
         assertTrue(eligibleKeyList.contains("No keys found"));
 
-        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-facade",
-                "Encrypting File Facade Site");
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
+                "Encrypting File AES Facade Site");
 
         this.createRandomContents(30, nodes, documentLibraryNodeId);
 
@@ -495,6 +496,56 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
                 .countEncryptedSymmetricKeys(CommandConsolePluginRequest.from("scs-aesks:effs-aes2")).getPreformattedOutputLines();
         final String updatedCountLine = updatedCounts.get(0);
         assertEquals("No symmetric keys found", updatedCountLine);
+    }
+
+    @Test
+    public void encryption5AESMode() throws IOException
+    {
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        testMode("AES", ticket, nodes);
+    }
+
+    @Test
+    public void encryption5DESMode() throws IOException
+    {
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        testMode("DES", ticket, nodes);
+    }
+
+    @Test
+    public void encryption5DESedeMode() throws IOException
+    {
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        testMode("DESede", ticket, nodes);
+    }
+
+    protected void testMode(String mode, String ticket, NodesV1 nodes) throws IOException
+    {
+        String storeName = "encryptingFile" + mode + "FacadeStore";
+        final Collection<ContentFile> knownFiles = listFilesInAlfData(storeName);
+
+        final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket,
+                "encrypting-file-" + mode.toLowerCase(Locale.ENGLISH) + "-facade", "Encrypting File " + mode + "Facade Site");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString());
+        createRequest.setNodeType("cm:content");
+
+        final NodeResponseEntity createdNode = nodes.createNode(documentLibraryNodeId, createRequest);
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        final ContentFile lastModifiedFileInContent = findLastModifiedFileInAlfData(storeName, knownFiles);
+
+        assertNotNull(lastModifiedFileInContent);
+        assertNotEquals(contentBytes.length, lastModifiedFileInContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
     }
 
     protected void createRandomContents(final int maxCount, final NodesV1 nodes, final String documentLibraryNodeId)

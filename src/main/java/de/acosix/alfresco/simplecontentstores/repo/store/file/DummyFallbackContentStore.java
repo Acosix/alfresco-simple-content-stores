@@ -64,6 +64,7 @@ import de.acosix.alfresco.utility.core.repo.acs6.ContentServiceTransformerUtilit
  *
  * @author Axel Faust
  */
+@SuppressWarnings("deprecation")
 public class DummyFallbackContentStore extends AbstractContentStore implements ApplicationContextAware, InitializingBean
 {
 
