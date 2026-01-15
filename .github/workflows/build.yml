@@ -10,7 +10,24 @@ jobs:
             distribution: 'temurin'
             java-version: |
               8
+              11
               17
             cache: maven
       - run: mvn -version
       - run: mvn --batch-mode --update-snapshots verify
+      - name: Archive surefire logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-logs
+          retention-days: 14
+          path: /home/runner/work/alfresco-simple-content-stores/**/target/surefire-reports
+          if-no-files-found: warn
+      - name: Archive failsafe logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failsafe-logs
+          retention-days: 14
+          path: /home/runner/work/alfresco-simple-content-stores/**/target/failsafe-reports
+          if-no-files-found: warn
