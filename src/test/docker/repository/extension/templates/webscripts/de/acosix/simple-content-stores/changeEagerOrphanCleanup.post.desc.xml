@@ -1,0 +1,7 @@
+<webscript>
+   <shortname>Change Eager Orphan Cleanup</shortname>
+   <url>/test/acosix/change-eager-orphan-cleanup</url>
+   <format default="json">argument</format>
+   <authentication>admin</authentication>
+   <transaction>none</transaction>
+</webscript>

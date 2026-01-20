@@ -64,7 +64,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
-import de.acosix.alfresco.simplecontentstores.repo.dao.ContentUrlCacheCleaner;
+import de.acosix.alfresco.simplecontentstores.repo.dao.ContentUrlConsistencyHandler;
 import de.acosix.alfresco.simplecontentstores.repo.store.ContentUrlUtils;
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
@@ -104,7 +104,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
     protected EagerContentStoreCleaner contentStoreCleaner;
 
-    protected ContentUrlCacheCleaner contentUrlCacheCleaner;
+    protected ContentUrlConsistencyHandler contentUrlConsistencyHandler;
 
     protected SimpleCache<Pair<String, String>, ContentStore> storesByContentUrl;
 
@@ -139,7 +139,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
         PropertyCheck.mandatory(this, "internalNodeService", this.internalNodeService);
         PropertyCheck.mandatory(this, "nodeService", this.nodeService);
         PropertyCheck.mandatory(this, "contentStoreCleaner", this.contentStoreCleaner);
-        PropertyCheck.mandatory(this, "contentUrlCacheCleaner", this.contentUrlCacheCleaner);
+        PropertyCheck.mandatory(this, "contentUrlConsistencyHandler", this.contentUrlConsistencyHandler);
 
         PropertyCheck.mandatory(this, "storesByContentUrl", this.storesByContentUrl);
         PropertyCheck.mandatory(this, "fallbackStore", this.fallbackStore);
@@ -210,12 +210,12 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
     }
 
     /**
-     * @param contentUrlCacheCleaner
-     *     the contentUrlCacheCleaner to set
+     * @param contentUrlConsistencyHandler
+     *     the contentUrlConsistencyHandler to set
      */
-    public void setContentUrlCacheCleaner(final ContentUrlCacheCleaner contentUrlCacheCleaner)
+    public void setContentUrlConsistencyHandler(final ContentUrlConsistencyHandler contentUrlConsistencyHandler)
     {
-        this.contentUrlCacheCleaner = contentUrlCacheCleaner;
+        this.contentUrlConsistencyHandler = contentUrlConsistencyHandler;
     }
 
     /**
@@ -680,6 +680,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
 
         if (doMove)
         {
+            this.contentUrlConsistencyHandler.ensureListenerIsBound();
             this.checkAndProcessContentPropertiesMove(affectedNode, properties, customData);
         }
     }
@@ -843,6 +844,7 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                                 "Content already exists in target store with identical content URL - no need to copy content / update content data");
                         updatedContentData = null;
                         noContentDataUpdateRequired = true;
+
                         break;
                     }
                 }
@@ -867,7 +869,6 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                 if (!EqualsHelper.nullSafeEquals(currentContentUrl, newContentUrl))
                 {
                     this.contentStoreCleaner.registerNewContentUrl(newContentUrl);
-                    this.contentUrlCacheCleaner.ensureListenerIsBound();
                 }
 
                 writer.putContent(reader);
@@ -878,13 +879,16 @@ public abstract class MoveCapableCommonRoutingContentStore<CD> implements Conten
                         && !EqualsHelper.nullSafeEquals(newContentUrl, actualNewContentUrl))
                 {
                     this.contentStoreCleaner.registerNewContentUrl(actualNewContentUrl);
-                    this.contentUrlCacheCleaner.ensureListenerIsBound();
                 }
 
                 // copy manually to keep original values (writing into different writer may change, e.g. size, due to transparent
                 // transformations, i.e. compression)
                 updatedContentData = new ContentData(writer.getContentUrl(), contentData.getMimetype(), contentData.getSize(),
                         contentData.getEncoding(), contentData.getLocale());
+            }
+            else if (updatedContentData != null)
+            {
+                this.contentUrlConsistencyHandler.registerOrphanRecheckContentUrl(updatedContentData.getContentUrl());
             }
         }
         else

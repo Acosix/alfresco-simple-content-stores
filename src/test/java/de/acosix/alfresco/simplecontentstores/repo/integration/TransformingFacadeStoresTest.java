@@ -38,8 +38,10 @@ import java.util.UUID;
 
 import javax.ws.rs.NotFoundException;
 
+import org.alfresco.repo.domain.contentdata.ContentUrlEntity;
 import org.apache.commons.io.IOUtils;
 import org.jboss.resteasy.client.jaxrs.ResteasyClient;
+import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
@@ -90,6 +92,15 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
             personToCreate.setPassword(testUserPassword);
             people.createPerson(personToCreate);
         }
+    }
+
+    @After
+    public void cleanup()
+    {
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final OrphanHandling orphanHandling = createAPI(client, baseUrl, OrphanHandling.class, ticket, false);
+        // restore to configured default (enabled)
+        orphanHandling.changeEagerOrphanCleanup(true);
     }
 
     @Test
@@ -540,10 +551,10 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final Collection<ContentFile> knownFilesAes = listFilesInAlfData(storeAesName);
         final Collection<ContentFile> knownFilesDes = listFilesInAlfData(storeDesName);
 
-        final String documentLibraryAesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket,
-                "encrypting-file-aes-facade", "Encrypting File AES Facade Site");
-        final String documentLibraryDesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket,
-                "encrypting-file-des-facade", "Encrypting File DES Facade Site");
+        final String documentLibraryAesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
+                "Encrypting File AES Facade Site");
+        final String documentLibraryDesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-des-facade",
+                "Encrypting File DES Facade Site");
 
         final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
         createRequest.setName(UUID.randomUUID().toString());
@@ -582,6 +593,71 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
 
         assertNotEquals(contentBytes.length, lastModifiedFileInAesContent.getSizeInContainer());
         assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+    }
+
+    @Test
+    // we need to order encryption tests as key management / state is global and some tests can impact others
+    // would be simpler if we were to re-create Alfresco from scratch for every test, but that would be excessive
+    // order is based on method name (ascending)
+    public void encryption7WithoutEagerOrphanCleanup() throws IOException
+    {
+        final String ticket = obtainTicket(client, baseUrl, "admin", "admin");
+        final OrphanHandling orphanHandling = createAPI(client, baseUrl, OrphanHandling.class, ticket, false);
+        // disable orphan cleanup
+        orphanHandling.changeEagerOrphanCleanup(false);
+
+        // the following test is mostly identical to encryption6WithMoveModes
+        // except: 1) not testing deletions, 2) testing orphan status of content URL
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String storeAesName = "encryptingFileAESFacadeStore";
+        final String storeDesName = "encryptingFileDESFacadeStore";
+        final Collection<ContentFile> knownFilesAes = listFilesInAlfData(storeAesName);
+        final Collection<ContentFile> knownFilesDes = listFilesInAlfData(storeDesName);
+
+        final String documentLibraryAesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
+                "Encrypting File AES Facade Site");
+        final String documentLibraryDesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-des-facade",
+                "Encrypting File DES Facade Site");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString());
+        createRequest.setNodeType("cm:content");
+
+        final NodeResponseEntity createdNode = nodes.createNode(documentLibraryAesNodeId, createRequest);
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        final ContentFile lastModifiedFileInAesContent = findLastModifiedFileInAlfData(storeAesName, knownFilesAes);
+
+        assertNotNull(lastModifiedFileInAesContent);
+        assertNotEquals(contentBytes.length, lastModifiedFileInAesContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        final NodeCopyMoveRequestEntity moveRq = new NodeCopyMoveRequestEntity();
+        moveRq.setTargetParentId(documentLibraryDesNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        final ContentFile lastModifiedFileInDesContent = findLastModifiedFileInAlfData(storeDesName, knownFilesDes);
+
+        assertNotNull(lastModifiedFileInDesContent);
+        assertNotEquals(contentBytes.length, lastModifiedFileInDesContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // move back
+        moveRq.setTargetParentId(documentLibraryAesNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        final String pathInContainer = lastModifiedFileInAesContent.getPathInContainer();
+        final String storePathFragment = "/encryptingFileAESFacadeStore/";
+        final String expectedContentUrl = "effs-aes-store://"
+                + pathInContainer.substring(pathInContainer.indexOf(storePathFragment) + storePathFragment.length());
+
+        final ContentUrlEntity contentUrlEntity = orphanHandling.getContentUrlEntity(expectedContentUrl);
+        assertNotNull(contentUrlEntity);
+        assertNull(contentUrlEntity.getOrphanTime());
     }
 
     protected void testMode(final String mode, final String ticket, final NodesV1 nodes) throws IOException

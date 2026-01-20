@@ -36,6 +36,8 @@ import com.github.dockerjava.transport.DockerHttpClient;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -271,12 +273,55 @@ public abstract class AbstractStoresTest
      */
     protected static <T> T createAPI(final ResteasyClient client, final String baseUrl, final Class<T> api, final String ticket)
     {
+        return createAPI(client, baseUrl, api, ticket, true);
+    }
+
+    /**
+     * Initialised a simple Java facade for calls to a particular Alfresco ReST API interface.
+     *
+     * @param client
+     *     the client to use for making ReST API calls
+     * @param baseUrl
+     *     the base URL of the Alfresco instance
+     * @param api
+     *     the API interface to facade
+     * @param ticket
+     *     the authentication ticket to use for calls to the API
+     * @param publicApi
+     *     {@code true} if using the Public ReST API, {@code false} if using legacy web scripts
+     * @return the Java facade of the API
+     */
+    protected static <T> T createAPI(final ResteasyClient client, final String baseUrl, final Class<T> api, final String ticket,
+            final boolean publicApi)
+    {
         final ResteasyWebTarget targetServer = client.target(UriBuilder.fromPath(baseUrl));
 
         final String base64Token = Base64.encodeBase64String(ticket.getBytes(StandardCharsets.UTF_8));
-        final ClientRequestFilter rqAuthFilter = requestContext -> {
-            requestContext.getHeaders().add("Authorization", "Basic " + base64Token);
-        };
+        final ClientRequestFilter rqAuthFilter;
+
+        if (publicApi)
+        {
+            rqAuthFilter = requestContext -> {
+                requestContext.getHeaders().add("Authorization", "Basic " + base64Token);
+            };
+        }
+        else
+        {
+            rqAuthFilter = requestContext -> {
+                final URI uri = requestContext.getUri();
+                String query = uri.getQuery();
+                query = (query != null ? (query + "&") : "") + "alf_ticket=" + ticket;
+                try
+                {
+                    requestContext.setUri(new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), uri.getPath(), query,
+                            uri.getFragment()));
+                }
+                catch (final URISyntaxException e)
+                {
+                    throw new RuntimeException(e);
+                }
+            };
+        }
         targetServer.register(rqAuthFilter);
 
         return targetServer.proxy(api);
@@ -376,7 +421,7 @@ public abstract class AbstractStoresTest
         {
             Thread.sleep(250);
         }
-        catch (InterruptedException e)
+        catch (final InterruptedException e)
         {
             throw new RuntimeException("Interrupted looking for last modified file", e);
         }
@@ -440,11 +485,11 @@ public abstract class AbstractStoresTest
         {
             Thread.sleep(250);
         }
-        catch (InterruptedException e)
+        catch (final InterruptedException e)
         {
             throw new RuntimeException("Interrupted waiting for txn deletes", e);
         }
-        
+
         final String output = runInContainer(s -> !s.contains(NO_SUCH_FILE_OR_DIRECTORY), "stat", file.getPathInContainer());
         return !output.startsWith("stat:");
     }
@@ -632,8 +677,8 @@ public abstract class AbstractStoresTest
 
         return buffer.toString();
     }
-    
-    private static void trimBuffer(StringBuilder buffer)
+
+    private static void trimBuffer(final StringBuilder buffer)
     {
         char lastChar = buffer.charAt(buffer.length() - 1);
         while (lastChar == '\n' || lastChar == '\r' || lastChar == '\t')

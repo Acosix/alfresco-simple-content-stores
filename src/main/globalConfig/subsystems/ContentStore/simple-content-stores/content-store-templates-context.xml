@@ -28,7 +28,7 @@
         <property name="internalNodeService" ref="nodeService" />
         <property name="nodeService" ref="NodeService" />
         <property name="contentStoreCleaner" ref="eagerContentStoreCleaner"/>
-        <property name="contentUrlCacheCleaner" ref="${moduleId}-contentUrlCacheCleaner"/>
+        <property name="contentUrlConsistencyHandler" ref="${moduleId}-contentUrlConsistencyHandler"/>
         <property name="storesCache" ref="routingContentStoreCache" />
     </bean>
 

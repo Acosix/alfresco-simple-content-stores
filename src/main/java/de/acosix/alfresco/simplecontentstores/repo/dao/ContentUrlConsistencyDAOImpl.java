@@ -15,95 +15,147 @@
  */
 package de.acosix.alfresco.simplecontentstores.repo.dao;
 
-import java.util.List;
-import java.util.Set;
+import java.util.Collection;
 
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.cache.lookup.EntityLookupCache;
 import org.alfresco.repo.cache.lookup.EntityLookupCache.EntityLookupCallbackDAOAdaptor;
-import org.alfresco.repo.content.ContentStore;
-import org.alfresco.repo.content.cleanup.ContentStoreCleanerListener;
+import org.alfresco.repo.domain.contentdata.ContentDataDAO;
 import org.alfresco.repo.domain.contentdata.ContentUrlEntity;
-import org.alfresco.repo.transaction.TransactionalResourceHelper;
-import org.alfresco.service.cmr.repository.ContentIOException;
+import org.alfresco.repo.domain.contentdata.ContentUrlUpdateEntity;
 import org.alfresco.util.Pair;
-import org.alfresco.util.transaction.TransactionListenerAdapter;
+import org.alfresco.util.ParameterCheck;
+import org.alfresco.util.PropertyCheck;
 import org.alfresco.util.transaction.TransactionSupportUtil;
+import org.mybatis.spring.SqlSessionTemplate;
+import org.springframework.beans.factory.InitializingBean;
 
 /**
+ *
  * @author Axel Faust
  */
-public class ContentUrlCacheCleaner extends TransactionListenerAdapter implements ContentStoreCleanerListener
+public class ContentUrlConsistencyDAOImpl implements ContentUrlConsistencyDAO, InitializingBean
 {
+
+    // copied from ContentDataDAOImpl
+    private static final String SELECT_CONTENT_URL_BY_KEY_UNREFERENCED = "alfresco.content.select_ContentUrlByKeyUnreferenced";
+
+    // copied from ContentDataDAOImpl
+    private static final String UPDATE_CONTENT_URL_ORPHAN_TIME = "alfresco.content.update_ContentUrlOrphanTime";
 
     // copied from AbstractContentDataDAOImpl
     private static final String CACHE_REGION_CONTENT_URL = "ContentUrl";
 
-    // copied from EagerContentStoreCleaner
-    private static final String KEY_POST_COMMIT_DELETION_URLS = "ContentStoreCleaner.PostCommitDeletionUrls";
-
     // copied from TransactionSupportUtil
     private static final String RESOURCE_KEY_TXN_ID = "AlfrescoTransactionSupport.txnId";
-
-    private static final String KEY_BOUND = ContentUrlCacheCleaner.class.getName() + "-bound";
 
     // cannot re-use standard callback DAO due to visibility, so this is our own (simplified) variant
     private final ContentUrlCallbackDAO contentUrlCallbackDAO = new ContentUrlCallbackDAO();
 
+    private SqlSessionTemplate template;
+
+    private ContentDataDAO contentDataDAO;
+
     private EntityLookupCache<Long, ContentUrlEntity, String> contentUrlCache;
 
     /**
-     * Sets the list of listeners for the content store cleaner to which this instance should add itself.
-     *
-     * @param listeners
-     *     the list of listeners
+     * {@inheritDoc}
      */
-    public void setListeners(final List<ContentStoreCleanerListener> listeners)
+    @Override
+    public void afterPropertiesSet() throws Exception
     {
-        listeners.add(this);
+        PropertyCheck.mandatory(this, "template", this.template);
+        PropertyCheck.mandatory(this, "contentDataDAO", this.contentDataDAO);
+        PropertyCheck.mandatory(this, "contentUrlCache", this.contentUrlCache);
     }
 
+    /**
+     * @param sqlSessionTemplate
+     *     the sqlSessionTemplate to set
+     */
+    public void setSqlSessionTemplate(final SqlSessionTemplate sqlSessionTemplate)
+    {
+        this.template = sqlSessionTemplate;
+    }
+
+    /**
+     * @param contentDataDAO
+     *     the contentDataDAO to set
+     */
+    public void setContentDataDAO(final ContentDataDAO contentDataDAO)
+    {
+        this.contentDataDAO = contentDataDAO;
+    }
+
+    /**
+     * @param contentUrlCache
+     *     the contentUrlCache to set
+     */
     public void setContentUrlCache(final SimpleCache<Long, ContentUrlEntity> contentUrlCache)
     {
         this.contentUrlCache = new EntityLookupCache<>(contentUrlCache, CACHE_REGION_CONTENT_URL, this.contentUrlCallbackDAO);
     }
 
-    public void ensureListenerIsBound()
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Pair<ContentUrlEntity, Boolean> getContentUrlEntityUnreferenced(final String contentUrl)
     {
-        final Boolean bound = TransactionSupportUtil.getResource(KEY_BOUND);
-        if (!Boolean.TRUE.equals(bound))
+        final ContentUrlEntity entity = this.contentDataDAO.getContentUrl(contentUrl);
+        if (entity == null)
         {
-            TransactionSupportUtil.bindListener(this, 0);
-            TransactionSupportUtil.bindResource(KEY_BOUND, Boolean.TRUE);
+            return null;
         }
+
+        ContentUrlEntity contentUrlEntity = new ContentUrlEntity();
+        contentUrlEntity.setContentUrl(contentUrl);
+        if (contentUrlEntity.getContentUrlShort() != null)
+        {
+            contentUrlEntity.setContentUrlShort(contentUrlEntity.getContentUrlShort().toLowerCase());
+        }
+        contentUrlEntity = (ContentUrlEntity) this.template.selectOne(SELECT_CONTENT_URL_BY_KEY_UNREFERENCED, contentUrlEntity);
+
+        return new Pair<>(entity, contentUrlEntity != null);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void beforeDelete(final ContentStore sourceStore, final String contentUrl) throws ContentIOException
+    public boolean unoprhanContentUrl(final Long id, final Long oldOrphanTime)
     {
-        // unfortunately, listeners are only called during regular orphaned content cleanup batch
-        // for txn commit we have to act as a transaction listener too
-        // make sure to remove/invalidate the cache entry when content is deleted
+        final ContentUrlUpdateEntity contentUrlUpdateEntity = new ContentUrlUpdateEntity();
+        contentUrlUpdateEntity.setId(id);
+        contentUrlUpdateEntity.setOrphanTime(null);
+        contentUrlUpdateEntity.setOldOrphanTime(oldOrphanTime);
+        return 1 == this.template.update(UPDATE_CONTENT_URL_ORPHAN_TIME, contentUrlUpdateEntity);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void invalidateCachedContentUrlEntity(final String contentUrl)
+    {
+        ParameterCheck.mandatoryString("contentUrl", contentUrl);
+
         final ContentUrlEntity value = new ContentUrlEntity();
         value.setContentUrl(contentUrl);
-
-        this.withCorrectTxnContext(() -> this.contentUrlCache.removeByValue(value));
+        this.withTxnCacheContext(() -> this.contentUrlCache.removeByValue(value));
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void afterCommit()
+    public void invalidateCachedContentUrlEntities(final Collection<String> contentUrls)
     {
-        final Set<String> urlsToDelete = TransactionalResourceHelper.getSet(KEY_POST_COMMIT_DELETION_URLS);
-        final ContentUrlEntity value = new ContentUrlEntity();
+        ParameterCheck.mandatoryCollection("contentUrls", contentUrls);
 
-        this.withCorrectTxnContext(() -> {
-            for (final String contentUrl : urlsToDelete)
+        final ContentUrlEntity value = new ContentUrlEntity();
+        this.withTxnCacheContext(() -> {
+            for (final String contentUrl : contentUrls)
             {
                 value.setContentUrl(contentUrl);
                 this.contentUrlCache.removeByValue(value);
@@ -111,7 +163,7 @@ public class ContentUrlCacheCleaner extends TransactionListenerAdapter implement
         });
     }
 
-    private void withCorrectTxnContext(final Runnable run)
+    private void withTxnCacheContext(final Runnable run)
     {
         // remove in afterCommit does not do anything since TransactionalCache blocks it as it already ran through its sync
         // technically, no transaction is ongoing here, but transaction ID is still bound, suggesting it still is active
@@ -194,4 +246,5 @@ public class ContentUrlCacheCleaner extends TransactionListenerAdapter implement
             throw new UnsupportedOperationException("Callback should not be used to delete entities");
         }
     }
+
 }

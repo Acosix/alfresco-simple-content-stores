@@ -49,11 +49,16 @@
         <property name="valueList">
             <list>
                 <idref bean="${moduleId}-ContentServiceGetReaderInterceptor" />
+                <idref bean="${moduleId}-ContentServiceUrlConsistencyInterceptor" />
             </list>
         </property>
     </bean>
 
     <bean id="${moduleId}-ContentServiceGetReaderInterceptor" class="${project.artifactId}.aop.ContentServiceGetReaderInterceptor" />
+
+    <bean id="${moduleId}-ContentServiceUrlConsistencyInterceptor" class="${project.artifactId}.aop.ContentServiceUrlConsistencyInterceptor">
+        <property name="contentUrlConsistencyHandler" ref="${moduleId}-contentUrlConsistencyHandler" />
+    </bean>
 
     <bean id="simpleContentStore" class="de.acosix.alfresco.utility.repo.subsystems.SubsystemChildApplicationContextFactory"
         parent="abstractPropertyBackedBean">
@@ -126,8 +131,14 @@
         <constructor-arg value="cache.${moduleId}-blockedMasterKeyCache" />
     </bean>
 
-    <bean id="${moduleId}-contentUrlCacheCleaner" class="${project.artifactId}.dao.ContentUrlCacheCleaner">
-        <property name="contentUrlCache" ref="contentUrlCache" />
+    <bean id="${moduleId}-contentUrlConsistencyHandler" class="${project.artifactId}.dao.ContentUrlConsistencyHandler">
         <property name="listeners" ref="deletedContentBackupListeners" />
+        <property name="contentUrlConsistencyDAO" ref="${moduleId}-contentUrlConsistencyDAO" />
+    </bean>
+
+    <bean id="${moduleId}-contentUrlConsistencyDAO" class="${project.artifactId}.dao.ContentUrlConsistencyDAOImpl">
+        <property name="sqlSessionTemplate" ref="contentSqlSessionTemplate"/>
+        <property name="contentDataDAO" ref="contentDataDAO"/>
+        <property name="contentUrlCache" ref="contentUrlCache" />
     </bean>
 </beans>

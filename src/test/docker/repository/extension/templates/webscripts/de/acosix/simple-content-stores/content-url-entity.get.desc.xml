@@ -1,0 +1,7 @@
+<webscript>
+   <shortname>Retrieve Content URL Entity</shortname>
+   <url>/test/acosix/content-url-entity</url>
+   <format default="json">argument</format>
+   <authentication>admin</authentication>
+   <transaction>none</transaction>
+</webscript>
