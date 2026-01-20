@@ -125,4 +125,9 @@
     <bean name="${moduleId}-blockedMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache">
         <constructor-arg value="cache.${moduleId}-blockedMasterKeyCache" />
     </bean>
+
+    <bean id="${moduleId}-contentUrlCacheCleaner" class="${project.artifactId}.dao.ContentUrlCacheCleaner">
+        <property name="contentUrlCache" ref="contentUrlCache" />
+        <property name="listeners" ref="deletedContentBackupListeners" />
+    </bean>
 </beans>

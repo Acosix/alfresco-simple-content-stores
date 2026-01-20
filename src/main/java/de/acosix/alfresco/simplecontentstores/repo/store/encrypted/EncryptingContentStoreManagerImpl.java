@@ -267,7 +267,7 @@ public class EncryptingContentStoreManagerImpl implements InternalEncryptingCont
 
         // note: we could set file size on content URL entity to (proper) encrypted file size by doing getOrCreateContentUrl
         // unfortunately Alfresco takes this value for ContentData construction (no regard for content URL key entity unencrypted file size)
-        // and since some code (like result set sorting by size) it needs to be the unencrypted size
+        // and for some code (like result set sorting by size) it needs to be the unencrypted size
         // so we just use updateContentUrlKey (which lazily creates a content URL entity with the unencrypted file size)
         // (one of those cases of "broken by design" in Alfresco)
         this.transactionService.getRetryingTransactionHelper().doInTransaction(() -> {

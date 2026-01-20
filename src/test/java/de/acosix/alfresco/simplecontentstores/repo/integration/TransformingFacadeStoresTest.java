@@ -47,6 +47,7 @@ import org.junit.runners.MethodSorters;
 
 import de.acosix.alfresco.rest.client.api.NodesV1;
 import de.acosix.alfresco.rest.client.api.PeopleV1;
+import de.acosix.alfresco.rest.client.model.nodes.NodeCopyMoveRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeCreationRequestEntity;
 import de.acosix.alfresco.rest.client.model.nodes.NodeResponseEntity;
 import de.acosix.alfresco.rest.client.model.people.PersonRequestEntity;
@@ -276,7 +277,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket, "encrypting-file-aes-facade",
                 "Encrypting File AES Facade Site");
 
-        int contentCount = 200;
+        final int contentCount = 200;
         this.createRandomContents(contentCount, nodes, documentLibraryNodeId);
 
         // master key usage is random, but with four configured keys and 200 contents created, each key should be used at least once
@@ -504,7 +505,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
-        testMode("AES", ticket, nodes);
+        this.testMode("AES", ticket, nodes);
     }
 
     @Test
@@ -513,7 +514,7 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
-        testMode("DES", ticket, nodes);
+        this.testMode("DES", ticket, nodes);
     }
 
     @Test
@@ -522,16 +523,74 @@ public class TransformingFacadeStoresTest extends AbstractStoresTest
         final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
         final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
 
-        testMode("DESede", ticket, nodes);
+        this.testMode("DESede", ticket, nodes);
     }
 
-    protected void testMode(String mode, String ticket, NodesV1 nodes) throws IOException
+    @Test
+    // we need to order encryption tests as key management / state is global and some tests can impact others
+    // would be simpler if we were to re-create Alfresco from scratch for every test, but that would be excessive
+    // order is based on method name (ascending)
+    public void encryption6WithMoveModes() throws IOException
     {
-        String storeName = "encryptingFile" + mode + "FacadeStore";
+        final String ticket = obtainTicket(client, baseUrl, testUser, testUserPassword);
+        final NodesV1 nodes = createAPI(client, baseUrl, NodesV1.class, ticket);
+
+        final String storeAesName = "encryptingFileAESFacadeStore";
+        final String storeDesName = "encryptingFileDESFacadeStore";
+        final Collection<ContentFile> knownFilesAes = listFilesInAlfData(storeAesName);
+        final Collection<ContentFile> knownFilesDes = listFilesInAlfData(storeDesName);
+
+        final String documentLibraryAesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket,
+                "encrypting-file-aes-facade", "Encrypting File AES Facade Site");
+        final String documentLibraryDesNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket,
+                "encrypting-file-des-facade", "Encrypting File DES Facade Site");
+
+        final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
+        createRequest.setName(UUID.randomUUID().toString());
+        createRequest.setNodeType("cm:content");
+
+        final NodeResponseEntity createdNode = nodes.createNode(documentLibraryAesNodeId, createRequest);
+        final byte[] contentBytes = LoremIpsum.getInstance().getParagraphs(4, 20).getBytes(StandardCharsets.UTF_8);
+        nodes.setContent(createdNode.getId(), new ByteArrayInputStream(contentBytes), "text/plain");
+
+        final ContentFile lastModifiedFileInAesContent = findLastModifiedFileInAlfData(storeAesName, knownFilesAes);
+
+        assertNotNull(lastModifiedFileInAesContent);
+        assertNotEquals(contentBytes.length, lastModifiedFileInAesContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        final NodeCopyMoveRequestEntity moveRq = new NodeCopyMoveRequestEntity();
+        moveRq.setTargetParentId(documentLibraryDesNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        assertFalse(exists(lastModifiedFileInAesContent));
+
+        final ContentFile lastModifiedFileInDesContent = findLastModifiedFileInAlfData(storeDesName, knownFilesDes);
+
+        assertNotNull(lastModifiedFileInDesContent);
+        assertNotEquals(contentBytes.length, lastModifiedFileInDesContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+
+        // move back
+        moveRq.setTargetParentId(documentLibraryAesNodeId);
+
+        nodes.moveNode(createdNode.getId(), moveRq);
+
+        assertFalse(exists(lastModifiedFileInDesContent));
+        assertTrue(exists(lastModifiedFileInAesContent));
+
+        assertNotEquals(contentBytes.length, lastModifiedFileInAesContent.getSizeInContainer());
+        assertTrue(contentMatches(contentBytes, nodes.getContent(createdNode.getId())));
+    }
+
+    protected void testMode(final String mode, final String ticket, final NodesV1 nodes) throws IOException
+    {
+        final String storeName = "encryptingFile" + mode + "FacadeStore";
         final Collection<ContentFile> knownFiles = listFilesInAlfData(storeName);
 
         final String documentLibraryNodeId = getOrCreateSiteAndDocumentLibrary(client, baseUrl, ticket,
-                "encrypting-file-" + mode.toLowerCase(Locale.ENGLISH) + "-facade", "Encrypting File " + mode + "Facade Site");
+                "encrypting-file-" + mode.toLowerCase(Locale.ENGLISH) + "-facade", "Encrypting File " + mode + " Facade Site");
 
         final NodeCreationRequestEntity createRequest = new NodeCreationRequestEntity();
         createRequest.setName(UUID.randomUUID().toString());
