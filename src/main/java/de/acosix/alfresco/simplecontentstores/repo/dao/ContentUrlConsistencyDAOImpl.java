@@ -16,6 +16,7 @@
 package de.acosix.alfresco.simplecontentstores.repo.dao;
 
 import java.util.Collection;
+import java.util.Locale;
 
 import org.alfresco.repo.cache.SimpleCache;
 import org.alfresco.repo.cache.lookup.EntityLookupCache;
@@ -112,7 +113,7 @@ public class ContentUrlConsistencyDAOImpl implements ContentUrlConsistencyDAO, I
         contentUrlEntity.setContentUrl(contentUrl);
         if (contentUrlEntity.getContentUrlShort() != null)
         {
-            contentUrlEntity.setContentUrlShort(contentUrlEntity.getContentUrlShort().toLowerCase());
+            contentUrlEntity.setContentUrlShort(contentUrlEntity.getContentUrlShort().toLowerCase(Locale.getDefault()));
         }
         contentUrlEntity = (ContentUrlEntity) this.template.selectOne(SELECT_CONTENT_URL_BY_KEY_UNREFERENCED, contentUrlEntity);
 
