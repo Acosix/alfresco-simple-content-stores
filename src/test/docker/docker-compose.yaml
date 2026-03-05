@@ -36,7 +36,7 @@ services:
           - ${moduleId}-repo_logs:${docker.tests.repository.tomcatPath}/logs
         ports:
           - ${docker.tests.repository.port}:8080
-          - ${docker.tests.repository.debugPort}:8888
+          - ${docker.tests.repository.debugPort}:${docker.tests.repository.debugInternalPort}
         environment:
             JAVA_OPTS: >-
               -Xms1536m -Xmx1536m -XX:+UseG1GC -XX:+ParallelRefProcEnabled

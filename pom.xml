@@ -335,12 +335,28 @@
 
             <properties>
                 <docker.tests.repository.base>alfresco/alfresco-content-repository-community:23.1.0</docker.tests.repository.base>
-                <activemq.version>5.18.2</activemq.version>
+                <docker.tests.repository.dependency.artifactIds>de.acosix.alfresco.utility.core.repo,support-tools-repo,activemq-broker</docker.tests.repository.dependency.artifactIds>
+                <activemq.version>6.0.1</activemq.version>
 
                 <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
                 <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>
                 <docker.tests.repository.postRun>USER alfresco</docker.tests.repository.postRun>
-                <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
+                <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugInternalPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>test-acs-25-ee</id>
+
+            <properties>
+                <docker.tests.repository.base>alfresco/alfresco-content-repository:25.2.0</docker.tests.repository.base>
+                <docker.tests.repository.dependency.artifactIds>de.acosix.alfresco.utility.core.repo,support-tools-repo,activemq-broker</docker.tests.repository.dependency.artifactIds>
+                <activemq.version>6.0.1</activemq.version>
+
+                <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
+                <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>
+                <docker.tests.repository.postRun>USER alfresco</docker.tests.repository.postRun>
+                <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugInternalPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
             </properties>
         </profile>
     </profiles>

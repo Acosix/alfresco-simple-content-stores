@@ -119,15 +119,24 @@
         <property name="sqlSessionTemplate" ref="${moduleId}-customSqlSessionTemplate" />
     </bean>
 
-    <bean name="${moduleId}-masterKeyCheckDataCache" factory-bean="cacheFactory" factory-method="createCache">
+    <!-- depends-on for log4JHierarchyInit only to force early-most initialization -->
+    <bean name="${moduleId}-merge-policy-translator" class="de.acosix.alfresco.simplecontentstores.repo.beans.MergePolicyTranslator"
+        depends-on="log4JHierarchyInit">
+        <property name="globalProperties" ref="global-properties" />
+    </bean>
+
+    <bean name="${moduleId}-masterKeyCheckDataCache" factory-bean="cacheFactory" factory-method="createCache"
+        depends-on="${moduleId}-merge-policy-translator">
         <constructor-arg value="cache.${moduleId}-masterKeyCheckDataCache" />
     </bean>
 
-    <bean name="${moduleId}-disabledMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache">
+    <bean name="${moduleId}-disabledMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache"
+        depends-on="${moduleId}-merge-policy-translator">
         <constructor-arg value="cache.${moduleId}-disabledMasterKeyCache" />
     </bean>
 
-    <bean name="${moduleId}-blockedMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache">
+    <bean name="${moduleId}-blockedMasterKeyCache" factory-bean="cacheFactory" factory-method="createCache"
+        depends-on="${moduleId}-merge-policy-translator">
         <constructor-arg value="cache.${moduleId}-blockedMasterKeyCache" />
     </bean>
 
