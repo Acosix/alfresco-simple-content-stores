@@ -41,9 +41,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
@@ -70,9 +68,6 @@ public class FileContentStoreTest
             throw new RuntimeException("Java does not support UTF-8 anymore, so run for your lives...", ex);
         }
     }
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     private File storeFolder;
 
@@ -249,8 +244,9 @@ public class FileContentStoreTest
 
         final String testText = generateText(SEED_PRNG.nextLong());
         final String dummyContentUrl = STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "any/path/will/do";
-        this.thrown.expect(UnsupportedOperationException.class);
-        this.testIndividualWriteAndRead(store, new ContentContext(null, dummyContentUrl), testText);
+        Assert.assertThrows(UnsupportedOperationException.class, () -> {
+            this.testIndividualWriteAndRead(store, new ContentContext(null, dummyContentUrl), testText);
+        });
     }
 
     @Test
@@ -264,8 +260,9 @@ public class FileContentStoreTest
         Assert.assertFalse("Store should not support write", store.isWriteSupported());
 
         final String dummyContentUrl = STORE_PROTOCOL + ContentStore.PROTOCOL_DELIMITER + "any/path/will/do";
-        this.thrown.expect(UnsupportedOperationException.class);
-        store.delete(dummyContentUrl);
+        Assert.assertThrows(UnsupportedOperationException.class, () -> {
+            store.delete(dummyContentUrl);
+        });
     }
 
     private FileContentStore createDefaultStore()

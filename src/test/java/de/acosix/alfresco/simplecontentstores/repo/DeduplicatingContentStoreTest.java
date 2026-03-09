@@ -41,9 +41,7 @@ import org.easymock.EasyMock;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.context.ContentStoreContext;
 import de.acosix.alfresco.simplecontentstores.repo.store.facade.DeduplicatingContentStore;
@@ -99,9 +97,6 @@ public class DeduplicatingContentStoreTest
         TestUtilities.delete(backingStoreFolder);
         TestUtilities.delete(temporaryStoreFolder);
     }
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     @Test
     public void unconfiguredDeduplication() throws Exception
@@ -292,9 +287,10 @@ public class DeduplicatingContentStoreTest
                 + GUID.generate();
         Assert.assertFalse("Store reported protocol of temporary content store to be supported",
                 deduplicatingContentStore.isContentUrlSupported(dummyNonExistingInvalidContentUrl));
-        this.thrown.expect(UnsupportedContentUrlException.class);
-        Assert.assertFalse("Store reported invalid dummy content URL to exist",
-                deduplicatingContentStore.exists(dummyNonExistingInvalidContentUrl));
+        Assert.assertThrows(UnsupportedContentUrlException.class, () -> {
+            Assert.assertFalse("Store reported invalid dummy content URL to exist",
+                    deduplicatingContentStore.exists(dummyNonExistingInvalidContentUrl));
+        });
     }
 
     private static ContentWriter testIndividualWriteAndRead(final DeduplicatingContentStore deduplicatingContentStore,

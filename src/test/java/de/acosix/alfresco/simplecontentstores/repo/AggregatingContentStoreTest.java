@@ -34,9 +34,7 @@ import org.alfresco.service.cmr.repository.ContentWriter;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import de.acosix.alfresco.simplecontentstores.repo.store.StoreConstants;
 import de.acosix.alfresco.simplecontentstores.repo.store.combination.AggregatingContentStore;
@@ -91,9 +89,6 @@ public class AggregatingContentStoreTest
         TestUtilities.delete(store3Folder);
     }
 
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
-
     @Test
     public void primaryOnlyWrite() throws Exception
     {
@@ -138,8 +133,9 @@ public class AggregatingContentStoreTest
 
         store1.setReadOnly(true);
 
-        this.thrown.expect(UnsupportedOperationException.class);
-        testIndividualWriteAndRead(aggregatingContentStore, primaryText2, STORE_1_PROTOCOL);
+        Assert.assertThrows(UnsupportedOperationException.class, () -> {
+            testIndividualWriteAndRead(aggregatingContentStore, primaryText2, STORE_1_PROTOCOL);
+        });
     }
 
     @Test
