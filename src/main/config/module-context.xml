@@ -31,6 +31,7 @@
         class="de.acosix.alfresco.utility.common.spring.PropertyAlteringBeanDefinitionRegistryPostProcessor">
         <property name="enabledPropertyKey" value="simpleContentStores.enabled" />
         <property name="propertiesSource" ref="global-properties" />
+        <property name="placeholderHelper" ref="acosix-utility-core.nonStrictPlaceholderHelper" />
         <property name="targetBeanName" value="ContentStore" />
         <property name="expectedClassName"
             value="org.alfresco.repo.management.subsystems.CryptodocSwitchableApplicationContextFactory" />
@@ -42,6 +43,7 @@
         class="de.acosix.alfresco.utility.common.spring.PropertyAlteringBeanDefinitionRegistryPostProcessor">
         <property name="enabledPropertyKey" value="simpleContentStores.enabled" />
         <property name="propertiesSource" ref="global-properties" />
+        <property name="placeholderHelper" ref="acosix-utility-core.nonStrictPlaceholderHelper" />
         <property name="targetBeanName" value="ContentService" />
         <property name="expectedClassName" value="org.springframework.aop.framework.ProxyFactoryBean" />
         <property name="propertyName" value="interceptorNames" />

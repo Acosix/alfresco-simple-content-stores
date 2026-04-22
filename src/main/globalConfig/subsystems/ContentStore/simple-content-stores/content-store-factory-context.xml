@@ -21,6 +21,7 @@
 
     <bean class="${project.artifactId}.beans.SimpleContentStoresBeanDefinitionEmitter">
         <property name="propertiesSource" ref="${moduleId}-effective-properties" />
+        <property name="placeholderHelper" ref="acosix-utility-core.nonStrictPlaceholderHelper" />
         <property name="rootStoreProxyName" value="fileContentStore" />
     </bean>
 
