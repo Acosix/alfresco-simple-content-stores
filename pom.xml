@@ -20,12 +20,12 @@
     <parent>
         <groupId>de.acosix.alfresco.maven</groupId>
         <artifactId>de.acosix.alfresco.maven.project.parent-6.1.2</artifactId>
-        <version>1.6.0</version>
+        <version>1.6.1</version>
     </parent>
 
     <groupId>de.acosix.alfresco.simplecontentstores</groupId>
     <artifactId>de.acosix.alfresco.simplecontentstores.repo</artifactId>
-    <version>1.2.6-SNAPSHOT</version>
+    <version>1.2.6</version>
     <packaging>jar</packaging>
 
     <name>Acosix Alfresco Simple Content Stores - Repository Module</name>
@@ -67,13 +67,13 @@
         <messages.packageId>acosix.simple-content-stores</messages.packageId>
         <moduleId>acosix-simple-content-stores</moduleId>
 
-        <acosix.utility.version>1.5.1-SNAPSHOT</acosix.utility.version>
+        <acosix.utility.version>1.5.1</acosix.utility.version>
         <acosix.alfresco.client.version>0.2.0</acosix.alfresco.client.version>
         <!-- Not used yet  -->
         <!-- 
         <azure.version>8.3.0</azure.version>
          -->
-        <ootbee.support-tools.version>1.2.3.1-SNAPSHOT</ootbee.support-tools.version>
+        <ootbee.support-tools.version>1.2.3.1</ootbee.support-tools.version>
 
         <easymock.version>4.0.2</easymock.version>
         <lorem.version>2.1</lorem.version>
@@ -352,6 +352,21 @@
                 <docker.tests.repository.base>alfresco/alfresco-content-repository:25.2.0</docker.tests.repository.base>
                 <docker.tests.repository.dependency.artifactIds>de.acosix.alfresco.utility.core.repo,support-tools-repo,activemq-broker</docker.tests.repository.dependency.artifactIds>
                 <activemq.version>6.0.1</activemq.version>
+
+                <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
+                <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>
+                <docker.tests.repository.postRun>USER alfresco</docker.tests.repository.postRun>
+                <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugInternalPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>test-acs-26</id>
+
+            <properties>
+                <docker.tests.repository.base>alfresco/alfresco-content-repository-community:26.1.0</docker.tests.repository.base>
+                <docker.tests.repository.dependency.artifactIds>de.acosix.alfresco.utility.core.repo,support-tools-repo,activemq-broker</docker.tests.repository.dependency.artifactIds>
+                <activemq.version>6.3.2</activemq.version>
 
                 <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
                 <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>

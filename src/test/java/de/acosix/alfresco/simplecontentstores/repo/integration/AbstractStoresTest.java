@@ -49,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.function.Predicate;
 
 import javax.ws.rs.NotFoundException;
@@ -205,7 +206,16 @@ public abstract class AbstractStoresTest
                 .toFormatter(Locale.ENGLISH);
     }
 
-    protected static final String baseUrl = "http://localhost:8082/alfresco";
+    protected static final String baseUrl;
+    static {
+        Properties props = System.getProperties();
+        String hostName = props.getProperty("dockerRuntimeHostName");
+        String hostIp = props.getProperty("dockerRuntimeHostAddress");
+        String port = props.getProperty("dockerRuntimeAlfrescoRepoPort");
+
+        String host = hostName != null && !hostName.trim().isEmpty() ? hostName : hostIp;
+        baseUrl = "http://" + host + ":" + port + "/alfresco";
+    }
 
     /**
      * Configures and constructs a Resteasy client to use for calling the Alfresco Public ReST API in the dockerised deployment.

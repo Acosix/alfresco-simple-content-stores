@@ -125,6 +125,7 @@
     <bean name="${moduleId}-merge-policy-translator" class="de.acosix.alfresco.simplecontentstores.repo.beans.MergePolicyTranslator"
         depends-on="log4JHierarchyInit">
         <property name="globalProperties" ref="global-properties" />
+        <property name="placeholderHelper" ref="acosix-utility-core.nonStrictPlaceholderHelper" />
     </bean>
 
     <bean name="${moduleId}-masterKeyCheckDataCache" factory-bean="cacheFactory" factory-method="createCache"

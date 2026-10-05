@@ -50,7 +50,7 @@ services:
             test: curl -f localhost:8080/alfresco/
             interval: 15s
             timeout: 15s
-            retries: 6
+            retries: 12
 
 networks:
     ${moduleId}-network:
