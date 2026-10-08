@@ -2,10 +2,6 @@ FROM ${docker.tests.repository.base}
 
 ${docker.tests.repository.preRun}
 
-RUN dnf upgrade -y && \
-    dnf install -y diffutils && \
-    dnf clean all
-
 COPY *.amp ${docker.tests.repository.ampPath}/
 COPY activemq-broker*.jar ${docker.tests.repository.webappPath}/WEB-INF/lib/
 COPY extension/ ${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/

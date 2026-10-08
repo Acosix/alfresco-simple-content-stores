@@ -80,7 +80,7 @@
 
         <docker.tests.repository.dependency.artifactIds>de.acosix.alfresco.utility.core.repo,support-tools-repo</docker.tests.repository.dependency.artifactIds>
         <docker.tests.repository.project.javaOpts>-DsimpleContentStores.encryption.keystore.scs-aesks.location=classpath:alfresco/extension/encryption-pkcs.keystore -DsimpleContentStores.encryption.keystore.scs-aesks.password.location=classpath:alfresco/extension/encryption-keystore-password -DsimpleContentStores.encryption.keystore.scs-aesks.type=PKCS12 -DsimpleContentStores.encryption.keystore.scs-aesks.aliases=effs-aes,effs-aes2 -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes.password=dockerTest -DsimpleContentStores.encryption.keystore.scs-aesks.effs-aes2.password=dockerTest -DsimpleContentStores.customStore.globalSiteRoutingStore.type=siteRoutingStore</docker.tests.repository.project.javaOpts>
-        
+
         <docker.client.version>3.6.0</docker.client.version>
     </properties>
 
@@ -339,7 +339,10 @@
                 <activemq.version>6.0.1</activemq.version>
 
                 <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
-                <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>
+                <docker.tests.repository.preRun><![CDATA[
+                   USER root
+                   RUN dnf upgrade -y && dnf install -y diffutils && dnf clean all
+                ]]></docker.tests.repository.preRun>
                 <docker.tests.repository.postRun>USER alfresco</docker.tests.repository.postRun>
                 <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugInternalPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
             </properties>
@@ -354,7 +357,10 @@
                 <activemq.version>6.0.1</activemq.version>
 
                 <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
-                <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>
+                <docker.tests.repository.preRun><![CDATA[
+                   USER root
+                   RUN dnf upgrade -y && dnf install -y diffutils && dnf clean all
+                ]]></docker.tests.repository.preRun>
                 <docker.tests.repository.postRun>USER alfresco</docker.tests.repository.postRun>
                 <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugInternalPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
             </properties>
@@ -369,7 +375,10 @@
                 <activemq.version>6.3.2</activemq.version>
 
                 <docker.tests.repository.chown.mask>alfresco:Alfresco</docker.tests.repository.chown.mask>
-                <docker.tests.repository.preRun>USER root</docker.tests.repository.preRun>
+                <docker.tests.repository.preRun><![CDATA[
+                   USER root
+                   RUN dnf upgrade -y && dnf install -y diffutils && dnf clean all
+                ]]></docker.tests.repository.preRun>
                 <docker.tests.repository.postRun>USER alfresco</docker.tests.repository.postRun>
                 <docker.tests.repository.versionSpecificJavaOpts><![CDATA[-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:${docker.tests.repository.debugInternalPort} -Dencryption.keystore.type=JCEKS -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding -Dencryption.keyAlgorithm=DESede -Dencryption.keystore.location=${docker.tests.repository.tomcatPath}/shared/classes/alfresco/extension/keystore/keystore -Dmetadata-keystore.password=mp6yc0UD9e -Dmetadata-keystore.aliases=metadata -Dmetadata-keystore.metadata.password=oKIWzVdEdA -Dmetadata-keystore.metadata.algorithm=DESede]]></docker.tests.repository.versionSpecificJavaOpts>
             </properties>
